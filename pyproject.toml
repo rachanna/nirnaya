@@ -52,3 +52,6 @@ ignore = ["SIM300"]
 "httpx".msg = "engine/verifier must not do network I/O"
 "requests".msg = "engine/verifier must not do network I/O"
 "anthropic".msg = "engine/verifier must not call an LLM"
+"time".msg = "the deterministic core must not read the clock"
+"uuid".msg = "the deterministic core must not generate ids"
+"os".msg = "the deterministic core must not read the environment"
