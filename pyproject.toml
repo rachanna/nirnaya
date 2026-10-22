@@ -33,6 +33,8 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "TID"]
+# Formula variables (A, R, F_pa) are upper-case by convention, which SIM300 mistakes for constants.
+ignore = ["SIM300"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B011"]
