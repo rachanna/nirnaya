@@ -12,7 +12,7 @@ from nirnaya.models.base import (
     NonNegativeDec,
     Probability,
 )
-from nirnaya.models.enums import KNOWN_REASONS, ReasonCategory
+from nirnaya.models.enums import KNOWN_REASONS, AcceptReason, ReasonCategory
 from nirnaya.models.money import validate_currency
 
 
@@ -44,9 +44,19 @@ class MerchantPolicy(DomainModel):
     unknown_reason_prior: Probability
     referral_amount_threshold: NonNegativeDec
     marginal_band: NonNegativeDec
+    # Sent as the Airwallex accept reason whenever the engine accepts. OTHERS is Airwallex's
+    # default and asserts nothing about the dispute; a merchant may choose another.
+    accept_reason: AcceptReason = AcceptReason.OTHERS
     assumptions_note: str = ""
 
     _check_currency = field_validator("currency")(validate_currency)
+
+    @field_validator("accept_reason")
+    @classmethod
+    def _not_collaboration(cls, value: AcceptReason) -> AcceptReason:
+        if value is AcceptReason.COLLABORATION_ACCEPTED_MANUAL:
+            raise ValueError("COLLABORATION_ACCEPTED_MANUAL is case-specific, not a policy default")
+        return value
 
     @model_validator(mode="after")
     def _priors_well_formed(self) -> Self:

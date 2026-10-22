@@ -6,8 +6,10 @@ from typing import Any
 
 from nirnaya.config.demo import DEMO_POLICY
 from nirnaya.models import (
+    CardBrand,
     Claim,
     Dispute,
+    DisputeReason,
     DisputeStatus,
     EvidenceRecord,
     MerchantPolicy,
@@ -28,14 +30,27 @@ def usd(amount: str | int) -> Money:
     return Money(amount=D(str(amount)), currency="USD")
 
 
+# One Airwallex reason.type per category, so tests can still say reason_category=...
+REASON_TYPE_FOR = {
+    ReasonCategory.FRAUD: "FRAUDULENT",
+    ReasonCategory.NON_RECEIPT: "PRODUCT_NOT_RECEIVED",
+    ReasonCategory.DUPLICATE: "DUPLICATE_CHARGE",
+    ReasonCategory.SUBSCRIPTION: "CANCELLED_PRODUCT",
+    ReasonCategory.UNKNOWN: "UNKNOWN",
+}
+
+
 def make_dispute(**overrides: Any) -> Dispute:
+    category = overrides.pop("reason_category", ReasonCategory.NON_RECEIPT)
     data: dict[str, Any] = {
         "id": CASE,
         "merchant_id": MERCHANT,
+        "payment_intent_id": "int-1",
         "payment_attempt_id": "att-1",
         "stage": Stage.CHARGEBACK,
-        "status": DisputeStatus.AWAITING_RESPONSE,
-        "reason_category": ReasonCategory.NON_RECEIPT,
+        "status": DisputeStatus.REQUIRES_RESPONSE,
+        "reason": DisputeReason(type=REASON_TYPE_FOR[category]),
+        "card_brand": CardBrand.VISA,
         "amount": usd("200.00"),
         "opened_at": T0,
         "due_at": T0 + timedelta(days=15),

@@ -1,9 +1,12 @@
-"""Internal domain enums.
+"""Domain enums.
 
-These are Nirnaya's own vocabulary, not Airwallex wire values. Mapping Airwallex stage,
-status, reason-code and payment-attempt result strings onto them happens in the
-integration layer (Milestone 5). TODO(verify-airwallex-docs): build that mapping from
-the published API reference, not from memory.
+Stage, DisputeStatus, CardBrand and AcceptReason carry Airwallex's wire values exactly, as
+documented in the Payment Disputes API reference
+(https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve, checked 2026-10-23).
+An undocumented value fails validation rather than being guessed at.
+
+ReasonCategory, EvidenceType and the payment-attempt result enums are Nirnaya's own
+vocabulary. TODO(verify-airwallex-docs): map payment-attempt 3DS/AVS/CVC wire values in M5.
 """
 
 from enum import StrEnum
@@ -21,17 +24,51 @@ AUTOMATED_STAGES = frozenset({Stage.PRE_CHARGEBACK, Stage.CHARGEBACK})
 
 
 class DisputeStatus(StrEnum):
-    AWAITING_RESPONSE = "AWAITING_RESPONSE"
-    RESPONDED = "RESPONDED"
-    CLOSED = "CLOSED"
+    REQUIRES_RESPONSE = "REQUIRES_RESPONSE"
+    CHALLENGED = "CHALLENGED"
+    PENDING_CLOSURE = "PENDING_CLOSURE"
+    PENDING_DECISION = "PENDING_DECISION"
+    ACCEPTED = "ACCEPTED"
+    REVERSED = "REVERSED"
+    WON = "WON"
+    LOST = "LOST"
+    EXPIRED = "EXPIRED"
+
+
+# The only status in which the merchant may accept or challenge.
+ACTIONABLE_STATUS = DisputeStatus.REQUIRES_RESPONSE
+
+
+class CardBrand(StrEnum):
+    VISA = "visa"
+    MASTERCARD = "mastercard"
+    MAESTRO = "maestro"
+    UNION_PAY = "union pay"
+    AMERICAN_EXPRESS = "american express"
+    JCB = "jcb"
+    DINERS_CLUB_INTERNATIONAL = "diners club international"
+    DISCOVER = "discover"
+
+
+class AcceptReason(StrEnum):
+    """Values the accept request may send (the response set is wider)."""
+
+    AGREEMENT_REACHED_WITH_CUSTOMER = "AGREEMENT_REACHED_WITH_CUSTOMER"
+    CUSTOMER_RELATIONSHIP_MAINTENANCE = "CUSTOMER_RELATIONSHIP_MAINTENANCE"
+    LOW_VALUE_TRANSACTION = "LOW_VALUE_TRANSACTION"
+    VALID_CUSTOMER_DISPUTE = "VALID_CUSTOMER_DISPUTE"
+    COLLABORATION_ACCEPTED_MANUAL = "COLLABORATION_ACCEPTED_MANUAL"
+    OTHERS = "OTHERS"
 
 
 class ReasonCategory(StrEnum):
+    """Nirnaya's decision category, derived from Airwallex reason.type (see models.reasons)."""
+
     FRAUD = "FRAUD"
     NON_RECEIPT = "NON_RECEIPT"
     DUPLICATE = "DUPLICATE"
     SUBSCRIPTION = "SUBSCRIPTION"
-    # Mastercard Collaboration can hide the reason. Never auto-challenged.
+    # Reason hidden, unmapped or ambiguous. Never auto-challenged.
     UNKNOWN = "UNKNOWN"
 
 

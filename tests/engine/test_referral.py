@@ -112,7 +112,9 @@ def test_non_automated_stages_refer_without_maths(stage):
     assert (d.p, d.margin, d.ev_challenge, d.ev_accept) == (None, None, None, None)
 
 
-@pytest.mark.parametrize("status", [DisputeStatus.RESPONDED, DisputeStatus.CLOSED])
+@pytest.mark.parametrize(
+    "status", [s for s in DisputeStatus if s is not DisputeStatus.REQUIRES_RESPONSE]
+)
 def test_non_actionable_status_refers(status):
     d = run(policy(), status=status)
     assert d.referral_reasons == (RR.STATUS_NOT_ACTIONABLE,)
@@ -132,7 +134,7 @@ def test_all_triggers_are_listed_in_a_fixed_order():
         policy(referral_amount_threshold=D("100"), marginal_band=D("50")),
         ownership_resolved=False,
         contradictory_record_ids=("b", "a"),
-        status=DisputeStatus.RESPONDED,
+        status=DisputeStatus.CHALLENGED,
     )
     assert d.referral_reasons == (
         RR.STATUS_NOT_ACTIONABLE,
@@ -185,3 +187,10 @@ def test_inputs_snapshot_records_every_parameter():
     ):
         assert key in d.inputs, key
     assert d.inputs["F_pa"] == "500"
+
+
+def test_snapshot_records_airwallex_reason_and_card_brand():
+    d = run(policy())
+    assert d.inputs["reason_type"] == "PRODUCT_NOT_RECEIVED"
+    assert d.inputs["card_brand"] == "visa"
+    assert d.inputs["accept_reason"] == "OTHERS"

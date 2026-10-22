@@ -15,9 +15,9 @@ from nirnaya.engine.priors import lookup_prior
 from nirnaya.models.decision import Decision, ReferralReason
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import (
+    ACTIONABLE_STATUS,
     AUTOMATED_STAGES,
     Action,
-    DisputeStatus,
     EvidenceType,
     ReasonCategory,
     Stage,
@@ -78,7 +78,7 @@ def evaluate(
     g_cb = ev_challenge = ev_accept = margin = None
     maths: Action | None = None
 
-    if dispute.status is not DisputeStatus.AWAITING_RESPONSE:
+    if dispute.status is not ACTIONABLE_STATUS:
         referrals.add(ReferralReason.STATUS_NOT_ACTIONABLE)
     if conflicts:
         referrals.add(ReferralReason.CONTRADICTORY_RECORDS)
@@ -162,6 +162,9 @@ def evaluate(
     }
     reasons.extend(_REFERRAL_TEXT[r].format(**context) for r in ordered)
     action = Action.REFER if ordered else maths
+    accept_reason = policy.accept_reason if action is Action.ACCEPT else None
+    if accept_reason is not None:
+        reasons.append(f"Airwallex accept reason: {accept_reason} (merchant policy).")
 
     inputs: dict[str, Any] = {
         "policy_merchant_id": policy.merchant_id,
@@ -170,6 +173,9 @@ def evaluate(
         "stage": str(dispute.stage),
         "status": str(dispute.status),
         "reason_category": str(dispute.reason_category),
+        "reason_type": dispute.reason.type,
+        "reason_original_code": dispute.reason.original_code,
+        "card_brand": None if dispute.card_brand is None else str(dispute.card_brand),
         "amount": str(dispute.amount),
         "amount_in_policy_currency": _s(amount_pc),
         "fx_rate": _s(rate),
@@ -190,6 +196,7 @@ def evaluate(
         "unknown_reason_prior": str(policy.unknown_reason_prior),
         "referral_amount_threshold": str(policy.referral_amount_threshold),
         "marginal_band": str(policy.marginal_band),
+        "accept_reason": str(policy.accept_reason),
     }
 
     return Decision(
@@ -198,6 +205,7 @@ def evaluate(
         stage=dispute.stage,
         reason_category=dispute.reason_category,
         action=action,
+        accept_reason=accept_reason,
         math_action=maths,
         p=p,
         prior_key=prior_key,

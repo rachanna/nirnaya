@@ -4,7 +4,7 @@ from typing import Any, Self
 from pydantic import model_validator
 
 from nirnaya.models.base import Dec, DomainModel, EvidenceSet, NonBlankStr
-from nirnaya.models.enums import Action, EvidenceType, ReasonCategory, Stage
+from nirnaya.models.enums import AcceptReason, Action, EvidenceType, ReasonCategory, Stage
 
 
 class ReferralReason(StrEnum):
@@ -42,6 +42,8 @@ class Decision(DomainModel):
     stage: Stage
     reason_category: ReasonCategory
     action: Action
+    # The Airwallex accept reason to send; set exactly when action is ACCEPT.
+    accept_reason: AcceptReason | None = None
     # None when no maths was run (stage not automated, or no FX rate).
     math_action: Action | None
     p: Dec | None
@@ -66,4 +68,6 @@ class Decision(DomainModel):
             raise ValueError("without referral reasons the action is the maths action")
         if self.action is Action.CHALLENGE and self.reason_category is ReasonCategory.UNKNOWN:
             raise ValueError("an unknown-reason dispute is never auto-challenged")
+        if (self.accept_reason is not None) != (self.action is Action.ACCEPT):
+            raise ValueError("accept_reason is set exactly when the action is ACCEPT")
         return self

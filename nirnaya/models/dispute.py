@@ -3,19 +3,21 @@ from typing import Self
 from pydantic import model_validator
 
 from nirnaya.models.base import DomainModel, NonBlankStr, UtcDatetime
-from nirnaya.models.enums import DisputeStatus, ReasonCategory, Stage
+from nirnaya.models.enums import CardBrand, DisputeStatus, ReasonCategory, Stage
 from nirnaya.models.money import Money
+from nirnaya.models.reasons import DisputeReason
 
 
 class Dispute(DomainModel):
     id: NonBlankStr
     merchant_id: NonBlankStr
+    payment_intent_id: NonBlankStr
     payment_attempt_id: NonBlankStr | None = None
     stage: Stage
     status: DisputeStatus
-    reason_category: ReasonCategory
-    # Raw network code, kept for audit only; decisions use reason_category.
-    network_reason_code: str | None = None
+    reason: DisputeReason
+    # None when the payment method is not a card.
+    card_brand: CardBrand | None = None
     amount: Money
     # Partial refunds already issued on the disputed payment; None means none.
     refunded_amount: Money | None = None
@@ -34,6 +36,11 @@ class Dispute(DomainModel):
         if self.due_at < self.opened_at:
             raise ValueError("due_at precedes opened_at")
         return self
+
+    @property
+    def reason_category(self) -> ReasonCategory:
+        """Derived from reason.type, never set independently, so the two cannot disagree."""
+        return self.reason.category
 
     @property
     def refunded(self) -> Money:

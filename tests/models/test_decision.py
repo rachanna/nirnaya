@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from nirnaya.models import Action, Decision, ReasonCategory, ReferralReason, Stage
+from nirnaya.models import AcceptReason, Action, Decision, ReasonCategory, ReferralReason, Stage
 
 
 def decision(**overrides: Any) -> Decision:
@@ -26,6 +26,8 @@ def decision(**overrides: Any) -> Decision:
         "inputs": {},
     }
     data.update(overrides)
+    if "accept_reason" not in overrides and data["action"] is Action.ACCEPT:
+        data["accept_reason"] = AcceptReason.OTHERS
     return Decision(**data)
 
 
@@ -62,3 +64,17 @@ def test_prior_key_serialises_sorted():
 
     d = decision(prior_key=frozenset({E.CVC_MATCH, E.AVS_MATCH}))
     assert d.model_dump(mode="json")["prior_key"] == ["AVS_MATCH", "CVC_MATCH"]
+
+
+def test_accept_requires_an_accept_reason():
+    with pytest.raises(ValidationError, match="exactly when"):
+        decision(accept_reason=None)
+
+
+def test_non_accept_cannot_carry_an_accept_reason():
+    with pytest.raises(ValidationError, match="exactly when"):
+        decision(
+            action=Action.REFER,
+            referral_reasons=(ReferralReason.MARGINAL,),
+            accept_reason=AcceptReason.OTHERS,
+        )

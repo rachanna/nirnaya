@@ -59,3 +59,35 @@ def test_unknown_stage_is_rejected():
 def test_extra_fields_are_rejected():
     with pytest.raises(ValidationError):
         make_dispute(colour="red")
+
+
+def test_payment_intent_id_is_required():
+    from tests.factories import CASE
+
+    data = make_dispute().model_dump()
+    del data["payment_intent_id"]
+    with pytest.raises(ValidationError, match="payment_intent_id"):
+        type(make_dispute())(**data)
+    assert make_dispute().id == CASE
+
+
+def test_status_accepts_only_documented_airwallex_values():
+    from nirnaya.models import DisputeStatus
+
+    assert make_dispute(status="PENDING_CLOSURE").status is DisputeStatus.PENDING_CLOSURE
+    with pytest.raises(ValidationError):
+        make_dispute(status="AWAITING_RESPONSE")
+
+
+def test_card_brand_uses_airwallex_values_and_is_optional():
+    from nirnaya.models import CardBrand
+
+    assert make_dispute(card_brand="union pay").card_brand is CardBrand.UNION_PAY
+    assert make_dispute(card_brand=None).card_brand is None
+    with pytest.raises(ValidationError):
+        make_dispute(card_brand="VISA")
+
+
+def test_dispute_round_trips_through_json():
+    d = make_dispute()
+    assert type(d).model_validate_json(d.model_dump_json()) == d
