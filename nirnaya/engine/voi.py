@@ -15,6 +15,7 @@ def value_of_information(
     *,
     ownership_resolved: bool,
     contradictory_record_ids: Iterable[str] = (),
+    unanswered_contact_ids: Iterable[str] = (),
     fx: FxTable | None = None,
 ) -> tuple[VoIEntry, ...]:
     """Missing evidence types that, each found on its own, would flip the maths action.
@@ -26,6 +27,7 @@ def value_of_information(
     kwargs = {
         "ownership_resolved": ownership_resolved,
         "contradictory_record_ids": conflicts,
+        "unanswered_contact_ids": tuple(unanswered_contact_ids),
         "fx": fx,
     }
     base = evaluate(dispute, policy, evidence_present, **kwargs)

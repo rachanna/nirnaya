@@ -16,6 +16,7 @@ def decide(
     *,
     ownership_resolved: bool,
     contradictory_record_ids: Iterable[str] = (),
+    unanswered_contact_ids: Iterable[str] = (),
     fx: FxTable | None = None,
 ) -> Decision:
     """The engine's decision, with the evidence worth searching for attached.
@@ -23,12 +24,14 @@ def decide(
     This is the only place an action is authorised. Same inputs, same Decision.
     """
     conflicts = tuple(contradictory_record_ids)
+    unanswered = tuple(unanswered_contact_ids)
     decision = evaluate(
         dispute,
         policy,
         evidence_present,
         ownership_resolved=ownership_resolved,
         contradictory_record_ids=conflicts,
+        unanswered_contact_ids=unanswered,
         fx=fx,
     )
     voi = value_of_information(
@@ -37,6 +40,7 @@ def decide(
         evidence_present,
         ownership_resolved=ownership_resolved,
         contradictory_record_ids=conflicts,
+        unanswered_contact_ids=unanswered,
         fx=fx,
     )
     return decision.model_copy(update={"voi": voi})

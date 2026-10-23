@@ -37,6 +37,9 @@ class MerchantPolicy(DomainModel):
     fee_pre_arbitration: NonNegativeDec  # F_pa
     handling_cost: NonNegativeDec  # h, chargeback-stage challenge
     handling_cost_pre: NonNegativeDec = Decimal(0)  # h_pre
+    handling_cost_rfi: NonNegativeDec = Decimal(0)  # h_rfi, answering an RFI with evidence
+    # F_rfi: fee for accepting at RFI, if any. ASSUMPTION 0; TODO(verify-airwallex-docs).
+    fee_rfi_accept: NonNegativeDec = Decimal(0)
     counted_chargeback_cost: NonNegativeDec  # R
     min_gain: NonNegativeDec  # m
     # q: probability the dispute is escalated to pre-arbitration AND lost there, the event on

@@ -3,6 +3,7 @@ from nirnaya.evidence.derive import (
     contradictory_record_ids,
     evidence_present,
     find_contradictions,
+    unanswered_customer_contacts,
 )
 from nirnaya.models import (
     AvsResult,
@@ -103,3 +104,75 @@ def test_other_merchants_contradictions_are_ignored():
         SourceSystem.CARRIER, {"status": "LOST"}, id="x", merchant_id=OTHER_MERCHANT
     )
     assert contradictory_record_ids([carrier_record(), foreign], make_dispute()) == ()
+
+
+# --- unanswered_customer_contacts --------------------------------------------------------
+
+
+def customer_msg(id, ticket="T1", sent_at="2026-02-25T10:00:00Z", **kw):
+    fields = {"ticket_id": ticket, "sent_at": sent_at}
+    return make_record(SourceSystem.HELPDESK, fields, id=id, author=RecordAuthor.CUSTOMER, **kw)
+
+
+def merchant_reply(id, ticket="T1", replied_at="2026-02-25T12:00:00Z", **kw):
+    fields = {"ticket_id": ticket, "replied_at": replied_at}
+    return make_record(SourceSystem.HELPDESK, fields, id=id, author=RecordAuthor.MERCHANT, **kw)
+
+
+def test_customer_message_without_reply_is_unanswered():
+    assert unanswered_customer_contacts([customer_msg("m1")], make_dispute()) == ("m1",)
+
+
+def test_two_unanswered_emails_are_both_listed():
+    records = [customer_msg("m2", ticket="T2"), customer_msg("m1")]
+    assert unanswered_customer_contacts(records, make_dispute()) == ("m1", "m2")
+
+
+def test_merchant_reply_on_the_same_ticket_answers_it():
+    records = [customer_msg("m1"), merchant_reply("r1")]
+    assert unanswered_customer_contacts(records, make_dispute()) == ()
+
+
+def test_reply_on_another_ticket_does_not_answer():
+    records = [customer_msg("m1"), merchant_reply("r1", ticket="T9")]
+    assert unanswered_customer_contacts(records, make_dispute()) == ("m1",)
+
+
+def test_reply_without_replied_at_does_not_answer():
+    records = [customer_msg("m1"), merchant_reply("r1", replied_at=None)]
+    assert unanswered_customer_contacts(records, make_dispute()) == ("m1",)
+
+
+def test_customer_authored_reply_does_not_answer():
+    fake = make_record(
+        SourceSystem.HELPDESK,
+        {"ticket_id": "T1", "replied_at": "2026-02-25T12:00:00Z"},
+        id="r1",
+        author=RecordAuthor.CUSTOMER,
+    )
+    # The customer cannot mark their own ticket answered; the "reply" is itself a customer
+    # message (undated, so treated as before the dispute) and is listed too.
+    assert unanswered_customer_contacts([customer_msg("m1"), fake], make_dispute()) == ("m1", "r1")
+
+
+def test_message_after_the_dispute_opened_does_not_count():
+    later = customer_msg("m1", sent_at="2026-03-05T10:00:00Z")  # dispute opened 2026-03-01
+    assert unanswered_customer_contacts([later], make_dispute()) == ()
+
+
+def test_undated_message_counts_as_before_the_dispute():
+    assert unanswered_customer_contacts([customer_msg("m1", sent_at=None)], make_dispute()) == (
+        "m1",
+    )
+
+
+def test_other_merchants_messages_are_ignored():
+    foreign = customer_msg("m1", merchant_id=OTHER_MERCHANT)
+    assert unanswered_customer_contacts([foreign], make_dispute()) == ()
+
+
+def test_other_helpdesk_records_are_not_messages():
+    summary = make_record(
+        SourceSystem.HELPDESK, {"contacts_before_dispute": 0}, id="s", author=RecordAuthor.MERCHANT
+    )
+    assert unanswered_customer_contacts([summary], make_dispute()) == ()

@@ -160,3 +160,42 @@ def test_distinct_purchase_flag_is_required():
 )
 def test_render_claim_text(fact, value, expected):
     assert render_claim_text(fact, value) == expected
+
+
+# --- prior undisputed orders from the same device and IP ----------------------------------
+
+
+@pytest.mark.parametrize(("count", "established"), [(0, False), (1, False), (2, True), (3, True)])
+def test_prior_undisputed_orders_need_at_least_two(count, established):
+    rec = make_record(SourceSystem.ORDER, {"prior_undisputed_orders_matching_device_ip": count})
+    facts = record_establishes(rec, "prior_undisputed_orders_matching_device_ip")
+    assert (E.PRIOR_UNDISPUTED_ORDERS_MATCH in facts) is established
+
+
+def test_prior_undisputed_orders_reject_bool_and_text():
+    for value in (True, "3"):
+        rec = make_record(SourceSystem.ORDER, {"prior_undisputed_orders_matching_device_ip": value})
+        assert record_establishes(rec, "prior_undisputed_orders_matching_device_ip") == frozenset()
+
+
+def test_prior_undisputed_orders_from_a_customer_record_establish_nothing():
+    rec = make_record(
+        SourceSystem.ORDER,
+        {"prior_undisputed_orders_matching_device_ip": 3},
+        author=RecordAuthor.CUSTOMER,
+    )
+    assert record_establishes(rec, "prior_undisputed_orders_matching_device_ip") == frozenset()
+
+
+def test_prior_undisputed_orders_are_fraud_specific_and_satisfy_fraud():
+    assert REASON_SPECIFIC[E.PRIOR_UNDISPUTED_ORDERS_MATCH] is ReasonCategory.FRAUD
+    assert any(
+        E.PRIOR_UNDISPUTED_ORDERS_MATCH in g for g in REQUIRED_EVIDENCE[ReasonCategory.FRAUD]
+    )
+
+
+def test_account_compromise_contradicts_prior_undisputed_orders():
+    from nirnaya.evidence.catalogue import contradiction_rules_for
+
+    rec = make_record(SourceSystem.LOGIN, {"account_compromise_reported": True})
+    assert contradiction_rules_for(rec, E.PRIOR_UNDISPUTED_ORDERS_MATCH)

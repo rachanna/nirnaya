@@ -36,6 +36,10 @@ def test_refer_has_no_accept_reason_even_when_maths_accepts():
 
 
 def test_non_automated_stage_has_no_accept_reason():
+    assert run(DEMO_POLICY, stage=Stage.PRE_ARBITRATION).accept_reason is None
+
+
+def test_rfi_accept_is_referred_so_has_no_accept_reason():
     assert run(DEMO_POLICY, stage=Stage.RFI).accept_reason is None
 
 

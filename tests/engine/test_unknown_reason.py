@@ -74,7 +74,7 @@ prob = st.decimals(min_value=0, max_value=1, places=3)
     m=money,
     band=money,
     threshold=st.decimals(min_value=0, max_value=200000, places=2),
-    stage=st.sampled_from([Stage.PRE_CHARGEBACK, Stage.CHARGEBACK]),
+    stage=st.sampled_from([Stage.RFI, Stage.PRE_CHARGEBACK, Stage.CHARGEBACK]),
     evidence=st.frozensets(st.sampled_from(list(EvidenceType))),
     ownership=st.booleans(),
 )

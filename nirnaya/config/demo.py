@@ -37,6 +37,12 @@ DEMO_PRIORS: tuple[PriorEntry, ...] = (
         evidence=frozenset({E.AVS_MATCH, E.CVC_MATCH, E.ACCOUNT_LOGIN_MATCH}),
         p=D("0.55"),
     ),
+    PriorEntry(reason=R.FRAUD, evidence=frozenset({E.PRIOR_UNDISPUTED_ORDERS_MATCH}), p=D("0.60")),
+    PriorEntry(
+        reason=R.FRAUD,
+        evidence=frozenset({E.PRIOR_UNDISPUTED_ORDERS_MATCH, E.DELIVERY_SIGNATURE}),
+        p=D("0.75"),
+    ),
     PriorEntry(reason=R.DUPLICATE, p=D("0.10")),
     PriorEntry(reason=R.DUPLICATE, evidence=frozenset({E.DISTINCT_TRANSACTIONS}), p=D("0.65")),
     PriorEntry(reason=R.DUPLICATE, evidence=frozenset({E.REFUND_ISSUED}), p=D("0.85")),

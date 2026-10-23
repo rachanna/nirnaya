@@ -1,6 +1,7 @@
 """Derive engine inputs from records. Evidence counts only if a record field establishes it."""
 
 from collections.abc import Iterable
+from datetime import datetime
 
 from nirnaya.evidence.catalogue import (
     TRUSTED_AUTHORS,
@@ -9,7 +10,7 @@ from nirnaya.evidence.catalogue import (
     record_establishes,
 )
 from nirnaya.models.dispute import Dispute
-from nirnaya.models.enums import EvidenceType
+from nirnaya.models.enums import EvidenceType, RecordAuthor, SourceSystem
 from nirnaya.models.evidence import EvidenceRecord
 
 
@@ -61,3 +62,44 @@ def contradictory_record_ids(
         if record.author in TRUSTED_AUTHORS
     }
     return tuple(sorted(ids))
+
+
+def _before(value: object, cutoff: datetime) -> bool:
+    """True if `value` is an ISO timestamp before `cutoff`. Undated or unparseable: True."""
+    if not isinstance(value, str):
+        return True
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return True
+    if parsed.tzinfo is None:
+        return True
+    return parsed < cutoff
+
+
+def unanswered_customer_contacts(
+    records: Iterable[EvidenceRecord], dispute: Dispute
+) -> tuple[str, ...]:
+    """Customer helpdesk messages sent before the dispute that the merchant never answered.
+
+    A message is answered only by a merchant-authored helpdesk record on the same
+    `ticket_id` with a `replied_at`. Only which records exist is used, never what the customer
+    wrote. An undated message counts as sent before the dispute (fail-safe).
+    """
+    in_case = [
+        r for r in case_records(records, dispute) if r.source_system is SourceSystem.HELPDESK
+    ]
+    answered = {
+        r.fields.get("ticket_id")
+        for r in in_case
+        if r.author is RecordAuthor.MERCHANT
+        and r.fields.get("ticket_id") not in (None, "")
+        and r.fields.get("replied_at") not in (None, "")
+    }
+    return tuple(
+        r.id
+        for r in in_case
+        if r.author is RecordAuthor.CUSTOMER
+        and _before(r.fields.get("sent_at"), dispute.opened_at)
+        and r.fields.get("ticket_id") not in answered
+    )

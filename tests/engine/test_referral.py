@@ -103,7 +103,7 @@ def test_unresolved_ownership_refers():
     assert d.referral_reasons == (RR.OWNERSHIP_UNRESOLVED,)
 
 
-@pytest.mark.parametrize("stage", [Stage.RFI, Stage.PRE_ARBITRATION, Stage.ARBITRATION])
+@pytest.mark.parametrize("stage", [Stage.PRE_ARBITRATION, Stage.ARBITRATION])
 def test_non_automated_stages_refer_without_maths(stage):
     d = run(policy(), stage=stage)
     assert d.action is Action.REFER

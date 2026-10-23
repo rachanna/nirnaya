@@ -20,7 +20,8 @@ class Stage(StrEnum):
     ARBITRATION = "ARBITRATION"
 
 
-AUTOMATED_STAGES = frozenset({Stage.PRE_CHARGEBACK, Stage.CHARGEBACK})
+# RFI is automated for challenges only: an RFI accept issues a refund and is always referred.
+AUTOMATED_STAGES = frozenset({Stage.RFI, Stage.PRE_CHARGEBACK, Stage.CHARGEBACK})
 
 
 class DisputeStatus(StrEnum):
@@ -85,6 +86,7 @@ class EvidenceType(StrEnum):
     AVS_MATCH = "AVS_MATCH"
     CVC_MATCH = "CVC_MATCH"
     ACCOUNT_LOGIN_MATCH = "ACCOUNT_LOGIN_MATCH"
+    PRIOR_UNDISPUTED_ORDERS_MATCH = "PRIOR_UNDISPUTED_ORDERS_MATCH"
     DISTINCT_TRANSACTIONS = "DISTINCT_TRANSACTIONS"
     REFUND_ISSUED = "REFUND_ISSUED"
     CANCELLATION_TERMS_ACCEPTED = "CANCELLATION_TERMS_ACCEPTED"

@@ -27,6 +27,7 @@ def run(
     *,
     ownership_resolved: bool = True,
     contradictory_record_ids: tuple[str, ...] = (),
+    unanswered_contact_ids: tuple[str, ...] = (),
     fx: Any = None,
     **dispute_overrides: Any,
 ) -> Decision:
@@ -37,5 +38,6 @@ def run(
         evidence,
         ownership_resolved=ownership_resolved,
         contradictory_record_ids=contradictory_record_ids,
+        unanswered_contact_ids=unanswered_contact_ids,
         fx=fx,
     )

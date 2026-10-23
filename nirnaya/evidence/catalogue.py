@@ -44,6 +44,14 @@ def int_above(name: str, threshold: int) -> Predicate:
     return check
 
 
+def int_at_least(name: str, minimum: int) -> Predicate:
+    def check(f: Fields) -> bool:
+        v = f.get(name)
+        return isinstance(v, int) and not isinstance(v, bool) and v >= minimum
+
+    return check
+
+
 def positive_amount(name: str) -> Predicate:
     def check(f: Fields) -> bool:
         v = f.get(name)
@@ -97,6 +105,11 @@ FIELD_RULES: tuple[FieldRule, ...] = (
         S.LOGIN, "active_after_renewal_at", E.USAGE_AFTER_RENEWAL,
         has("active_after_renewal_at"), "account activity after renewal",
     ),
+    FieldRule(
+        S.ORDER, "prior_undisputed_orders_matching_device_ip", E.PRIOR_UNDISPUTED_ORDERS_MATCH,
+        int_at_least("prior_undisputed_orders_matching_device_ip", 2),
+        "at least two earlier undisputed orders from the same device and IP",
+    ),
     FieldRule(S.ORDER, "order_id", E.ORDER_PLACED, has("order_id"), "order exists"),
     FieldRule(S.ORDER, "placed_at", E.ORDER_PLACED, has("placed_at"), "order timestamp"),
     FieldRule(S.ORDER, "total_amount", E.ORDER_PLACED, has("total_amount"), "order total"),
@@ -143,6 +156,7 @@ REASON_SPECIFIC: Mapping[EvidenceType, ReasonCategory] = {
     E.AVS_MATCH: ReasonCategory.FRAUD,
     E.CVC_MATCH: ReasonCategory.FRAUD,
     E.ACCOUNT_LOGIN_MATCH: ReasonCategory.FRAUD,
+    E.PRIOR_UNDISPUTED_ORDERS_MATCH: ReasonCategory.FRAUD,
     E.DISTINCT_TRANSACTIONS: ReasonCategory.DUPLICATE,
     E.CANCELLATION_TERMS_ACCEPTED: ReasonCategory.SUBSCRIPTION,
     E.USAGE_AFTER_RENEWAL: ReasonCategory.SUBSCRIPTION,
@@ -153,7 +167,14 @@ REASON_SPECIFIC: Mapping[EvidenceType, ReasonCategory] = {
 REQUIRED_EVIDENCE: Mapping[ReasonCategory, tuple[frozenset[EvidenceType], ...]] = {
     ReasonCategory.NON_RECEIPT: (frozenset({E.DELIVERY_CONFIRMED}),),
     ReasonCategory.FRAUD: (
-        frozenset({E.THREE_DS_AUTHENTICATED, E.AVS_MATCH, E.ACCOUNT_LOGIN_MATCH}),
+        frozenset(
+            {
+                E.THREE_DS_AUTHENTICATED,
+                E.AVS_MATCH,
+                E.ACCOUNT_LOGIN_MATCH,
+                E.PRIOR_UNDISPUTED_ORDERS_MATCH,
+            }
+        ),
     ),
     ReasonCategory.DUPLICATE: (frozenset({E.DISTINCT_TRANSACTIONS, E.REFUND_ISSUED}),),
     ReasonCategory.SUBSCRIPTION: (
@@ -213,6 +234,10 @@ CONTRADICTION_RULES: tuple[ContradictionRule, ...] = (
         "the account was reported compromised",
     ),
     ContradictionRule(
+        E.PRIOR_UNDISPUTED_ORDERS_MATCH, S.LOGIN, equals("account_compromise_reported", True),
+        "the account was reported compromised",
+    ),
+    ContradictionRule(
         E.ACCOUNT_LOGIN_MATCH, S.HELPDESK, equals("reported_unauthorised", True),
         "customer reported the transaction as unauthorised",
     ),
@@ -257,6 +282,7 @@ CLAIM_TEMPLATES: Mapping[EvidenceType, str] = {
     E.AVS_MATCH: "Address verification result",
     E.CVC_MATCH: "Card security code check result",
     E.ACCOUNT_LOGIN_MATCH: "Account login from the purchasing device at",
+    E.PRIOR_UNDISPUTED_ORDERS_MATCH: "Prior undisputed orders from the same device and IP",
     E.DISTINCT_TRANSACTIONS: "Separate purchase, order",
     E.REFUND_ISSUED: "Refund issued",
     E.CANCELLATION_TERMS_ACCEPTED: "Cancellation terms accepted at",

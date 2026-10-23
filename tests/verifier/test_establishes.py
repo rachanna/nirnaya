@@ -79,3 +79,35 @@ def test_cross_reason_claim_is_allowed_for_a_known_reason():
     # Delivery evidence in a fraud dispute is fine; only UNKNOWN restricts reason-specific facts.
     dispute = make_dispute(reason_category=ReasonCategory.FRAUD)
     assert checks(run([make_claim()], dispute=dispute), "claim-1") == set()
+
+
+def prior_orders_claim():
+    return make_claim(
+        source_record_id="order-1",
+        source_field="prior_undisputed_orders_matching_device_ip",
+        establishes=E.PRIOR_UNDISPUTED_ORDERS_MATCH,
+        extracted_value="3",
+        normalised_value={"kind": "ENUM", "text": "3"},
+    )
+
+
+def test_prior_undisputed_orders_claim_verifies_and_meets_fraud_requirement():
+    from nirnaya.verifier import VerificationOutcome
+
+    rec = order_record(prior_undisputed_orders_matching_device_ip=3)
+    result = run([prior_orders_claim()], [rec], make_dispute(reason_category=ReasonCategory.FRAUD))
+    assert result.outcome is VerificationOutcome.PASSED
+
+
+def test_prior_undisputed_orders_claim_is_blocked_under_unknown_reason():
+    rec = order_record(prior_undisputed_orders_matching_device_ip=3)
+    result = run(
+        [prior_orders_claim()], [rec], make_dispute(reason_category=ReasonCategory.UNKNOWN)
+    )
+    assert checks(result, "claim-1") == {CheckName.REASON_SPECIFIC_UNDER_UNKNOWN}
+
+
+def test_wrong_count_is_blocked():
+    rec = order_record(prior_undisputed_orders_matching_device_ip=2)
+    result = run([prior_orders_claim()], [rec], make_dispute(reason_category=ReasonCategory.FRAUD))
+    assert CheckName.EXTRACTED_VALUE_MISMATCH in checks(result, "claim-1")
