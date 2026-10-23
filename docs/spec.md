@@ -134,6 +134,8 @@ These refine section 5 and match `CLAUDE.md`. Where they differ from the text ab
 
 6. **RFI and low-value accepts** (decided 2026-10-23, from the hackathon kit 4 brief). At RFI the engine challenges iff `G_cb − h_rfi > F_cb + R − F_rfi + m`. This is the pre-chargeback structure with RFI costs (`h_rfi`, `F_rfi`, both default 0 as assumptions). It conservatively assumes the RFI response never settles the case and the issuer escalates to a chargeback. An ACCEPT result at RFI is referred, because accepting issues a full refund. Any ACCEPT is sent with the Airwallex accept reason `LOW_VALUE_TRANSACTION` when even the highest prior the policy allows (`p = 1 − q`) would not make challenging pay; otherwise the policy's own accept reason is used.
 
+7. **Dates across records** (decided 2026-10-23, from the pre-submission audit). Merchant records whose dates are impossible together (a delivery before the order, usage after renewal before the renewal, terms accepted after the charge, an order after the dispute opened, a date after the record's capture, an unreadable date) are records that contradict each other: the case is referred, as for any other contradiction. Evidence dated after the dispute opened still counts, and the approver is told.
+
 ### Open questions (resolve before or during Milestone 1)
 - Exact referral thresholds and the width of the "marginal" band are merchant config; demo defaults must be labelled assumptions.
 - The minimal evidence set each reason category requires (verifier check "required evidence present") needs a documented table.

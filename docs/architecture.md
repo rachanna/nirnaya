@@ -188,7 +188,7 @@ flowchart TB
 | Component | Package | Status | Responsibility | Authority | Depends on |
 |---|---|---|---|---|---|
 | Domain models | `nirnaya/models/` | ✅ | Pydantic types: `Dispute`, `PaymentAttempt`, `EvidenceRecord`, `Claim`, `MerchantPolicy`, `Decision`, `Money`, `FxTable`, `DisputeReason` | none | none |
-| Evidence catalogue | `nirnaya/evidence/` | ✅ | `FIELD_RULES`, `REQUIRED_EVIDENCE`, `CONTRADICTION_RULES`, `REASON_SPECIFIC`, `render_claim_text`; `evidence_present()`, `contradictory_record_ids()` | data | models |
+| Evidence catalogue | `nirnaya/evidence/` | ✅ | `FIELD_RULES`, `REQUIRED_EVIDENCE`, `CONTRADICTION_RULES`, `TEMPORAL_RULES`, `REASON_SPECIFIC`, `render_claim_text`; `evidence_present()`, `contradictory_record_ids()`, `late_evidence_notes()` | data | models |
 | Decision engine | `nirnaya/engine/` | ✅ | `decide()` → `Decision` with `voi`; `value_of_information()` | **sole decider** | models, evidence |
 | Verifier | `nirnaya/verifier/` | ✅ | `verify()` → `VerificationResult` | **sole clearer** | models, evidence |
 | Ingestion | `nirnaya/ingest/` *(new package)* | 🔶 (domain disputes; wire mapping in M5) | Poll and reconcile disputes; optional webhook receiver; snapshot disputes and payment attempts; map wire → domain | none | Airwallex read client, store |
@@ -278,7 +278,7 @@ stateDiagram-v2
 | `PRE_WRITE_CHECK` | Guardrails | §7 checklist | Pass or fail |
 | `SUBMITTING` | Write in flight | Write gateway call, ledger update | Acknowledged or rejected |
 | `AWAITING_OUTCOME` | Submitted; waiting on issuer or scheme | Nothing; ingestion updates status | Terminal status or stage change |
-| `REFERRED` | Human needed | Referral record with reason, evidence trace and time left | Approver command |
+| `REFERRED` | Human needed | Referral record with reasons and `detail` (the claims that failed and why, the conflicting or unanswered records, or the guard failure), and time left; escalated to urgent inside the deadline buffer (§4.4) | Approver command |
 | `CLOSED` | Terminal | Nothing | |
 
 ### 4.2 Execution model
@@ -314,6 +314,8 @@ The spec also mentions Visa CE3.0 auto-challenge. It is not described on the pag
 Source: [How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow).
 
 On every tick, any case not in `AWAITING_OUTCOME`, `DEFERRED`, `CLOSED` or `SUBMITTING` with `now ≥ due_at − buffer` moves to `REFERRED` with `urgent=true`. The agent's own stop condition uses a larger buffer, so the watchdog is a backstop rather than the normal exit.
+
+A case already `REFERRED` is not moved, but once inside the same buffer its open referral is marked urgent (`REFERRAL_ESCALATED`, once), so a review queue can put it first before Airwallex's own deadline action.
 
 ---
 
@@ -427,6 +429,18 @@ The challenge proceeds only if that returns `Action.CHALLENGE`. Otherwise the ca
 The re-run also catches anything that changed on the Airwallex side since the decision: amount, stage or status (the re-fetched dispute is the input).
 
 For an ACCEPT there is nothing to prove, but the gateway still re-runs `decide()` on the re-fetched dispute, so a stage or status change stops the write.
+
+**Dates across records.** Both sides use the same contradiction source (`find_contradictions()`), which includes `TEMPORAL_RULES`. A trusted record whose date is impossible against another record or the dispute contradicts the fact it establishes:
+
+| Fact | Field | Must be |
+|---|---|---|
+| Delivery confirmed or signed | carrier `delivered_at` | not before the earliest order's `placed_at` |
+| Usage after renewal | login `active_after_renewal_at` | not before the earliest order (the renewal charge) |
+| Cancellation terms accepted | policy `cancellation_terms_accepted_at` | not after the latest order |
+| Any order fact | order `placed_at` | not after the dispute opened |
+| All of the above, and the purchase-device login | the dated field | not after the record's capture; readable with a time zone |
+
+The engine then refers with `CONTRADICTORY_RECORDS` before any drafting, and a claim on such a record is `CONFLICT` in the verifier. The order bounds are lenient (earliest for lower bounds, latest for upper), so only dates impossible against every order on file clash, and they are skipped when there is no order record. Evidence dated after the dispute opened still counts; it is listed in `VerificationResult.notes` for the approver. ASSUMPTION: expert policy, like the rest of the catalogue.
 
 ---
 
@@ -753,7 +767,8 @@ erDiagram
         json reasons
         bool urgent
         text resolution
-        text approver
+        json approval
+        json detail
     }
     WRITES {
         text request_id PK
@@ -837,6 +852,7 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 | Unknown `reason.type` | `ReasonCategory.UNKNOWN`: never auto-challenged |
 | Missing FX rate | Engine `MISSING_FX_RATE` referral; verifier `AMOUNT_MISMATCH` |
 | Mock or merchant system error | That tool target is stopped; decide on the evidence so far |
+| Merchant records disagree on dates (delivery before the order, terms after the charge, a date after capture, an unreadable date) | `CONTRADICTORY_RECORDS` → `REFERRED`; the clash is the counterevidence (§6) |
 | A source record changed since it was captured | Stored as a new version `<id>@<content digest>` (`EVIDENCE_REVISED`); the original is kept. Contradiction rules see both, so DELIVERED → LOST refers the case |
 | A handler raises | `STEP_FAILED` audited; other cases continue; 3 failures in one state → `REFERRED` (urgent), never from `SUBMITTING` (§4.2) |
 | Dispute amount changes before the write | Ingested: re-decide from `ASSESSED`, referrals and approvals superseded. Not yet ingested: gateway `DISPUTE_CHANGED` → `REFERRED`, then the next ingestion re-assesses |
@@ -965,6 +981,8 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | M6: Evaluation | `eval/` runner, baselines, metrics | Five metrics against three baselines | ⬜ |
 | M7: Streamlit demo | `app/` | Kit 4 cases in the kit's demo structure, review queue, baseline comparison | ⬜ |
 
-**Pre-submission audit, batch 1** ✅ (1047 tests): a changed source record is versioned instead of halting the scheduler, and a failing step is isolated per case (H1); a new attempt after a rejected write gets a new `request_id` (M1); the gateway compares against the decision's own dispute, and an amended amount re-decides the case and voids stale approvals (M2); no PNG for any brand (L1). Still open from the audit: temporal invariants in the verifier (M3), metrics and baselines (M6), the sandbox client (M5), and the low items.
+**Pre-submission audit, batch 2** ✅ (1073 tests): dates must be consistent across records, which also caught impossible dates in the S1/S5 fixtures (M3); a referral nearing the deadline becomes urgent (L3); the referral record carries why (L4).
+
+**Pre-submission audit, batch 1** ✅ (1047 tests): a changed source record is versioned instead of halting the scheduler, and a failing step is isolated per case (H1); a new attempt after a rejected write gets a new `request_id` (M1); the gateway compares against the decision's own dispute, and an amended amount re-decides the case and voids stale approvals (M2); no PNG for any brand (L1). Still open from the audit after batch 2: metrics and baselines with realised fees (M6, L2), the sandbox client (M5), and showing the model only catalogued fields (L5).
 
 Each milestone is finished and tested before the next starts (`CLAUDE.md`).
