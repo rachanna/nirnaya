@@ -20,7 +20,7 @@ These are the product. Never weaken them for convenience, and stop and ask if a 
 - Money: `decimal.Decimal` only, never float. Always paired with an ISO-4217 currency code.
 - Time: timezone-aware `datetime` (UTC internally). Deadlines computed in UTC.
 - Storage: SQLite via stdlib `sqlite3` (audit log, cases, evidence snapshots with SHA-256 hashes).
-- LLM: Anthropic Python SDK, tool use + structured outputs. Model from env `NIRNAYA_MODEL` (default `claude-sonnet-5-5`).
+- LLM: provider-neutral interface in `nirnaya/llm/` (tool use; structured output via a forced tool call). `NIRNAYA_LLM_PROVIDER` = `anthropic` (default) or `openai`; model from `NIRNAYA_MODEL` (default `claude-sonnet-5-5` for Anthropic, required for OpenAI). Agent code depends only on `LLMClient`, never on an SDK.
 - UI: Streamlit (`app/`), thin — no business logic in the UI.
 - Secrets only from env / `.env` (gitignored). Never commit keys.
 
@@ -31,7 +31,8 @@ nirnaya/
   models/        # Pydantic: Dispute, PaymentAttempt, EvidenceRecord, Claim, Decision, MerchantPolicy
   engine/        # deterministic decision engine + value-of-information ("what evidence would flip this")
   verifier/      # deterministic blocking checks on claims
-  agent/         # Claude investigating agent: typed tools, budget, stop conditions
+  agent/         # investigating agent: typed tools, budget, stop conditions
+  llm/           # LLMClient interface + Anthropic and OpenAI adapters, scripted fake
   orchestrator/  # Python state machine: ingest → plan → investigate → decide → draft → verify → act/refer
   integrations/
     airwallex/   # sandbox client (disputes, payment intents/attempts, files, simulation)

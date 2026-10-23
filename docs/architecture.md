@@ -536,7 +536,7 @@ Code then:
 
 The status and contradiction ids are left for `verify()`, which ignores any incoming values.
 
-Model: `NIRNAYA_MODEL` (default `claude-sonnet-5-5`).
+Model: chosen by configuration through the provider-neutral `LLMClient` (`nirnaya/llm/`): `NIRNAYA_LLM_PROVIDER` is `anthropic` (default) or `openai`, and `NIRNAYA_MODEL` sets the model (default `claude-sonnet-5-5` for Anthropic; required for OpenAI). Structured drafts use a forced tool call, which both providers support, rather than a provider-specific structured-output feature. Data from records is passed only as tool results or messages wrapped by `untrusted()`; the system prompt is static.
 
 ---
 

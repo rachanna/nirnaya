@@ -5,6 +5,8 @@ description = "Dispute decision agent for Airwallex: decides which disputes to f
 readme = "CLAUDE.md"
 requires-python = ">=3.11"
 dependencies = [
+    "anthropic>=2.1.0",
+    "openai>=3.37.0",
     "pydantic>=2.7",
     "tzdata>=2026.5",
 ]
