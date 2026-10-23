@@ -1,7 +1,7 @@
 """Interfaces the orchestrator depends on. M3 uses fakes and scripted parts; M4 and M5
 plug in Claude and the real Airwallex client behind the same Protocols."""
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from nirnaya.models.base import DomainModel, NonBlankStr
 from nirnaya.models.claim import Claim
@@ -48,8 +48,8 @@ class DisputeActions(Protocol):
 
 
 class Investigator(Protocol):
-    def investigate(self, dispute: Dispute, targets: list[EvidenceType]) -> int:
-        """Fetch evidence for these targets via the tool gateway; returns tool calls used."""
+    def investigate(self, dispute: Dispute, targets: list[EvidenceType], tools: Any) -> int:
+        """Fetch evidence for these targets through the tool gateway; returns tool calls used."""
         ...
 
 

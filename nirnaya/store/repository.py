@@ -288,6 +288,21 @@ class Store:
             (int(resolved), merchant_id, case_id, cycle),
         )
 
+    def tools_called(self, merchant_id: str, case_id: str, cycle: int) -> set[str]:
+        row = self.conn.execute(
+            "SELECT tools_called FROM cycles WHERE merchant_id = ? AND case_id = ? AND cycle = ?",
+            (merchant_id, case_id, cycle),
+        ).fetchone()
+        return set() if row is None else set(json.loads(row["tools_called"]))
+
+    def record_tool_called(self, merchant_id: str, case_id: str, cycle: int, call: str) -> None:
+        called = sorted(self.tools_called(merchant_id, case_id, cycle) | {call})
+        self.conn.execute(
+            "UPDATE cycles SET tools_called = ?, tool_calls = tool_calls + 1"
+            " WHERE merchant_id = ? AND case_id = ? AND cycle = ?",
+            (json.dumps(called), merchant_id, case_id, cycle),
+        )
+
     def add_tool_calls(self, merchant_id: str, case_id: str, cycle: int, n: int) -> None:
         self.conn.execute(
             "UPDATE cycles SET tool_calls = tool_calls + ? WHERE merchant_id = ? AND case_id = ?"

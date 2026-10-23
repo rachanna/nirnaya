@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS cycles (
     policy_version      TEXT NOT NULL,
     ownership_resolved  INTEGER,
     tool_calls          INTEGER NOT NULL DEFAULT 0,
+    tools_called        TEXT NOT NULL DEFAULT '[]',
     started_at          TEXT NOT NULL,
     PRIMARY KEY (case_id, cycle)
 );
