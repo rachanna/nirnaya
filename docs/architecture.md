@@ -434,13 +434,17 @@ For an ACCEPT there is nothing to prove, but the gateway still re-runs `decide()
 
 | Fact | Field | Must be |
 |---|---|---|
-| Delivery confirmed or signed | carrier `delivered_at` | not before the earliest order's `placed_at` |
-| Usage after renewal | login `active_after_renewal_at` | not before the earliest order (the renewal charge) |
-| Cancellation terms accepted | policy `cancellation_terms_accepted_at` | not after the latest order |
+| Delivery confirmed or signed | carrier `delivered_at` | not before the disputed order's `placed_at` |
+| Usage after renewal | login `active_after_renewal_at` | not before the disputed order (the renewal charge) |
+| Cancellation terms accepted | policy `cancellation_terms_accepted_at` | not after the disputed order |
 | Any order fact | order `placed_at` | not after the dispute opened |
 | All of the above, and the purchase-device login | the dated field | not after the record's capture; readable with a time zone |
 
-The engine then refers with `CONTRADICTORY_RECORDS` before any drafting, and a claim on such a record is `CONFLICT` in the verifier. The order bounds are lenient (earliest for lower bounds, latest for upper), so only dates impossible against every order on file clash, and they are skipped when there is no order record. Evidence dated after the dispute opened still counts; it is listed in `VerificationResult.notes` for the approver. ASSUMPTION: expert policy, like the rest of the catalogue.
+The engine then refers with `CONTRADICTORY_RECORDS` before any drafting, and its referral lists each clash with its description; a claim on such a record is `CONFLICT` in the verifier, and every reason a record contradicts a claim is surfaced.
+
+The disputed order is the trusted, intact order record whose `order_id` is the dispute's `merchant_order_id`. If it cannot be identified, the bounds fall back to all orders on file, leniently (earliest for lower bounds, latest for upper), and with no order record they are skipped. Tampered records (hash mismatch) neither anchor nor clash. `derive.cross_check()` computes rule contradictions, date clashes and late notes in one pass per case.
+
+Evidence dated after the dispute opened still counts; it is listed in `VerificationResult.notes`. If the case is referred, the notes are in the referral. If it is submitted under delegated authority, `SUBMITTED_WITH_NOTES` records them with the `request_id` for review afterwards. ASSUMPTION: expert policy, like the rest of the catalogue.
 
 ---
 
@@ -798,6 +802,8 @@ erDiagram
 - **Evidence records are immutable.** A changed source creates a new record id; it never updates the old one. `sha256` is the capture hash used as `expected_hashes` in `verify()`.
 - **The audit log is append-only and hash-chained:** `hash = sha256(prev_hash ‖ canonical(event))`. ⬜ A verification command walks the chain.
 - **Money is stored as a string Decimal plus a currency, and times as ISO-8601 UTC.** No floats anywhere.
+- **Schema migrations are step-wise.** `MIGRATIONS[n]` brings version n to n+1. Each step runs in its own `BEGIN IMMEDIATE` transaction that re-reads the version, and must be safe to re-run, so a crash or a second process opening the same file cannot leave it half-migrated.
+- **Every query is scoped by `merchant_id`,** including sequence numbers and ids (referral ids are `<merchant>:<case>:ref:<n>`). The one deliberate exception is `case_owner()`, the cross-tenant ownership check at ingestion.
 
 ### 10.3 Repository layer
 
@@ -852,7 +858,8 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 | Unknown `reason.type` | `ReasonCategory.UNKNOWN`: never auto-challenged |
 | Missing FX rate | Engine `MISSING_FX_RATE` referral; verifier `AMOUNT_MISMATCH` |
 | Mock or merchant system error | That tool target is stopped; decide on the evidence so far |
-| Merchant records disagree on dates (delivery before the order, terms after the charge, a date after capture, an unreadable date) | `CONTRADICTORY_RECORDS` → `REFERRED`; the clash is the counterevidence (§6) |
+| Merchant records disagree on dates (delivery before the order, terms after the charge, a date after capture, an unreadable date) | `CONTRADICTORY_RECORDS` → `REFERRED`; the clash is the counterevidence and is described in the referral (§6) |
+| A challenge cites evidence dated after the dispute opened | Still evidence; submitted if everything else passes, with `SUBMITTED_WITH_NOTES` audited for review afterwards (§6) |
 | A source record changed since it was captured | Stored as a new version `<id>@<content digest>` (`EVIDENCE_REVISED`); the original is kept. Contradiction rules see both, so DELIVERED → LOST refers the case |
 | A handler raises | `STEP_FAILED` audited; other cases continue; 3 failures in one state → `REFERRED` (urgent), never from `SUBMITTING` (§4.2) |
 | Dispute amount changes before the write | Ingested: re-decide from `ASSESSED`, referrals and approvals superseded. Not yet ingested: gateway `DISPUTE_CHANGED` → `REFERRED`, then the next ingestion re-assesses |
@@ -980,6 +987,8 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | M5: Airwallex sandbox | `integrations/airwallex/`, real `ingest/` wire mapping, the wire-specific gateway parts (challenge body, `challenge_method: STANDARD`, file host) | The M3 pipeline against the real sandbox; simulation round-trips; closes the §9 TODOs | ⬜ |
 | M6: Evaluation | `eval/` runner, baselines, metrics | Five metrics against three baselines | ⬜ |
 | M7: Streamlit demo | `app/` | Kit 4 cases in the kit's demo structure, review queue, baseline comparison | ⬜ |
+
+**Code review of batch 2** ✅ (1094 tests): disputed-order anchors, all counterevidence kept, tampered records excluded from date checks, safe step-wise migrations, notes recorded on delegated submissions, contradiction descriptions in referrals, merchant-scoped ids and counts, one-pass cross-check, one-query escalation, one UTC timestamp parser.
 
 **Pre-submission audit, batch 2** ✅ (1073 tests): dates must be consistent across records, which also caught impossible dates in the S1/S5 fixtures (M3); a referral nearing the deadline becomes urgent (L3); the referral record carries why (L4).
 
