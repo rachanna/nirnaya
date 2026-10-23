@@ -208,11 +208,12 @@ def test_a_crash_mid_step_leaves_the_previous_state_and_reruns_cleanly():
         raise RuntimeError("power cut")
 
     h.store.update_case = crash
-    with pytest.raises(RuntimeError, match="power cut"):
-        orch.tick(now)
+    orch.tick(now)  # the failure is isolated to this case and audited, not raised
     h.store.update_case = original
 
     assert h.store.case(m, cid).state == state_before
+    failed = [e for e in h.store.audit_events(m, cid) if e["event"] == "STEP_FAILED"]
+    assert [e["body"] for e in failed] == [{"state": state_before, "error": "RuntimeError"}]
     assert h.store.conn.execute("SELECT COUNT(*) FROM decisions").fetchone()[0] == decisions_before
     orch.run_until_idle(now)
     assert route_of(h, case) is case.expected.route

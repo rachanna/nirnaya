@@ -42,6 +42,10 @@ class Settings:
     max_tokens_per_cycle: int = 60_000
     max_calls_per_round: int = 3
     max_turns_per_round: int = 6
+    # A step that raises is audited and skipped so other cases keep moving; after this many
+    # failures the case is referred (a write in flight is never interrupted).
+    isolate_step_failures: bool = True
+    max_step_failures: int = 3
 
     @classmethod
     def from_env(cls) -> "Settings":

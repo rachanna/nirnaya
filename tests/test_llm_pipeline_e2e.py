@@ -2,8 +2,6 @@
 pipeline. The model chooses lookups and proposes claims; the engine, verifier and gateway
 still decide what happens."""
 
-import pytest
-
 from nirnaya.agent.llm_drafter import SUBMIT
 from nirnaya.llm.fake import ScriptedLLM, reply
 from nirnaya.orchestrator.settings import Settings
@@ -203,7 +201,8 @@ def test_runs_roll_back_with_their_step():
         raise RuntimeError("power cut")
 
     h.store.update_case = crash
-    with pytest.raises(RuntimeError, match="power cut"):
-        orch.tick(now)  # INVESTIGATING step: the model runs, then the commit fails
+    orch.tick(now)  # INVESTIGATING step: the model runs, then the commit fails (and is isolated)
     h.store.update_case = original
     assert h.store.agent_runs(case.dispute.merchant_id, "N1", 1) == []
+    events = [e["event"] for e in h.store.audit_events(case.dispute.merchant_id, "N1")]
+    assert "STEP_FAILED" in events

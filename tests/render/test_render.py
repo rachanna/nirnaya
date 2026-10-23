@@ -104,10 +104,10 @@ def test_visa_pdf_over_two_megabytes_is_rejected():
         check_limits(CardBrand.VISA, [("e.pdf", b"x" * (2 * MB + 1))])
 
 
-def test_png_is_rejected_for_visa_but_accepted_for_mastercard():
-    with pytest.raises(RenderError, match="not accepted"):
-        check_limits(CardBrand.VISA, [("scan.png", b"x")])
-    check_limits(CardBrand.MASTERCARD, [("scan.png", b"x")])
+def test_png_is_rejected_for_visa_and_mastercard():
+    for brand in (CardBrand.VISA, CardBrand.MASTERCARD):
+        with pytest.raises(RenderError, match="not accepted"):
+            check_limits(brand, [("scan.png", b"x")])
 
 
 def test_total_size_is_enforced():

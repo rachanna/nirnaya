@@ -41,6 +41,19 @@ FLOW: dict[CaseState, frozenset[CaseState]] = {
 # Triggered by what Airwallex reports (ingestion) or by the deadline watchdog.
 EXTERNAL_NEW_CYCLE = frozenset(s for s in CaseState if s is not S.CLOSED)  # -> INGESTED
 EXTERNAL_CLOSE = frozenset(s for s in CaseState if s is not S.CLOSED)  # -> CLOSED
+# The dispute's amount changed within a stage before any write: decide again (-> ASSESSED).
+EXTERNAL_REASSESS = frozenset(
+    {
+        S.ASSESSED,
+        S.INVESTIGATING,
+        S.DECIDED,
+        S.DRAFTING,
+        S.VERIFYING,
+        S.RENDERING,
+        S.PRE_WRITE_CHECK,
+        S.REFERRED,
+    }
+)
 WATCHDOG_REFERS = frozenset(
     s
     for s in CaseState
@@ -75,5 +88,7 @@ def check(frm: CaseState, to: CaseState, *, external: bool = False) -> None:
     if external and to is S.CLOSED and frm in EXTERNAL_CLOSE:
         return
     if external and to is S.REFERRED and frm in WATCHDOG_REFERS:
+        return
+    if external and to is S.ASSESSED and frm in EXTERNAL_REASSESS:
         return
     raise IllegalTransition(f"{frm} -> {to}")

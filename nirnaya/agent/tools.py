@@ -107,8 +107,10 @@ class ToolGateway:
         found = lookup(self._merchant, key)
         records = [s.snapshot(case_id=self._dispute.id, captured_at=self._now) for s in found]
         with self._store.transaction():
-            for record in records:
-                self._store.put_evidence(self._merchant, record)
+            records = [
+                self._store.put_evidence_or_revise(self._merchant, record, self._now)
+                for record in records
+            ]
             self._store.record_tool_called(
                 self._merchant, self._dispute.id, self._cycle, f"{tool}:{key}"
             )

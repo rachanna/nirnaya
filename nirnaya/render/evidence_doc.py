@@ -30,8 +30,9 @@ _VISA = BrandLimits(
 )
 LIMITS: Mapping[CardBrand, BrandLimits] = {
     CardBrand.VISA: _VISA,
+    # Kit 4 guide: Airwallex accepts JPG and PDF evidence and rejects PNG, whatever the brand.
     CardBrand.MASTERCARD: BrandLimits(
-        frozenset({"pdf", "jpg", "jpeg", "tif", "tiff", "png"}), {}, int(14.5 * MB)
+        frozenset({"pdf", "jpg", "jpeg", "tif", "tiff"}), {}, int(14.5 * MB)
     ),
     CardBrand.AMERICAN_EXPRESS: BrandLimits(
         frozenset({"pdf", "jpg", "jpeg", "tif", "tiff"}),

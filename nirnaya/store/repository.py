@@ -376,6 +376,42 @@ class Store:
         )
         return True
 
+    def put_evidence_or_revise(
+        self, merchant_id: str, record: EvidenceRecord, at: datetime
+    ) -> EvidenceRecord:
+        """Store a record; if its source changed since capture, store a new version.
+
+        Records are never overwritten. A changed source gets its own record id
+        (`<id>@<first 12 hex of a content digest>`), so both versions stay on file and contradiction
+        rules can compare them. Returns the record as stored.
+        """
+        with self.transaction():
+            try:
+                self.put_evidence(merchant_id, record)
+                return record
+            except StoreError:
+                if record.merchant_id != merchant_id:
+                    raise
+            # The version id is a digest of the content alone, so a later capture of the same
+            # changed content maps to the same version.
+            content = record.model_dump(mode="json", exclude={"id", "sha256", "captured_at"})
+            digest = hashlib.sha256(
+                json.dumps(content, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+            revised = EvidenceRecord.create(
+                **record.model_dump(exclude={"id", "sha256"}),
+                id=f"{record.id}@{digest[:12]}",
+            )
+            if self.put_evidence(merchant_id, revised):
+                self.audit(
+                    merchant_id,
+                    record.case_id,
+                    "EVIDENCE_REVISED",
+                    {"record": record.id, "revision": revised.id},
+                    at,
+                )
+            return revised
+
     def evidence(self, merchant_id: str, case_id: str) -> list[EvidenceRecord]:
         rows = self.conn.execute(
             "SELECT record_json FROM evidence_records WHERE merchant_id = ? AND case_id = ?"
@@ -587,9 +623,11 @@ class Store:
         return None if row is None else self._referral(row)
 
     def latest_approval(self, merchant_id: str, case_id: str, cycle: int) -> ReferralRow | None:
+        """The newest approval for this cycle that has not been superseded."""
         row = self.conn.execute(
             "SELECT * FROM referrals WHERE merchant_id = ? AND case_id = ? AND cycle = ?"
-            " AND approval_json IS NOT NULL ORDER BY resolved_at DESC, referral_id DESC LIMIT 1",
+            " AND approval_json IS NOT NULL AND resolution NOT LIKE '%SUPERSEDED%'"
+            " ORDER BY resolved_at DESC, referral_id DESC LIMIT 1",
             (merchant_id, case_id, cycle),
         ).fetchone()
         return None if row is None else self._referral(row)
@@ -616,6 +654,21 @@ class Store:
         )
         if cur.rowcount != 1:
             raise StoreError(f"no open referral {referral_id!r}")
+
+    def supersede_referrals(self, merchant_id: str, case_id: str, cycle: int, at: datetime) -> int:
+        """The dispute changed: close any open referral and void every approval of the cycle."""
+        opened = self.conn.execute(
+            "UPDATE referrals SET resolution = 'SUPERSEDED_BY_DISPUTE_CHANGE', resolved_at = ?"
+            " WHERE merchant_id = ? AND case_id = ? AND cycle = ? AND resolution IS NULL",
+            (_iso(at), merchant_id, case_id, cycle),
+        ).rowcount
+        approved = self.conn.execute(
+            "UPDATE referrals SET resolution = resolution || '_SUPERSEDED'"
+            " WHERE merchant_id = ? AND case_id = ? AND cycle = ? AND approval_json IS NOT NULL"
+            " AND resolution NOT LIKE '%SUPERSEDED%'",
+            (merchant_id, case_id, cycle),
+        ).rowcount
+        return opened + approved
 
     # --- write ledger ---------------------------------------------------------------------
 

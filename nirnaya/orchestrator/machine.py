@@ -92,8 +92,41 @@ class Orchestrator:
         changed += self.watchdog(now)
         for merchant_id in self.store.merchant_ids():
             for case in self.store.cases(merchant_id, {s.value for s in RUNNABLE}):
-                changed += int(self.step(case, now))
+                if not self.settings.isolate_step_failures:
+                    changed += int(self.step(case, now))
+                    continue
+                try:
+                    changed += int(self.step(case, now))
+                except Exception as e:  # one case never stalls the others
+                    self._step_failed(case, now, e)
         return changed
+
+    def _step_failed(self, case: CaseRow, now: datetime, error: Exception) -> None:
+        """Audit a failed step; after repeated failures, a person takes over (fail closed)."""
+        with self.store.transaction():
+            self.store.audit(
+                case.merchant_id,
+                case.case_id,
+                "STEP_FAILED",
+                {"state": case.state, "error": type(error).__name__},
+                now,
+            )
+        failures = sum(
+            1
+            for e in self.store.audit_events(case.merchant_id, case.case_id)
+            if e["event"] == "STEP_FAILED" and e["body"].get("state") == case.state
+        )
+        if failures >= self.settings.max_step_failures and CaseState(case.state) in WATCHDOG_REFERS:
+            self._move(
+                case,
+                S.REFERRED,
+                now,
+                _Step(
+                    S.REFERRED, {"why": f"step failed {failures} times"}, referral=["STEP_FAILED"]
+                ),
+                external=True,
+                urgent=True,
+            )
 
     def run_until_idle(self, now: datetime, max_ticks: int = 100) -> int:
         for n in range(1, max_ticks + 1):
@@ -291,7 +324,7 @@ class Orchestrator:
                 record = attempt.to_evidence_record(
                     case_id=case.case_id, captured_at=now, synthetic=self.synthetic
                 )
-                self.store.put_evidence(case.merchant_id, record)
+                self.store.put_evidence_or_revise(case.merchant_id, record, now)
 
         return _Step(S.ASSESSED, {"ownership_resolved": ownership}, apply)
 

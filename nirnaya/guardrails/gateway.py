@@ -23,7 +23,6 @@ from nirnaya.models.base import DomainModel
 from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import ACTIONABLE_STATUS, AcceptReason, Action, DisputeStatus
-from nirnaya.models.money import quantize_amount
 from nirnaya.orchestrator.ports import (
     AirwallexError,
     ChallengeRequest,
@@ -80,10 +79,6 @@ class _Refused(Exception):
         self.detail = detail
 
 
-def _money(d: Dispute) -> tuple[str, str]:
-    return str(quantize_amount(d.amount.amount, d.amount.currency)), d.amount.currency
-
-
 class WriteGateway:
     def __init__(
         self, store: Store, source: DisputeSource, actions: DisputeActions, settings: Settings
@@ -138,6 +133,13 @@ class WriteGateway:
             raise _Refused(GuardFailure.DECISION_CHANGED, "no decision on record for this cycle")
         decision_id, decision = latest
         cycle_row = store.cycle(merchant_id, case_id, cycle)
+        # A rejected write is final for its id; the next attempt is a new operation. A timeout
+        # (UNKNOWN or PENDING) is not counted, so its retry reuses the same id.
+        failed = sum(
+            1
+            for w in store.writes(merchant_id, case_id)
+            if w.cycle == cycle and w.action == action and w.status == Ledger.FAILED
+        )
         rid = request_id(
             merchant_id=merchant_id,
             case_id=case_id,
@@ -145,6 +147,7 @@ class WriteGateway:
             stage=cycle_row.stage,
             action=action.value,
             decision_id=decision_id,
+            attempt=1 + failed,
         )
 
         # 9. Idempotency: an earlier write for this exact operation.
@@ -187,8 +190,8 @@ class WriteGateway:
         # 2. Status.
         if fresh.status is not ACTIONABLE_STATUS:
             raise _Refused(GuardFailure.STATUS_CHANGED, f"status is {fresh.status}")
-        # 3. Stage and amount unchanged since the decision.
-        if fresh.stage != decided_on.stage or _money(fresh) != _money(decided_on):
+        # 3. Stage and amount are those the decision was made on (not merely the last snapshot).
+        if fresh.stage is not decision.stage or str(fresh.amount) != decision.inputs["amount"]:
             raise _Refused(GuardFailure.DISPUTE_CHANGED, "stage or amount changed since decision")
         # 4. Deadline buffer.
         buffer = self._settings.deadline_buffer[fresh.stage]

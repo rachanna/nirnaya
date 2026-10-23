@@ -136,5 +136,33 @@ def _record(
         )
         return
 
+    amended = previous is not None and str(previous.amount) != str(dispute.amount)
+    if amended and current in states.EXTERNAL_REASSESS:
+        # Anything decided, approved or rendered on the old amount is void: decide again.
+        states.check(current, CaseState.ASSESSED, external=True)
+        superseded = store.supersede_referrals(merchant_id, dispute.id, case.cycle, now)
+        store.update_case(
+            merchant_id,
+            dispute.id,
+            state=CaseState.ASSESSED,
+            due_at=dispute.due_at,
+            urgent=False,
+            at=now,
+        )
+        store.audit(
+            merchant_id,
+            dispute.id,
+            "DISPUTE_AMENDED",
+            {
+                **snapshot,
+                "amount": str(dispute.amount),
+                "was": str(previous.amount),
+                "from_state": current,
+                "referrals_superseded": superseded,
+            },
+            now,
+        )
+        return
+
     store.update_case(merchant_id, dispute.id, due_at=dispute.due_at, at=now)
     store.audit(merchant_id, dispute.id, "DISPUTE_UPDATED", snapshot, now)
