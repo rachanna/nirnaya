@@ -5,17 +5,18 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from nirnaya.evidence.catalogue import (
+    CONTRADICTION_RULES,
     TEMPORAL_RULES,
     TRUSTED_AUTHORS,
     Anchor,
     ContradictionRule,
     TemporalRule,
-    contradiction_rules_for,
     record_establishes,
 )
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import EvidenceType, RecordAuthor, SourceSystem
 from nirnaya.models.evidence import EvidenceRecord
+from nirnaya.models.timestamps import parse_instant
 
 
 def case_records(records: Iterable[EvidenceRecord], dispute: Dispute) -> list[EvidenceRecord]:
@@ -47,55 +48,109 @@ class TemporalClash:
     description: str
 
 
+@dataclass(frozen=True)
+class Contradiction:
+    """`record` contradicts the fact `contradicts`, for the reason `reason`."""
+
+    record: EvidenceRecord
+    contradicts: EvidenceType
+    reason: ContradictionRule | TemporalClash
+
+    @property
+    def record_id(self) -> str:
+        return self.record.id
+
+    @property
+    def description(self) -> str:
+        return self.reason.description
+
+
+@dataclass(frozen=True)
+class CrossCheck:
+    """Everything the case's records say about each other, computed in one pass."""
+
+    # Every contradiction, from any author, in record id order.
+    contradictions: tuple[Contradiction, ...]
+    # Trusted evidence dated after the dispute opened: (record, description).
+    late_notes: tuple[tuple[EvidenceRecord, str], ...]
+
+
+def cross_check(records: Iterable[EvidenceRecord], dispute: Dispute) -> CrossCheck:
+    """Rule contradictions and date clashes for every record of the case, plus late notes.
+
+    Rule contradictions come from any author; date clashes only from trusted, intact records.
+    """
+    in_case = case_records(records, dispute)
+    dates = _case_dates(in_case, dispute)
+    found: list[Contradiction] = []
+    for record in in_case:
+        found += [
+            Contradiction(record, rule.contradicts, rule)
+            for rule in CONTRADICTION_RULES
+            if rule.source_system is record.source_system and rule.when(record.fields)
+        ]
+        found += [
+            Contradiction(record, fact, TemporalClash(fact, description))
+            for rule, description in dates.clashes.get(record.id, ())
+            for fact in sorted(rule.facts)
+        ]
+    return CrossCheck(contradictions=tuple(found), late_notes=dates.notes)
+
+
 def find_contradictions(
     fact: EvidenceType, records: Iterable[EvidenceRecord], dispute: Dispute
 ) -> list[tuple[EvidenceRecord, ContradictionRule | TemporalClash]]:
-    """Every (record, reason) in this case contradicting `fact`, in id order.
-
-    Rule contradictions come from any author; date clashes from trusted records only.
-    """
-    in_case = case_records(records, dispute)
-    anchors = _order_anchors(in_case)
-    found: list[tuple[EvidenceRecord, ContradictionRule | TemporalClash]] = []
-    for record in in_case:
-        found += [(record, rule) for rule in contradiction_rules_for(record, fact)]
-        found += [
-            (record, TemporalClash(fact, description))
-            for rule, description in _temporal_clashes(record, dispute, anchors)
-            if fact in rule.facts
-        ]
-    return found
+    """Every (record, reason) in this case contradicting `fact`, in id order."""
+    return [
+        (c.record, c.reason)
+        for c in cross_check(records, dispute).contradictions
+        if c.contradicts is fact
+    ]
 
 
-def contradictory_record_ids(
+def contradictions(
     records: Iterable[EvidenceRecord], dispute: Dispute
-) -> tuple[str, ...]:
+) -> tuple[Contradiction, ...]:
     """Merchant or third-party records contradicting evidence the case's records establish.
 
     These are records that disagree with each other, so the engine refers the case.
     Customer allegations are not included: they make a normal dispute, not a conflict.
     """
     records = list(records)
-    ids = {
-        record.id
-        for fact in evidence_present(records, dispute)
-        for record, _ in find_contradictions(fact, records, dispute)
-        if record.author in TRUSTED_AUTHORS
-    }
-    return tuple(sorted(ids))
+    present = evidence_present(records, dispute)
+    return tuple(
+        c
+        for c in cross_check(records, dispute).contradictions
+        if c.contradicts in present and c.record.author in TRUSTED_AUTHORS
+    )
+
+
+def contradictory_record_ids(
+    records: Iterable[EvidenceRecord], dispute: Dispute
+) -> tuple[str, ...]:
+    """The ids of the records in `contradictions()`, sorted and without repeats."""
+    return tuple(sorted({c.record_id for c in contradictions(records, dispute)}))
+
+
+def late_evidence_notes(
+    records: Iterable[EvidenceRecord], dispute: Dispute
+) -> tuple[tuple[EvidenceRecord, str], ...]:
+    """Trusted evidence dated after the dispute opened. It still counts; the approver is told."""
+    return cross_check(records, dispute).late_notes
+
+
+def _instant(value: object) -> datetime | None:
+    """The value as a UTC instant, or None if it is not a timestamp with a time zone."""
+    try:
+        return parse_instant(value)  # type: ignore[arg-type]
+    except ValueError:
+        return None
 
 
 def _before(value: object, cutoff: datetime) -> bool:
-    """True if `value` is an ISO timestamp before `cutoff`. Undated or unparseable: True."""
-    if not isinstance(value, str):
-        return True
-    try:
-        parsed = datetime.fromisoformat(value)
-    except ValueError:
-        return True
-    if parsed.tzinfo is None:
-        return True
-    return parsed < cutoff
+    """True if `value` is a timestamp before `cutoff`. Undated or unparseable: True."""
+    at = _instant(value)
+    return True if at is None else at < cutoff
 
 
 def unanswered_customer_contacts(
@@ -129,28 +184,32 @@ def unanswered_customer_contacts(
 # --- dates consistent across records ------------------------------------------------------------
 
 
-def _instant(value: object) -> datetime | None:
-    """A timezone-aware ISO timestamp, or None if the value cannot be read as one."""
-    if not isinstance(value, str):
-        return None
-    try:
-        parsed = datetime.fromisoformat(value)
-    except ValueError:
-        return None
-    return parsed if parsed.tzinfo is not None else None
-
-
 def _iso(at: datetime) -> str:
     return at.isoformat().replace("+00:00", "Z")
 
 
-def _order_anchors(in_case: list[EvidenceRecord]) -> dict[Anchor, datetime]:
-    placed = sorted(
-        t
+def _order_anchors(in_case: list[EvidenceRecord], dispute: Dispute) -> dict[Anchor, datetime]:
+    """Order dates to compare against: the disputed order's if it can be identified.
+
+    The disputed order is the trusted, intact ORDER record whose `order_id` is the dispute's
+    `merchant_order_id` (several only through record revisions). Otherwise every trusted,
+    intact order counts, and the bounds are lenient: earliest for lower, latest for upper.
+    """
+    orders = [
+        (r, t)
         for r in in_case
-        if r.source_system is SourceSystem.ORDER and r.author in TRUSTED_AUTHORS
-        if (t := _instant(r.fields.get("placed_at"))) is not None
-    )
+        if r.source_system is SourceSystem.ORDER
+        and r.author in TRUSTED_AUTHORS
+        and r.hash_ok()
+        and (t := _instant(r.fields.get("placed_at"))) is not None
+    ]
+    disputed = [
+        t
+        for r, t in orders
+        if dispute.merchant_order_id is not None
+        and r.fields.get("order_id") == dispute.merchant_order_id
+    ]
+    placed = sorted(disputed or [t for _, t in orders])
     if not placed:
         return {}
     return {Anchor.ORDER_PLACED_EARLIEST: placed[0], Anchor.ORDER_PLACED_LATEST: placed[-1]}
@@ -177,47 +236,45 @@ _AFTER = {
 }
 
 
-def _temporal_clashes(
-    record: EvidenceRecord, dispute: Dispute, anchors: dict[Anchor, datetime]
-) -> list[tuple[TemporalRule, str]]:
-    """(rule, description) for each rule whose date this record breaks (first bound broken)."""
-    bounds = {
-        **anchors,
-        Anchor.DISPUTE_OPENED: dispute.opened_at,
-        Anchor.CAPTURED: record.captured_at,
-    }
-    clashes = []
-    for rule in _applicable(record):
-        raw = record.fields[rule.field]
-        at = _instant(raw)
-        if at is None:
-            clashes.append((rule, f"{rule.label} timestamp unreadable: {raw!r}"))
-            continue
-        early = [a for a in rule.not_before if a in bounds and at < bounds[a]]
-        late = [a for a in rule.not_after if a in bounds and at > bounds[a]]
-        if early:
-            placed = _iso(bounds[early[0]])
-            clashes.append((rule, f"{rule.label} {_iso(at)} predates the order (placed {placed})"))
-        elif late:
-            a = late[0]
-            clashes.append((rule, f"{rule.label} {_iso(at)} {_AFTER[a]} ({_iso(bounds[a])})"))
-    return clashes
+@dataclass(frozen=True)
+class _CaseDates:
+    clashes: dict[str, list[tuple[TemporalRule, str]]]
+    notes: tuple[tuple[EvidenceRecord, str], ...]
 
 
-def late_evidence_notes(
-    records: Iterable[EvidenceRecord], dispute: Dispute
-) -> tuple[tuple[EvidenceRecord, str], ...]:
-    """Trusted evidence dated after the dispute opened. It still counts; the approver is told."""
-    in_case = case_records(records, dispute)
-    anchors = _order_anchors(in_case)
+def _case_dates(in_case: list[EvidenceRecord], dispute: Dispute) -> _CaseDates:
+    """Date clashes per record id, and late-evidence notes. Tampered records are skipped."""
+    anchors = _order_anchors(in_case, dispute)
     opened = _iso(dispute.opened_at)
-    notes = []
+    clashes: dict[str, list[tuple[TemporalRule, str]]] = {}
+    notes: list[tuple[EvidenceRecord, str]] = []
     for record in in_case:
-        clashing = {rule for rule, _ in _temporal_clashes(record, dispute, anchors)}
+        if not record.hash_ok():
+            continue
+        bounds = {
+            **anchors,
+            Anchor.DISPUTE_OPENED: dispute.opened_at,
+            Anchor.CAPTURED: record.captured_at,
+        }
         for rule in _applicable(record):
-            at = _instant(record.fields[rule.field])
-            late = at is not None and at > dispute.opened_at
-            if rule.note_if_late and rule not in clashing and late:
-                description = f"{rule.label} {_iso(at)} is after the dispute opened ({opened})"
-                notes.append((record, description))
-    return tuple(notes)
+            raw = record.fields[rule.field]
+            at = _instant(raw)
+            if at is None:
+                why = f"{rule.label} timestamp unreadable: {raw!r}"
+            else:
+                early = [a for a in rule.not_before if a in bounds and at < bounds[a]]
+                late = [a for a in rule.not_after if a in bounds and at > bounds[a]]
+                if early:
+                    placed = _iso(bounds[early[0]])
+                    why = f"{rule.label} {_iso(at)} predates the order (placed {placed})"
+                elif late:
+                    why = f"{rule.label} {_iso(at)} {_AFTER[late[0]]} ({_iso(bounds[late[0]])})"
+                else:
+                    if rule.note_if_late and at > dispute.opened_at:
+                        description = (
+                            f"{rule.label} {_iso(at)} is after the dispute opened ({opened})"
+                        )
+                        notes.append((record, description))
+                    continue
+            clashes.setdefault(record.id, []).append((rule, why))
+    return _CaseDates(clashes=clashes, notes=tuple(notes))

@@ -16,6 +16,7 @@ from nirnaya.models.base import DomainModel, UtcDatetime
 from nirnaya.models.claim import Claim
 from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
+from nirnaya.models.enums import Stage
 from nirnaya.models.evidence import EvidenceRecord
 from nirnaya.models.policy import MerchantPolicy
 from nirnaya.store import audit
@@ -78,6 +79,13 @@ class ReferralRow(DomainModel):
     resolved_at: UtcDatetime | None
     # Why the case was referred: failing claims, conflicting records or the guard failure.
     detail: dict[str, Any] | None = None
+
+
+class EscalatableReferral(DomainModel):
+    referral_id: str
+    case_id: str
+    due_at: UtcDatetime
+    stage: Stage
 
 
 class StoreError(RuntimeError):
@@ -353,8 +361,9 @@ class Store:
         if record.merchant_id != merchant_id:
             raise StoreError("evidence belongs to another merchant")
         existing = self.conn.execute(
-            "SELECT sha256, record_json FROM evidence_records WHERE case_id = ? AND record_id = ?",
-            (record.case_id, record.id),
+            "SELECT sha256, record_json FROM evidence_records"
+            " WHERE merchant_id = ? AND case_id = ? AND record_id = ?",
+            (merchant_id, record.case_id, record.id),
         ).fetchone()
         if existing is not None:
             if existing["sha256"] == record.sha256:
@@ -435,8 +444,9 @@ class Store:
         self, merchant_id: str, case_id: str, cycle: int, decision: Decision, at: datetime
     ) -> str:
         seq = self.conn.execute(
-            "SELECT COALESCE(MAX(seq), 0) + 1 FROM decisions WHERE case_id = ? AND cycle = ?",
-            (case_id, cycle),
+            "SELECT COALESCE(MAX(seq), 0) + 1 FROM decisions"
+            " WHERE merchant_id = ? AND case_id = ? AND cycle = ?",
+            (merchant_id, case_id, cycle),
         ).fetchone()[0]
         decision_id = f"{case_id}:{cycle}:{seq}"
         self.conn.execute(
@@ -593,9 +603,10 @@ class Store:
         detail: dict[str, Any] | None = None,
     ) -> str:
         n = self.conn.execute(
-            "SELECT COUNT(*) FROM referrals WHERE case_id = ?", (case_id,)
+            "SELECT COUNT(*) FROM referrals WHERE merchant_id = ? AND case_id = ?",
+            (merchant_id, case_id),
         ).fetchone()[0]
-        referral_id = f"{case_id}:ref:{n + 1}"
+        referral_id = f"{merchant_id}:{case_id}:ref:{n + 1}"
         self.conn.execute(
             "INSERT INTO referrals (referral_id, merchant_id, case_id, cycle, reasons_json, urgent,"
             " created_at, detail_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -611,6 +622,27 @@ class Store:
             ),
         )
         return referral_id
+
+    def escalatable_referrals(self, merchant_id: str) -> list[EscalatableReferral]:
+        """Open, non-urgent referrals of cases waiting in REFERRED, with deadline and stage."""
+        rows = self.conn.execute(
+            "SELECT r.referral_id, r.case_id, c.due_at, y.stage FROM referrals r"
+            " JOIN cases c ON c.merchant_id = r.merchant_id AND c.case_id = r.case_id"
+            " JOIN cycles y ON y.merchant_id = c.merchant_id AND y.case_id = c.case_id"
+            " AND y.cycle = c.cycle"
+            " WHERE r.merchant_id = ? AND r.resolution IS NULL AND r.urgent = 0"
+            " AND c.state = 'REFERRED' ORDER BY c.due_at, r.referral_id",
+            (merchant_id,),
+        )
+        return [
+            EscalatableReferral(
+                referral_id=r["referral_id"],
+                case_id=r["case_id"],
+                due_at=r["due_at"],
+                stage=r["stage"],
+            )
+            for r in rows
+        ]
 
     def mark_referral_urgent(self, merchant_id: str, referral_id: str) -> None:
         cur = self.conn.execute(

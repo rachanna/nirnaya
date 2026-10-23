@@ -17,6 +17,7 @@ from nirnaya.agent.targets import investigation_targets, tools_for
 from nirnaya.agent.tools import MerchantSystems, Tool, ToolGateway
 from nirnaya.engine import decide
 from nirnaya.evidence.derive import (
+    contradictions,
     contradictory_record_ids,
     evidence_present,
     unanswered_customer_contacts,
@@ -161,21 +162,17 @@ class Orchestrator:
     def _escalate_referrals(self, merchant_id: str, now: datetime) -> int:
         """A referral still waiting inside the deadline buffer becomes urgent (no transition)."""
         escalated = 0
-        for case in self.store.cases(merchant_id, {S.REFERRED.value}):
-            referral = self.store.open_referral_for(merchant_id, case.case_id)
-            if referral is None or referral.urgent:
-                continue
-            stage = Stage(self.store.cycle(merchant_id, case.case_id, case.cycle).stage)
-            if now < case.due_at - self.settings.deadline_buffer[stage]:
+        for referral in self.store.escalatable_referrals(merchant_id):
+            if now < referral.due_at - self.settings.deadline_buffer[referral.stage]:
                 continue
             with self.store.transaction():
                 self.store.mark_referral_urgent(merchant_id, referral.referral_id)
-                self.store.update_case(merchant_id, case.case_id, urgent=True, at=now)
+                self.store.update_case(merchant_id, referral.case_id, urgent=True, at=now)
                 self.store.audit(
                     merchant_id,
-                    case.case_id,
+                    referral.case_id,
                     "REFERRAL_ESCALATED",
-                    {"referral": referral.referral_id, "due_at": case.due_at},
+                    {"referral": referral.referral_id, "due_at": referral.due_at},
                     now,
                 )
             escalated += 1
@@ -409,9 +406,18 @@ class Orchestrator:
         if decision.action is Action.CHALLENGE:
             return _Step(S.DRAFTING, {"action": Action.CHALLENGE})
         reasons = [r.value for r in decision.referral_reasons]
+        records = self.store.evidence(case.merchant_id, case.case_id)
         detail = {
             "reasons": reasons,
             "contradictory_record_ids": list(decision.inputs.get("contradictory_record_ids", [])),
+            "contradictions": [
+                {
+                    "record_id": c.record_id,
+                    "contradicts": c.contradicts,
+                    "description": c.description,
+                }
+                for c in contradictions(records, self._dispute(case))
+            ],
             "unanswered_contact_ids": list(decision.inputs.get("unanswered_contact_ids", [])),
         }
         return _Step(S.REFERRED, {"reasons": reasons}, referral=reasons, detail=detail)
@@ -454,6 +460,7 @@ class Orchestrator:
             "draft": draft,
             "outcome": result.outcome,
             "blocked": {c.claim.id: [f.check for f in c.failures] for c in result.blocked},
+            "notes": [n.model_dump(mode="json") for n in result.notes],
         }
         if result.outcome is VerificationOutcome.PASSED:
             return _Step(S.RENDERING, body, apply)
@@ -490,6 +497,16 @@ class Orchestrator:
         assert latest is not None
         return latest[1].action
 
+    def _submitted_notes(self, case: CaseRow, action: Action) -> list[dict[str, Any]]:
+        """Approver notes of the verification behind a challenge (none for an accept)."""
+        if action is not Action.CHALLENGE:
+            return []
+        draft = self.store.latest_draft(case.merchant_id, case.case_id, case.cycle)
+        verification = self.store.verification(case.merchant_id, case.case_id, case.cycle, draft)
+        if verification is None:
+            return []
+        return [n.model_dump(mode="json") for n in verification.notes]
+
     def _pre_write_check(self, case: CaseRow, now: datetime) -> _Step:
         action = self._intended_action(case)
         check = self.gateway.preflight(case.merchant_id, case.case_id, case.cycle, action, now=now)
@@ -505,6 +522,18 @@ class Orchestrator:
         action = self._intended_action(case)
         result = self.gateway.submit(case.merchant_id, case.case_id, case.cycle, action, now=now)
         if result.ok:
+            notes = self._submitted_notes(case, action)
+
+            def record_notes() -> None:
+                # Late evidence went out under delegated authority: a person can review it after.
+                self.store.audit(
+                    case.merchant_id,
+                    case.case_id,
+                    "SUBMITTED_WITH_NOTES",
+                    {"request_id": result.request_id, "notes": notes},
+                    now,
+                )
+
             return _Step(
                 S.AWAITING_OUTCOME,
                 {
@@ -513,6 +542,7 @@ class Orchestrator:
                     "ledger": result.ledger,
                     "dry_run": result.dry_run,
                 },
+                record_notes if notes else None,
             )
         if result.failure is GuardFailure.OUTCOME_UNKNOWN:
             return None  # re-fetch and reconcile on the next tick; never a blind resend

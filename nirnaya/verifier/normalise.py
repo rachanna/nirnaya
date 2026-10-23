@@ -2,11 +2,12 @@
 
 import re
 import unicodedata
-from datetime import UTC, date, datetime
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from nirnaya.models.evidence import FieldValue
 from nirnaya.models.money import Money
+from nirnaya.models.timestamps import parse_instant as parse_instant
 
 _DATE_ONLY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _NON_WORD = re.compile(r"[^\w]+")
@@ -20,19 +21,6 @@ def parse_money(value: FieldValue, currency: FieldValue) -> Money:
     except InvalidOperation as exc:
         raise ValueError(f"record amount {value!r} is not a number") from exc
     return Money(amount=amount, currency=currency)
-
-
-def parse_instant(value: FieldValue) -> datetime:
-    """An ISO-8601 timestamp with an offset, as UTC. Naive or date-only values are refused."""
-    if not isinstance(value, str) or _DATE_ONLY.match(value):
-        raise ValueError(f"record value {value!r} is not a timestamp")
-    try:
-        parsed = datetime.fromisoformat(value)
-    except ValueError as exc:
-        raise ValueError(f"record value {value!r} is not ISO-8601") from exc
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        raise ValueError("record timestamp has no time zone, so it cannot be normalised")
-    return parsed.astimezone(UTC)
 
 
 def parse_date_only(value: FieldValue) -> date | None:

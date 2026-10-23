@@ -4,7 +4,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping
 
 from nirnaya.evidence.catalogue import TRUSTED_AUTHORS
-from nirnaya.evidence.derive import case_records, find_contradictions, late_evidence_notes
+from nirnaya.evidence.derive import case_records, cross_check
 from nirnaya.models.claim import Claim
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import RecordAuthor, ValidationStatus
@@ -99,23 +99,29 @@ def verify(
             Failure(check=CheckName.DUPLICATE_CLAIM_ID, detail=f"duplicate claim ids {duplicates}")
         )
 
+    # What the records say about each other, computed once for the whole case.
+    checked = cross_check(records, dispute)
     results: list[ClaimResult] = []
-    counterevidence: dict[tuple[str, str | None], Counterevidence] = {}
+    # Keyed by (record, claim, description): one record can contradict a claim for two reasons.
+    counterevidence: dict[tuple[str, str | None, str], Counterevidence] = {}
     for claim in claims:
         failures = _claim_failures(claim, by_id, in_case, dispute, fx, expected_hashes)
 
         contradicting: list[str] = []
         conflicting: list[str] = []
-        for record, rule in find_contradictions(claim.establishes, records, dispute):
+        for c in checked.contradictions:
+            if c.contradicts is not claim.establishes:
+                continue
+            record = c.record
             contradicting.append(record.id)
             if record.author in TRUSTED_AUTHORS:
                 conflicting.append(record.id)
-            counterevidence[(record.id, claim.id)] = Counterevidence(
+            counterevidence[(record.id, claim.id, c.description)] = Counterevidence(
                 record_id=record.id,
                 source_system=record.source_system,
                 author=record.author,
                 claim_id=claim.id,
-                description=rule.description,
+                description=c.description,
             )
 
         if failures:
@@ -139,15 +145,16 @@ def verify(
         )
 
     # Every customer-authored record is material: the approver sees each allegation.
-    surfaced = {record_id for record_id, _ in counterevidence}
+    surfaced = {record_id for record_id, _, _ in counterevidence}
     for record in in_case:
         if record.author is RecordAuthor.CUSTOMER and record.id not in surfaced:
-            counterevidence[(record.id, None)] = Counterevidence(
+            description = "customer-authored record on file"
+            counterevidence[(record.id, None, description)] = Counterevidence(
                 record_id=record.id,
                 source_system=record.source_system,
                 author=record.author,
                 claim_id=None,
-                description="customer-authored record on file",
+                description=description,
             )
 
     established = frozenset(
@@ -172,11 +179,10 @@ def verify(
     else:
         outcome = VerificationOutcome.PASSED
 
-    late = late_evidence_notes(records, dispute)
     notes = tuple(
         ApproverNote(record_id=record.id, claim_id=r.claim.id, description=description)
         for r in results
-        for record, description in late
+        for record, description in checked.late_notes
         if record.id == r.claim.source_record_id
     )
 
@@ -187,7 +193,8 @@ def verify(
         claims=tuple(results),
         case_failures=tuple(case_failures),
         counterevidence=tuple(
-            counterevidence[k] for k in sorted(counterevidence, key=lambda k: (k[0], k[1] or ""))
+            counterevidence[k]
+            for k in sorted(counterevidence, key=lambda k: (k[0], k[1] or "", k[2]))
         ),
         established=established,
         notes=notes,
