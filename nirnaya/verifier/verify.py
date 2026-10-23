@@ -4,7 +4,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping
 
 from nirnaya.evidence.catalogue import TRUSTED_AUTHORS
-from nirnaya.evidence.derive import case_records, find_contradictions
+from nirnaya.evidence.derive import case_records, find_contradictions, late_evidence_notes
 from nirnaya.models.claim import Claim
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import RecordAuthor, ValidationStatus
@@ -23,6 +23,7 @@ from nirnaya.verifier.checks import (
     check_value,
 )
 from nirnaya.verifier.result import (
+    ApproverNote,
     CheckName,
     ClaimResult,
     Counterevidence,
@@ -171,6 +172,14 @@ def verify(
     else:
         outcome = VerificationOutcome.PASSED
 
+    late = late_evidence_notes(records, dispute)
+    notes = tuple(
+        ApproverNote(record_id=record.id, claim_id=r.claim.id, description=description)
+        for r in results
+        for record, description in late
+        if record.id == r.claim.source_record_id
+    )
+
     return VerificationResult(
         case_id=dispute.id,
         merchant_id=dispute.merchant_id,
@@ -181,4 +190,5 @@ def verify(
             counterevidence[k] for k in sorted(counterevidence, key=lambda k: (k[0], k[1] or ""))
         ),
         established=established,
+        notes=notes,
     )

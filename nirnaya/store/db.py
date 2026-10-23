@@ -15,6 +15,10 @@ def connect(path: str | Path = ":memory:") -> sqlite3.Connection:
     row = conn.execute("SELECT version FROM schema_version").fetchone()
     if row is None:
         conn.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
+    elif row["version"] == 1:
+        # v2: a referral records why (the failing claims, records or guard check).
+        conn.execute("ALTER TABLE referrals ADD COLUMN detail_json TEXT")
+        conn.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
     elif row["version"] != SCHEMA_VERSION:
         raise RuntimeError(f"database schema {row['version']} != expected {SCHEMA_VERSION}")
     return conn

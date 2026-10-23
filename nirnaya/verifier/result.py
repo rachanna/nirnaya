@@ -41,6 +41,14 @@ class Counterevidence(DomainModel):
     description: NonBlankStr
 
 
+class ApproverNote(DomainModel):
+    """Something the approver should know that does not change the outcome."""
+
+    record_id: NonBlankStr
+    claim_id: NonBlankStr
+    description: NonBlankStr
+
+
 class ClaimResult(DomainModel):
     # The claim as verified: validation_status and contradicting_record_ids set by the verifier.
     claim: Claim
@@ -66,6 +74,8 @@ class VerificationResult(DomainModel):
     counterevidence: tuple[Counterevidence, ...]
     # Facts established by VERIFIED claims.
     established: EvidenceSet
+    # E.g. a cited record dated after the dispute opened: still evidence, shown to the approver.
+    notes: tuple[ApproverNote, ...] = ()
 
     @property
     def submittable(self) -> bool:

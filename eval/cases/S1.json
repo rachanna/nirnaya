@@ -59,7 +59,7 @@
       "author": "MERCHANT",
       "fields": {
         "customer_id": "CUST-S1",
-        "active_after_renewal_at": "2026-02-02T08:00:00Z"
+        "active_after_renewal_at": "2026-02-20T08:00:00Z"
       }
     }
   ],
@@ -80,10 +80,10 @@
       "source_record_id": "S1-login",
       "source_field": "active_after_renewal_at",
       "establishes": "USAGE_AFTER_RENEWAL",
-      "extracted_value": "2026-02-02T08:00:00Z",
+      "extracted_value": "2026-02-20T08:00:00Z",
       "normalised_value": {
         "kind": "DATETIME",
-        "at": "2026-02-02T08:00:00Z"
+        "at": "2026-02-20T08:00:00Z"
       }
     }
   ],

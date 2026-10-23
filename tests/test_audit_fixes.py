@@ -262,3 +262,88 @@ def test_l1_png_is_rejected_for_every_brand(brand):
 def test_l1_pdf_still_accepted():
     check_limits(CardBrand.MASTERCARD, [("e.pdf", b"%PDF-")])
     assert make_dispute().card_brand is CardBrand.VISA
+
+
+# --- M3: dates consistent across records -----------------------------------------------------
+
+
+def test_m3_a_delivery_scan_before_the_order_is_referred_end_to_end():
+    h = Harness()
+    case = CASES["N1"]
+    h.stage(case)
+    o = orch(h, systems=world_with({"N1-carrier": {"delivered_at": "2026-02-08T10:00:00Z"}}))
+    o.run_until_idle(h.now(case))
+    assert h.store.case(M, "N1").state == CaseState.REFERRED
+    referral = h.store.open_referral_for(M, "N1")
+    assert referral.reasons == ["CONTRADICTORY_RECORDS"]
+    assert referral.detail["contradictory_record_ids"] == ["N1-carrier"]
+    assert h.store.writes(M, "N1") == []
+
+
+@pytest.mark.parametrize("case_id", ["S1", "S5"])
+def test_m3_corrected_subscription_fixtures_still_challenge(case_id):
+    h = Harness()
+    case = CASES[case_id]
+    h.stage(case)
+    orch(h).run_until_idle(h.now(case))
+    assert [(w.action, w.status) for w in h.store.writes(M, case_id)] == [("CHALLENGE", "DRY_RUN")]
+
+
+# --- L3: a referral near the deadline becomes urgent -----------------------------------------
+
+
+def test_l3_a_referral_near_the_deadline_is_escalated_once():
+    h = Harness()
+    case = CASES["K3"]
+    h.stage(case)
+    o = orch(h)
+    o.run_until_idle(h.now(case))
+    assert not h.store.open_referral_for(M, "K3").urgent
+    late = case.dispute.due_at - timedelta(days=1)  # inside the 2-day chargeback buffer
+    o.tick(late)
+    o.tick(late + timedelta(hours=1))
+    case_row = h.store.case(M, "K3")
+    assert case_row.state == CaseState.REFERRED and case_row.urgent
+    assert h.store.open_referral_for(M, "K3").urgent
+    events = [e["event"] for e in h.store.audit_events(M, "K3")]
+    assert events.count("REFERRAL_ESCALATED") == 1
+
+
+# --- L4: the referral record says why --------------------------------------------------------
+
+
+def test_l4_an_engine_referral_names_the_records_behind_it():
+    h = Harness()
+    case = CASES["K3"]
+    h.stage(case)
+    orch(h).run_until_idle(h.now(case))
+    detail = h.store.open_referral_for(M, "K3").detail
+    assert detail["reasons"] == ["UNANSWERED_CUSTOMER_CONTACT"]
+    assert detail["unanswered_contact_ids"] and all(
+        i.startswith("K3-") for i in detail["unanswered_contact_ids"]
+    )
+
+
+def test_l4_a_guard_referral_carries_the_failure():
+    h = Harness(dry_run=False)
+    case = CASES["D2"]
+    h.stage(case)
+    h.aw.fail_next("accept", "error")
+    orch(h).run_until_idle(h.now(case))
+    detail = h.store.open_referral_for(M, "D2").detail
+    assert detail["failure"] and detail["detail"]
+
+
+def test_l4_schema_v1_databases_are_migrated(tmp_path):
+    from nirnaya.store.db import connect
+
+    path = tmp_path / "old.db"
+    conn = connect(path)
+    conn.execute("ALTER TABLE referrals DROP COLUMN detail_json")
+    conn.execute("UPDATE schema_version SET version = 1")
+    conn.close()
+    conn = connect(path)
+    columns = {r["name"] for r in conn.execute("PRAGMA table_info(referrals)")}
+    assert "detail_json" in columns
+    assert conn.execute("SELECT version FROM schema_version").fetchone()["version"] == 2
+    conn.close()

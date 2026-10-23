@@ -1,6 +1,6 @@
 """SQLite schema. Every table carries merchant_id; every query filters on it."""
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);
@@ -118,7 +118,8 @@ CREATE TABLE IF NOT EXISTS referrals (
     created_at     TEXT NOT NULL,
     resolution     TEXT,
     approval_json  TEXT,
-    resolved_at    TEXT
+    resolved_at    TEXT,
+    detail_json    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS writes (

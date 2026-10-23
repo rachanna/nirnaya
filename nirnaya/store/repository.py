@@ -76,6 +76,8 @@ class ReferralRow(DomainModel):
     resolution: str | None
     approval: dict[str, Any] | None
     resolved_at: UtcDatetime | None
+    # Why the case was referred: failing claims, conflicting records or the guard failure.
+    detail: dict[str, Any] | None = None
 
 
 class StoreError(RuntimeError):
@@ -588,6 +590,7 @@ class Store:
         reasons: list[str],
         urgent: bool,
         at: datetime,
+        detail: dict[str, Any] | None = None,
     ) -> str:
         n = self.conn.execute(
             "SELECT COUNT(*) FROM referrals WHERE case_id = ?", (case_id,)
@@ -595,10 +598,27 @@ class Store:
         referral_id = f"{case_id}:ref:{n + 1}"
         self.conn.execute(
             "INSERT INTO referrals (referral_id, merchant_id, case_id, cycle, reasons_json, urgent,"
-            " created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (referral_id, merchant_id, case_id, cycle, json.dumps(reasons), int(urgent), _iso(at)),
+            " created_at, detail_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                referral_id,
+                merchant_id,
+                case_id,
+                cycle,
+                json.dumps(reasons),
+                int(urgent),
+                _iso(at),
+                None if detail is None else json.dumps(detail, sort_keys=True, default=str),
+            ),
         )
         return referral_id
+
+    def mark_referral_urgent(self, merchant_id: str, referral_id: str) -> None:
+        cur = self.conn.execute(
+            "UPDATE referrals SET urgent = 1 WHERE merchant_id = ? AND referral_id = ?",
+            (merchant_id, referral_id),
+        )
+        if cur.rowcount != 1:
+            raise StoreError(f"no referral {referral_id!r} for {merchant_id!r}")
 
     def _referral(self, row: sqlite3.Row) -> ReferralRow:
         return ReferralRow(
@@ -612,6 +632,7 @@ class Store:
             resolution=row["resolution"],
             approval=None if row["approval_json"] is None else json.loads(row["approval_json"]),
             resolved_at=row["resolved_at"],
+            detail=None if row["detail_json"] is None else json.loads(row["detail_json"]),
         )
 
     def open_referral_for(self, merchant_id: str, case_id: str) -> ReferralRow | None:

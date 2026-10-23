@@ -3,6 +3,7 @@ from nirnaya.evidence.derive import (
     contradictory_record_ids,
     evidence_present,
     find_contradictions,
+    late_evidence_notes,
     unanswered_customer_contacts,
 )
 from nirnaya.models import (
@@ -176,3 +177,48 @@ def test_other_helpdesk_records_are_not_messages():
         SourceSystem.HELPDESK, {"contacts_before_dispute": 0}, id="s", author=RecordAuthor.MERCHANT
     )
     assert unanswered_customer_contacts([summary], make_dispute()) == ()
+
+
+# --- temporal invariants (audit M3) -------------------------------------------------------------
+
+
+def _order(placed_at="2026-02-15T09:00:00+08:00"):
+    return make_record(
+        SourceSystem.ORDER,
+        {"order_id": "ORD-1", "placed_at": placed_at},
+        id="order-1",
+        author=RecordAuthor.MERCHANT,
+    )
+
+
+def test_a_delivery_scan_before_the_order_makes_the_records_contradictory():
+    records = [_order(), carrier_record(delivered_at="2026-02-08T10:00:00Z")]
+    dispute = make_dispute()
+    assert contradictory_record_ids(records, dispute) == ("carrier-1",)
+    ((record, rule),) = find_contradictions(E.DELIVERY_CONFIRMED, records, dispute)
+    assert record.id == "carrier-1" and "predates the order" in rule.description
+
+
+def test_an_order_placed_after_the_dispute_opened_is_contradictory():
+    records = [_order(placed_at="2026-03-02T00:00:00Z")]
+    assert contradictory_record_ids(records, make_dispute()) == ("order-1",)
+
+
+def test_temporal_rules_ignore_records_that_establish_nothing():
+    records = [_order(), carrier_record(status="LOST", delivered_at="2026-01-01T00:00:00Z")]
+    # The LOST record contradicts delivery, but no record establishes delivery: nothing to refer.
+    assert contradictory_record_ids(records, make_dispute()) == ()
+
+
+def test_consistent_dates_are_not_contradictory():
+    records = [_order(), carrier_record()]
+    assert contradictory_record_ids(records, make_dispute()) == ()
+    assert late_evidence_notes(records, make_dispute()) == ()
+
+
+def test_late_evidence_is_noted_not_contradicted():
+    records = [_order(), carrier_record(delivered_at="2026-03-01T20:00:00Z")]
+    dispute = make_dispute()
+    assert contradictory_record_ids(records, dispute) == ()
+    ((record, description),) = late_evidence_notes(records, dispute)
+    assert record.id == "carrier-1" and "after the dispute opened" in description

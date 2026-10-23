@@ -59,7 +59,7 @@
       "author": "MERCHANT",
       "fields": {
         "customer_id": "CUST-S5",
-        "active_after_renewal_at": "2026-02-02T08:00:00Z"
+        "active_after_renewal_at": "2026-02-20T08:00:00Z"
       }
     }
   ],

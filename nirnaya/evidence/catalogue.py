@@ -11,6 +11,7 @@ Customer-authored records never establish anything: their text is untrusted data
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from enum import StrEnum
 
 from nirnaya.models.claim import DateTimeValue, DateValue, MoneyValue, NormalisedValue, TextValue
 from nirnaya.models.enums import AmountBasis, EvidenceType, ReasonCategory, RecordAuthor
@@ -268,6 +269,63 @@ def contradiction_rules_for(record: EvidenceRecord, fact: EvidenceType) -> list[
         and rule.source_system is record.source_system
         and rule.when(record.fields)
     ]
+
+
+class Anchor(StrEnum):
+    """What a dated field is compared with."""
+
+    ORDER_PLACED_EARLIEST = "ORDER_PLACED_EARLIEST"  # earliest placed_at of the case's orders
+    ORDER_PLACED_LATEST = "ORDER_PLACED_LATEST"  # latest placed_at of the case's orders
+    DISPUTE_OPENED = "DISPUTE_OPENED"
+    CAPTURED = "CAPTURED"  # the record's own captured_at
+
+
+@dataclass(frozen=True)
+class TemporalRule:
+    """A record that establishes one of `facts` must date `field` within its anchors.
+
+    Order anchors are lenient (lower bounds use the earliest order, upper bounds the latest), so
+    only a date impossible against every order on file is a clash. Without an order record the
+    order-anchored bounds are skipped. A clash means the merchant's records disagree.
+    """
+
+    facts: frozenset[EvidenceType]
+    source_system: S
+    field: str
+    label: str
+    not_before: tuple[Anchor, ...] = ()
+    not_after: tuple[Anchor, ...] = ()
+    # Dated after the dispute opened: still evidence, but the approver is told.
+    note_if_late: bool = False
+
+
+_ORDER_FACTS = frozenset(
+    {E.ORDER_PLACED, E.DISTINCT_TRANSACTIONS, E.REFUND_ISSUED, E.PRIOR_UNDISPUTED_ORDERS_MATCH}
+)
+
+TEMPORAL_RULES: tuple[TemporalRule, ...] = (
+    TemporalRule(
+        frozenset({E.DELIVERY_CONFIRMED, E.DELIVERY_SIGNATURE}), S.CARRIER, "delivered_at",
+        "delivery scan", (Anchor.ORDER_PLACED_EARLIEST,), (Anchor.CAPTURED,), note_if_late=True,
+    ),
+    TemporalRule(
+        frozenset({E.USAGE_AFTER_RENEWAL}), S.LOGIN, "active_after_renewal_at",
+        "usage after renewal", (Anchor.ORDER_PLACED_EARLIEST,), (Anchor.CAPTURED,),
+        note_if_late=True,
+    ),
+    TemporalRule(
+        frozenset({E.CANCELLATION_TERMS_ACCEPTED}), S.POLICY, "cancellation_terms_accepted_at",
+        "cancellation terms acceptance", (), (Anchor.ORDER_PLACED_LATEST, Anchor.CAPTURED),
+    ),
+    TemporalRule(
+        frozenset({E.ACCOUNT_LOGIN_MATCH}), S.LOGIN, "purchase_device_login_at",
+        "purchase-device login", (), (Anchor.CAPTURED,), note_if_late=True,
+    ),
+    TemporalRule(
+        _ORDER_FACTS, S.ORDER, "placed_at", "order placed",
+        (), (Anchor.DISPUTE_OPENED, Anchor.CAPTURED),
+    ),
+)  # fmt: skip
 
 
 # Claims of these facts deny that the customer complained. They are blocked whenever a

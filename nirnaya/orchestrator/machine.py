@@ -25,7 +25,7 @@ from nirnaya.guardrails.gateway import GuardFailure, WriteGateway
 from nirnaya.ingest import ingest
 from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
-from nirnaya.models.enums import Action, Stage
+from nirnaya.models.enums import Action, Stage, ValidationStatus
 from nirnaya.models.money import FxTable, Money
 from nirnaya.orchestrator import states
 from nirnaya.orchestrator.deferral import closed_reason, deferral_reason
@@ -34,7 +34,7 @@ from nirnaya.orchestrator.settings import Settings
 from nirnaya.orchestrator.states import RUNNABLE, WATCHDOG_REFERS, CaseState
 from nirnaya.render.evidence_doc import RenderError, render_evidence
 from nirnaya.store.repository import CaseRow, Store
-from nirnaya.verifier import VerificationOutcome, verify
+from nirnaya.verifier import VerificationOutcome, VerificationResult, verify
 
 S = CaseState
 
@@ -45,6 +45,7 @@ class _Step:
     body: dict[str, Any] = field(default_factory=dict)
     apply: Callable[[], None] | None = None
     referral: list[str] | None = None  # reasons, when moving to REFERRED
+    detail: dict[str, Any] | None = None  # why, for the referral record (default: the body)
 
 
 class Orchestrator:
@@ -154,7 +155,31 @@ class Orchestrator:
                         urgent=True,
                     )
                     moved += 1
+            moved += self._escalate_referrals(merchant_id, now)
         return moved
+
+    def _escalate_referrals(self, merchant_id: str, now: datetime) -> int:
+        """A referral still waiting inside the deadline buffer becomes urgent (no transition)."""
+        escalated = 0
+        for case in self.store.cases(merchant_id, {S.REFERRED.value}):
+            referral = self.store.open_referral_for(merchant_id, case.case_id)
+            if referral is None or referral.urgent:
+                continue
+            stage = Stage(self.store.cycle(merchant_id, case.case_id, case.cycle).stage)
+            if now < case.due_at - self.settings.deadline_buffer[stage]:
+                continue
+            with self.store.transaction():
+                self.store.mark_referral_urgent(merchant_id, referral.referral_id)
+                self.store.update_case(merchant_id, case.case_id, urgent=True, at=now)
+                self.store.audit(
+                    merchant_id,
+                    case.case_id,
+                    "REFERRAL_ESCALATED",
+                    {"referral": referral.referral_id, "due_at": case.due_at},
+                    now,
+                )
+            escalated += 1
+        return escalated
 
     def step(self, case: CaseRow, now: datetime) -> bool:
         handler = self._handlers.get(CaseState(case.state))
@@ -183,7 +208,13 @@ class Orchestrator:
                 step.apply()
             if to is S.REFERRED:
                 self.store.open_referral(
-                    case.merchant_id, case.case_id, case.cycle, step.referral or [], urgent, now
+                    case.merchant_id,
+                    case.case_id,
+                    case.cycle,
+                    step.referral or [],
+                    urgent,
+                    now,
+                    detail=step.detail if step.detail is not None else step.body,
                 )
             self.store.update_case(case.merchant_id, case.case_id, state=to, urgent=urgent, at=now)
             self.store.audit(
@@ -378,7 +409,12 @@ class Orchestrator:
         if decision.action is Action.CHALLENGE:
             return _Step(S.DRAFTING, {"action": Action.CHALLENGE})
         reasons = [r.value for r in decision.referral_reasons]
-        return _Step(S.REFERRED, {"reasons": reasons}, referral=reasons)
+        detail = {
+            "reasons": reasons,
+            "contradictory_record_ids": list(decision.inputs.get("contradictory_record_ids", [])),
+            "unanswered_contact_ids": list(decision.inputs.get("unanswered_contact_ids", [])),
+        }
+        return _Step(S.REFERRED, {"reasons": reasons}, referral=reasons, detail=detail)
 
     def _drafting(self, case: CaseRow, now: datetime) -> _Step:
         dispute = self._dispute(case)
@@ -421,7 +457,13 @@ class Orchestrator:
         }
         if result.outcome is VerificationOutcome.PASSED:
             return _Step(S.RENDERING, body, apply)
-        return _Step(S.REFERRED, body, apply, referral=[f"VERIFICATION_{result.outcome}"])
+        return _Step(
+            S.REFERRED,
+            body,
+            apply,
+            referral=[f"VERIFICATION_{result.outcome}"],
+            detail=_verification_detail(draft, result),
+        )
 
     def _rendering(self, case: CaseRow, now: datetime) -> _Step:
         m, cid = case.merchant_id, case.case_id
@@ -479,3 +521,27 @@ class Orchestrator:
             {"failure": result.failure, "detail": result.detail},
             referral=[f"GUARD_{result.failure}"],
         )
+
+
+def _verification_detail(draft: str, result: VerificationResult) -> dict[str, Any]:
+    """What the approver needs: each claim that did not verify, why, and what contradicts it."""
+    return {
+        "draft": draft,
+        "outcome": result.outcome,
+        "claims": [
+            {
+                "claim_id": c.claim.id,
+                "source_record_id": c.claim.source_record_id,
+                "source_field": c.claim.source_field,
+                "establishes": c.claim.establishes,
+                "status": c.claim.validation_status,
+                "failures": [{"check": f.check, "detail": f.detail} for f in c.failures],
+                "conflicting_record_ids": list(c.conflicting_record_ids),
+            }
+            for c in result.claims
+            if c.claim.validation_status is not ValidationStatus.VERIFIED
+        ],
+        "case_failures": [{"check": f.check, "detail": f.detail} for f in result.case_failures],
+        "counterevidence": [c.model_dump(mode="json") for c in result.counterevidence],
+        "notes": [n.model_dump(mode="json") for n in result.notes],
+    }

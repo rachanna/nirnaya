@@ -82,6 +82,17 @@ A drafted claim is blocked if any of these hold:
 
 The evidence each reason requires must be established by **verified** claims, so a blocked claim also leaves its requirement unmet. When merchant records disagree with a supported claim, the case is referred (REFER), not blocked. Customer allegations are surfaced as counterevidence.
 
+Dates must be possible across records, or the records disagree and the case is referred (`CONTRADICTORY_RECORDS`):
+
+- A delivery scan is not earlier than the earliest order on file.
+- Usage after renewal is not earlier than the earliest order (the renewal charge).
+- Cancellation terms are accepted no later than the latest order (the charge).
+- An order is not placed after the dispute opened.
+- No dated field is later than the record's capture.
+- A dated field that cannot be read, or has no time zone, counts as a disagreement.
+
+Evidence dated after the dispute opened (a late delivery, continued use) still counts; the approver is shown a note.
+
 ## 7. Route
 
 The route is where the case ends up in the full pipeline:
@@ -145,3 +156,5 @@ Pre-chargeback cases that need a response are tagged `offline_only`, because the
 2. If `tests/evaluation/test_cases.py` then disagrees, decide which is wrong (the expectation or the code) and record why in the commit message.
 
 The first such disagreement is already on record. Cases A1, A2 and S4 were missing `REQUIRED_EVIDENCE_MISSING`, which §6 requires. The expectations were corrected; the verifier was right.
+
+The second came from the pre-submission audit (M3, dates consistent across records). In S1 and S5 the disputed renewal order was placed on 10 February, but `active_after_renewal_at` was 2 February, so the "usage after renewal" predated the renewal. With the temporal rules in §6 this is a contradiction between merchant records, and both cases would refer. The fixture was wrong, not the rule: the usage is now dated 20 February (after the renewal, before the dispute opened on 1 March), and both cases still CHALLENGE.

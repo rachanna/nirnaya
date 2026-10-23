@@ -83,9 +83,9 @@ def test_s5_model_fetches_the_pair_then_the_case_challenges():
                     "source_record_id": "S5-login",
                     "source_field": "active_after_renewal_at",
                     "establishes": "USAGE_AFTER_RENEWAL",
-                    "extracted_value": "2026-02-02T08:00:00Z",
+                    "extracted_value": "2026-02-20T08:00:00Z",
                     "value_kind": "DATETIME",
-                    "at": "2026-02-02T08:00:00Z",
+                    "at": "2026-02-20T08:00:00Z",
                 },
             ),
         ],
@@ -184,6 +184,12 @@ def test_a_fabricating_model_never_gets_a_write():
     )
     assert h.store.case(m, cid).state == CaseState.REFERRED
     assert writes(h, m, cid) == []
+    # The referral itself shows the approver which claim failed and why (audit L4).
+    detail = h.store.open_referral_for(m, cid).detail
+    assert detail["outcome"] == "BLOCKED"
+    (blocked,) = [c for c in detail["claims"] if c["status"] == "BLOCKED"]
+    assert (blocked["source_record_id"], blocked["source_field"]) == ("N1-carrier", "signed_by")
+    assert blocked["failures"] and all(f["check"] and f["detail"] for f in blocked["failures"])
 
 
 def test_runs_roll_back_with_their_step():
