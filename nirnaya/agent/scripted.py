@@ -6,6 +6,7 @@ to end without a model.
 
 from decimal import Decimal
 
+from nirnaya.agent.runs import DraftResult, InvestigationResult
 from nirnaya.agent.targets import tools_for
 from nirnaya.agent.tools import ToolGateway, ToolRefused
 from nirnaya.evidence.catalogue import (
@@ -61,7 +62,9 @@ FIELD_KIND: dict[tuple[SourceSystem, str], str] = {
 class ScriptedInvestigator:
     """Calls each needed tool once per lookup key, in a fixed order."""
 
-    def investigate(self, dispute: Dispute, targets: list[EvidenceType], tools: ToolGateway) -> int:
+    def investigate(
+        self, dispute: Dispute, targets: list[EvidenceType], tools: ToolGateway
+    ) -> InvestigationResult:
         used = 0
         called = tools.called()
         for tool in tools_for(targets):
@@ -71,9 +74,9 @@ class ScriptedInvestigator:
                 try:
                     tools.fetch(tool, key)
                 except ToolRefused:
-                    return used
+                    return InvestigationResult(calls=used)
                 used += 1
-        return used
+        return InvestigationResult(calls=used)
 
 
 def _normalise(
@@ -110,7 +113,7 @@ class ScriptedDrafter:
     def __init__(self, fx: FxTable | None = None) -> None:
         self._fx = fx
 
-    def draft(self, dispute: Dispute, records: list[EvidenceRecord]) -> list[Claim]:
+    def draft(self, dispute: Dispute, records: list[EvidenceRecord]) -> DraftResult:
         own = [r for r in case_records(records, dispute) if r.hash_ok()]
         customer_wrote = any(r.author is RecordAuthor.CUSTOMER for r in own)
         claims: list[Claim] = []
@@ -122,7 +125,7 @@ class ScriptedDrafter:
             claim = self._first_claim(fact, own, dispute)
             if claim is not None:
                 claims.append(claim)
-        return claims
+        return DraftResult(claims=tuple(claims))
 
     def _first_claim(
         self, fact: EvidenceType, records: list[EvidenceRecord], dispute: Dispute

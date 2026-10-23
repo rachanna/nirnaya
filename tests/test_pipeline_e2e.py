@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import pytest
 
+from nirnaya.agent.runs import DraftResult
 from nirnaya.agent.scripted import ScriptedDrafter, ScriptedInvestigator
 from nirnaya.evaluation.cases import EvalCase, Route
 from nirnaya.models import Action, DisputeStatus, Stage
@@ -23,7 +24,7 @@ class FixtureDrafter:
         self._claims = case.claim_objects()
 
     def draft(self, dispute, records):  # noqa: ANN001, ANN201
-        return list(self._claims)
+        return DraftResult(claims=tuple(self._claims))
 
 
 def run(case: EvalCase, *, dry_run: bool = True, delegated: bool = True):

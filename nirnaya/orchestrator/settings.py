@@ -38,7 +38,10 @@ class Settings:
             Stage.ARBITRATION: timedelta(days=3),
         }
     )
-    max_tool_calls: int = 8
+    max_tool_calls: int = 8  # per cycle
+    max_tokens_per_cycle: int = 60_000
+    max_calls_per_round: int = 3
+    max_turns_per_round: int = 6
 
     @classmethod
     def from_env(cls) -> "Settings":

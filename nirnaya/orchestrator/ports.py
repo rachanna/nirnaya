@@ -4,7 +4,6 @@ plug in Claude and the real Airwallex client behind the same Protocols."""
 from typing import Any, Protocol
 
 from nirnaya.models.base import DomainModel, NonBlankStr
-from nirnaya.models.claim import Claim
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import AcceptReason, EvidenceType
 from nirnaya.models.evidence import EvidenceRecord
@@ -49,10 +48,13 @@ class DisputeActions(Protocol):
 
 
 class Investigator(Protocol):
-    def investigate(self, dispute: Dispute, targets: list[EvidenceType], tools: Any) -> int:
-        """Fetch evidence for these targets through the tool gateway; returns tool calls used."""
+    def investigate(self, dispute: Dispute, targets: list[EvidenceType], tools: Any) -> Any:
+        """Fetch evidence for these targets through the tool gateway (one round).
+        Returns an InvestigationResult (nirnaya.agent.runs)."""
         ...
 
 
 class Drafter(Protocol):
-    def draft(self, dispute: Dispute, records: list[EvidenceRecord]) -> list[Claim]: ...
+    def draft(self, dispute: Dispute, records: list[EvidenceRecord]) -> Any:
+        """Propose claims. Returns a DraftResult (nirnaya.agent.runs); never trusted."""
+        ...

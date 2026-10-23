@@ -80,7 +80,9 @@ class Harness:
             self.store.add_decision(m, cid, 1, decision, now)
         if claims is None and decision.action.value != "CHALLENGE":
             return
-        drafted = claims if claims is not None else ScriptedDrafter().draft(case.dispute, records)
+        drafted = (
+            claims if claims is not None else ScriptedDrafter().draft(case.dispute, records).claims
+        )
         with self.store.transaction():
             draft = self.store.put_claims(m, cid, 1, drafted)
             result = verify(

@@ -135,6 +135,21 @@ CREATE TABLE IF NOT EXISTS writes (
     updated_at     TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS agent_runs (
+    run_id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    merchant_id    TEXT NOT NULL,
+    case_id        TEXT NOT NULL,
+    cycle          INTEGER NOT NULL,
+    kind           TEXT NOT NULL,
+    provider       TEXT NOT NULL,
+    model          TEXT NOT NULL,
+    stop           TEXT NOT NULL,
+    input_tokens   INTEGER NOT NULL,
+    output_tokens  INTEGER NOT NULL,
+    run_json       TEXT NOT NULL,
+    created_at     TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS audit_events (
     seq          INTEGER PRIMARY KEY AUTOINCREMENT,
     merchant_id  TEXT NOT NULL,

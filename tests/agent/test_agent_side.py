@@ -160,8 +160,8 @@ def test_scripted_investigator_fetches_each_needed_tool_once(store):
     tools.fetch(Tool.ORDER, "ORD-1")
     inv = ScriptedInvestigator()
     targets = [E.DELIVERY_CONFIRMED, E.USAGE_AFTER_RENEWAL, E.CANCELLATION_TERMS_ACCEPTED]
-    assert inv.investigate(dispute, targets, tools) == 3
-    assert inv.investigate(dispute, targets, tools) == 0  # nothing left to fetch
+    assert inv.investigate(dispute, targets, tools).calls == 3
+    assert inv.investigate(dispute, targets, tools).calls == 0  # nothing left to fetch
     assert tools.called() == {
         "get_order:ORD-1",
         "get_carrier_tracking:TRK-1",
@@ -176,7 +176,7 @@ def test_scripted_investigator_stops_at_the_budget(store):
     used = ScriptedInvestigator().investigate(
         dispute, [E.DELIVERY_CONFIRMED, E.USAGE_AFTER_RENEWAL], tools
     )
-    assert used == 1
+    assert used.calls == 1
 
 
 # --- scripted drafter ------------------------------------------------------------------------
@@ -192,7 +192,7 @@ CASES = load_cases()
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
 def test_scripted_drafts_never_fail_verification(case):
     records = case.evidence_records()
-    claims = ScriptedDrafter().draft(case.dispute, records)
+    claims = ScriptedDrafter().draft(case.dispute, records).claims
     result = verify(case.dispute, claims, records)
     assert all(not c.failures for c in result.claims), [
         (c.claim.id, [f.check for f in c.failures]) for c in result.claims if c.failures
@@ -207,7 +207,7 @@ def test_scripted_drafts_never_fail_verification(case):
     ids=lambda c: c.id,
 )
 def test_no_reason_specific_drafts_under_unknown(case):
-    claims = ScriptedDrafter().draft(case.dispute, case.evidence_records())
+    claims = ScriptedDrafter().draft(case.dispute, case.evidence_records()).claims
     assert not {c.establishes for c in claims} & set(REASON_SPECIFIC)
 
 

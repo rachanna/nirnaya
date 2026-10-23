@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from nirnaya.agent.runs import AgentRun
 from nirnaya.agent.targets import investigation_targets, tools_for
 from nirnaya.agent.tools import MerchantSystems, Tool, ToolGateway
 from nirnaya.engine import decide
@@ -204,9 +205,38 @@ class Orchestrator:
             if f"{t}:{k}" not in called
         ]
 
-    def _may_investigate(self, dispute: Dispute, tools: ToolGateway, now: datetime) -> bool:
+    def _may_investigate(
+        self, case: CaseRow, dispute: Dispute, tools: ToolGateway, now: datetime
+    ) -> bool:
+        """Tool calls, model tokens and time all have to remain."""
         buffer = self.settings.investigation_buffer[dispute.stage]
-        return tools.calls_used < self.settings.max_tool_calls and now < dispute.due_at - buffer
+        tokens = self.store.agent_tokens(case.merchant_id, case.case_id, case.cycle)
+        return (
+            tools.calls_used < self.settings.max_tool_calls
+            and tokens < self.settings.max_tokens_per_cycle
+            and now < dispute.due_at - buffer
+        )
+
+    def _record_run(self, case: CaseRow, run: AgentRun | None, now: datetime) -> None:
+        if run is None:
+            return
+        self.store.add_agent_run(case.merchant_id, case.case_id, case.cycle, run, now)
+        self.store.audit(
+            case.merchant_id,
+            case.case_id,
+            "AGENT_RUN",
+            {
+                "kind": run.kind,
+                "provider": run.provider,
+                "model": run.model,
+                "stop": run.stop,
+                "turns": run.turns,
+                "tokens": run.tokens,
+                "tool_calls": [f"{c.tool}:{c.key}:{c.outcome}" for c in run.tool_calls],
+                "dropped": len(run.dropped),
+            },
+            now,
+        )
 
     def _decision_step(
         self,
@@ -215,9 +245,11 @@ class Orchestrator:
         decision: Decision,
         to: CaseState,
         now: datetime,
+        run: AgentRun | None = None,
         **body: Any,
     ) -> _Step:
         def apply() -> None:
+            self._record_run(case, run, now)
             self.store.add_decision(case.merchant_id, case.case_id, case.cycle, decision, now)
 
         return _Step(to, {"action": decision.action, "margin": decision.margin, **body}, apply)
@@ -268,7 +300,7 @@ class Orchestrator:
         decision = self._decide(case, dispute)
         tools = self._tools(case, dispute, now)
         pending = self._pending_calls(decision, dispute, tools, case)
-        if pending and self._may_investigate(dispute, tools, now):
+        if pending and self._may_investigate(case, dispute, tools, now):
             return self._decision_step(
                 case, dispute, decision, S.INVESTIGATING, now, pending=pending
             )
@@ -280,14 +312,29 @@ class Orchestrator:
         before = self._decide(case, dispute)
         records = self.store.evidence(case.merchant_id, case.case_id)
         targets = investigation_targets(before, dispute, evidence_present(records, dispute))
-        used = self.investigator.investigate(dispute, targets, tools)
+        result = self.investigator.investigate(dispute, targets, tools)
+        used, run = result.calls, result.run
         decision = self._decide(case, dispute)
         pending = self._pending_calls(decision, dispute, tools, case)
-        if used and pending and self._may_investigate(dispute, tools, now):
+        tokens = run.tokens if run is not None else 0
+        within = self._may_investigate(case, dispute, tools, now) and (
+            self.store.agent_tokens(case.merchant_id, case.case_id, case.cycle) + tokens
+            < self.settings.max_tokens_per_cycle
+        )
+        if used and pending and within:
             return self._decision_step(
-                case, dispute, decision, S.INVESTIGATING, now, tool_calls=used, pending=pending
+                case,
+                dispute,
+                decision,
+                S.INVESTIGATING,
+                now,
+                run=run,
+                tool_calls=used,
+                pending=pending,
             )
-        return self._decision_step(case, dispute, decision, S.DECIDED, now, tool_calls=used)
+        return self._decision_step(
+            case, dispute, decision, S.DECIDED, now, run=run, tool_calls=used
+        )
 
     def _decided(self, case: CaseRow, now: datetime) -> _Step:
         latest = self.store.latest_decision(case.merchant_id, case.case_id, case.cycle)
@@ -303,11 +350,17 @@ class Orchestrator:
     def _drafting(self, case: CaseRow, now: datetime) -> _Step:
         dispute = self._dispute(case)
         records = self.store.evidence(case.merchant_id, case.case_id)
-        claims = self.drafter.draft(dispute, records)
+        result = self.drafter.draft(dispute, records)
+        claims = list(result.claims)
         if not claims:
-            return _Step(S.REFERRED, {"why": "no claims drafted"}, referral=["DRAFT_EMPTY"])
+
+            def record() -> None:
+                self._record_run(case, result.run, now)
+
+            return _Step(S.REFERRED, {"why": "no claims drafted"}, record, referral=["DRAFT_EMPTY"])
 
         def apply() -> None:
+            self._record_run(case, result.run, now)
             self.store.put_claims(case.merchant_id, case.case_id, case.cycle, claims)
 
         return _Step(S.VERIFYING, {"claims": [c.id for c in claims]}, apply)

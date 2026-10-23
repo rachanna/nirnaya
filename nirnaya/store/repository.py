@@ -502,6 +502,46 @@ class Store:
             (file_id, merchant_id, case_id, cycle, draft),
         )
 
+    # --- agent runs -----------------------------------------------------------------------
+
+    def add_agent_run(
+        self, merchant_id: str, case_id: str, cycle: int, run: Any, at: datetime
+    ) -> None:
+        self.conn.execute(
+            "INSERT INTO agent_runs (merchant_id, case_id, cycle, kind, provider, model, stop,"
+            " input_tokens, output_tokens, run_json, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                merchant_id,
+                case_id,
+                cycle,
+                run.kind,
+                run.provider,
+                run.model,
+                run.stop,
+                run.input_tokens,
+                run.output_tokens,
+                run.model_dump_json(),
+                _iso(at),
+            ),
+        )
+
+    def agent_runs(self, merchant_id: str, case_id: str, cycle: int) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT run_json FROM agent_runs WHERE merchant_id = ? AND case_id = ? AND cycle = ?"
+            " ORDER BY run_id",
+            (merchant_id, case_id, cycle),
+        )
+        return [json.loads(r["run_json"]) for r in rows]
+
+    def agent_tokens(self, merchant_id: str, case_id: str, cycle: int) -> int:
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(input_tokens + output_tokens), 0) FROM agent_runs"
+            " WHERE merchant_id = ? AND case_id = ? AND cycle = ?",
+            (merchant_id, case_id, cycle),
+        ).fetchone()
+        return row[0]
+
     # --- referrals ------------------------------------------------------------------------
 
     def open_referral(
