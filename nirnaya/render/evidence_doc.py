@@ -63,9 +63,13 @@ def check_limits(card_brand: CardBrand | None, files: list[tuple[str, bytes]]) -
 
 
 def render_evidence(
-    dispute: Dispute, verification: VerificationResult, records: list[EvidenceRecord],
-    *, cycle: int, draft: int,
-) -> tuple[str, bytes]:  # fmt: skip
+    dispute: Dispute,
+    verification: VerificationResult,
+    records: list[EvidenceRecord],
+    *,
+    cycle: int,
+    draft: int,
+) -> tuple[str, bytes]:
     """One PDF of every VERIFIED claim with its source excerpt and capture hash."""
     verified = [
         c.claim

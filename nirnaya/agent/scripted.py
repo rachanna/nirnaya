@@ -76,8 +76,9 @@ class ScriptedInvestigator:
         return used
 
 
-def _normalise(kind: str, record: EvidenceRecord, field: str, dispute: Dispute,
-               fx: FxTable | None) -> NormalisedValue | None:  # fmt: skip
+def _normalise(
+    kind: str, record: EvidenceRecord, field: str, dispute: Dispute, fx: FxTable | None
+) -> NormalisedValue | None:
     value = record.fields[field]
     if kind == "DATETIME":
         try:
@@ -89,8 +90,9 @@ def _normalise(kind: str, record: EvidenceRecord, field: str, dispute: Dispute,
         if not isinstance(value, str) or not isinstance(currency, str):
             return None
         try:
-            money, _ = convert(Money(amount=Decimal(value), currency=currency),
-                               dispute.amount.currency, fx)  # fmt: skip
+            money, _ = convert(
+                Money(amount=Decimal(value), currency=currency), dispute.amount.currency, fx
+            )
         except (ValueError, MissingFxRateError, ArithmeticError):
             return None
         return MoneyValue(money=money, basis=AmountBasis.GROSS)
@@ -122,8 +124,9 @@ class ScriptedDrafter:
                 claims.append(claim)
         return claims
 
-    def _first_claim(self, fact: EvidenceType, records: list[EvidenceRecord],
-                     dispute: Dispute) -> Claim | None:  # fmt: skip
+    def _first_claim(
+        self, fact: EvidenceType, records: list[EvidenceRecord], dispute: Dispute
+    ) -> Claim | None:
         for rule in FIELD_RULES:
             if rule.establishes is not fact:
                 continue

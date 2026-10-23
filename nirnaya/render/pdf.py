@@ -40,8 +40,11 @@ def text_pdf(lines: list[str]) -> bytes:
     )
     page_ids = []
     for page_lines in pages:
-        content = [b"BT", f"/F1 {FONT_SIZE} Tf {LEADING} TL".encode(),
-                   f"{MARGIN} {PAGE_HEIGHT - MARGIN} Td".encode()]  # fmt: skip
+        content = [
+            b"BT",
+            f"/F1 {FONT_SIZE} Tf {LEADING} TL".encode(),
+            f"{MARGIN} {PAGE_HEIGHT - MARGIN} Td".encode(),
+        ]
         for line in page_lines:
             content.append(b"(" + _escape(line) + b") Tj T*")
         content.append(b"ET")

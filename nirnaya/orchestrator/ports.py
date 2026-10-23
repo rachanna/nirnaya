@@ -39,8 +39,9 @@ class DisputeSource(Protocol):
 
 
 class DisputeActions(Protocol):
-    def accept(self, merchant_id: str, dispute_id: str, *, request_id: str,
-               reason: AcceptReason) -> Dispute: ...  # fmt: skip
+    def accept(
+        self, merchant_id: str, dispute_id: str, *, request_id: str, reason: AcceptReason
+    ) -> Dispute: ...
     def challenge(
         self, merchant_id: str, dispute_id: str, request: ChallengeRequest
     ) -> Dispute: ...

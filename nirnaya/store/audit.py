@@ -55,10 +55,14 @@ def verify_chain(conn: sqlite3.Connection) -> int | None:
         expected = hashlib.sha256(
             prev_hash.encode()
             + _canonical(
-                row["merchant_id"], row["case_id"], row["event"], row["body_json"], row["at"],
+                row["merchant_id"],
+                row["case_id"],
+                row["event"],
+                row["body_json"],
+                row["at"],
                 prev_hash,
             )
-        ).hexdigest()  # fmt: skip
+        ).hexdigest()
         if row["prev_hash"] != prev_hash or row["hash"] != expected:
             return row["seq"]
         prev_hash = row["hash"]

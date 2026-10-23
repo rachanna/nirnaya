@@ -42,15 +42,25 @@ FLOW: dict[CaseState, frozenset[CaseState]] = {
 EXTERNAL_NEW_CYCLE = frozenset(s for s in CaseState if s is not S.CLOSED)  # -> INGESTED
 EXTERNAL_CLOSE = frozenset(s for s in CaseState if s is not S.CLOSED)  # -> CLOSED
 WATCHDOG_REFERS = frozenset(
-    s for s in CaseState
+    s
+    for s in CaseState
     if s not in {S.DEFERRED, S.AWAITING_OUTCOME, S.SUBMITTING, S.REFERRED, S.CLOSED}
-)  # fmt: skip
+)
 
 # States the scheduler advances; the others wait for Airwallex or a person.
 RUNNABLE = frozenset(
-    {S.INGESTED, S.ASSESSED, S.INVESTIGATING, S.DECIDED, S.DRAFTING, S.VERIFYING, S.RENDERING,
-     S.PRE_WRITE_CHECK, S.SUBMITTING}
-)  # fmt: skip
+    {
+        S.INGESTED,
+        S.ASSESSED,
+        S.INVESTIGATING,
+        S.DECIDED,
+        S.DRAFTING,
+        S.VERIFYING,
+        S.RENDERING,
+        S.PRE_WRITE_CHECK,
+        S.SUBMITTING,
+    }
+)
 
 
 class IllegalTransition(RuntimeError):

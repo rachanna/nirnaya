@@ -149,8 +149,10 @@ class EvalCase(DomainModel):
     def evidence_records(self) -> list[EvidenceRecord]:
         """Every record of this case as captured evidence ("fully investigated")."""
         captured_at = self.dispute.opened_at + timedelta(hours=1)
-        records = [s.snapshot(case_id=self.dispute.id, captured_at=captured_at)
-                   for s in self.source_records()]  # fmt: skip
+        records = [
+            s.snapshot(case_id=self.dispute.id, captured_at=captured_at)
+            for s in self.source_records()
+        ]
         if self.payment_attempt is not None:
             records.append(
                 self.payment_attempt.to_evidence_record(

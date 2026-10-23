@@ -6,7 +6,7 @@ Models documented sandbox behaviour:
   operation fails with duplicate_request_id (kit 4 guide);
 - simulate escalate (RFI or PRE_CHARGEBACK -> CHARGEBACK; not from CHARGEBACK) and resolve;
 - optional instant auto-accept of pre-chargebacks, as the sandbox does.
-Failures can be injected: an error, or a timeout after the write has landed.
+Failures can be injected: an error, or a timeout before or after the write lands.
 """
 
 from dataclasses import dataclass, field
@@ -18,7 +18,7 @@ from nirnaya.models.enums import AcceptReason, DisputeStatus, Stage
 from nirnaya.models.payment import PaymentAttempt
 from nirnaya.orchestrator.ports import AirwallexError, ChallengeRequest, WriteOutcomeUnknown
 
-FailureKind = Literal["error", "timeout_after_apply"]
+FailureKind = Literal["error", "timeout_before_apply", "timeout_after_apply"]
 
 
 @dataclass
@@ -39,8 +39,13 @@ class FakeAirwallex:
 
     # --- seeding and simulation -----------------------------------------------------------
 
-    def add_dispute(self, dispute: Dispute, *, attempt: PaymentAttempt | None = None,
-                    intent_owner: str | None = "same") -> None:  # fmt: skip
+    def add_dispute(
+        self,
+        dispute: Dispute,
+        *,
+        attempt: PaymentAttempt | None = None,
+        intent_owner: str | None = "same",
+    ) -> None:
         if self.auto_accept_pre_chargeback and dispute.stage is Stage.PRE_CHARGEBACK:
             dispute = dispute.model_copy(update={"status": DisputeStatus.ACCEPTED})
         owner = dispute.merchant_id if intent_owner == "same" else intent_owner
@@ -51,13 +56,17 @@ class FakeAirwallex:
         if entry.dispute.stage not in {Stage.RFI, Stage.PRE_CHARGEBACK}:
             raise AirwallexError("validation_error", "escalation not supported from this stage")
         entry.dispute = entry.dispute.model_copy(
-            update={"stage": Stage.CHARGEBACK, "status": DisputeStatus.REQUIRES_RESPONSE,
-                    "due_at": due_at}
-        )  # fmt: skip
+            update={
+                "stage": Stage.CHARGEBACK,
+                "status": DisputeStatus.REQUIRES_RESPONSE,
+                "due_at": due_at,
+            }
+        )
         return entry.dispute
 
-    def simulate_resolve(self, dispute_id: str, *, in_favor_of: Literal["MERCHANT", "CUSTOMER"]
-                         ) -> Dispute:  # fmt: skip
+    def simulate_resolve(
+        self, dispute_id: str, *, in_favor_of: Literal["MERCHANT", "CUSTOMER"]
+    ) -> Dispute:
         entry = self._disputes[dispute_id]
         status = DisputeStatus.WON if in_favor_of == "MERCHANT" else DisputeStatus.LOST
         entry.dispute = entry.dispute.model_copy(update={"status": status})
@@ -116,19 +125,28 @@ class FakeAirwallex:
             raise AirwallexError("duplicate_request_id", request_id)
         return prior[1]
 
-    def _apply(self, operation: str, request_id: str, signature: str, entry: _Entry,
-               new_status: DisputeStatus) -> Dispute:  # fmt: skip
+    def _apply(
+        self,
+        operation: str,
+        request_id: str,
+        signature: str,
+        entry: _Entry,
+        new_status: DisputeStatus,
+    ) -> Dispute:
         failure = self._failures.pop(operation, None)
         if failure == "error":
             raise AirwallexError("internal_error", "injected")
+        if failure == "timeout_before_apply":
+            raise WriteOutcomeUnknown(f"{operation} timed out before reaching Airwallex")
         entry.dispute = entry.dispute.model_copy(update={"status": new_status})
         self._requests[request_id] = (signature, entry.dispute)
         if failure == "timeout_after_apply":
             raise WriteOutcomeUnknown(f"{operation} timed out")
         return entry.dispute
 
-    def accept(self, merchant_id: str, dispute_id: str, *, request_id: str,
-               reason: AcceptReason) -> Dispute:  # fmt: skip
+    def accept(
+        self, merchant_id: str, dispute_id: str, *, request_id: str, reason: AcceptReason
+    ) -> Dispute:
         self.calls.append(("accept", dispute_id))
         signature = f"accept:{dispute_id}"
         if (prior := self._idempotent(request_id, signature)) is not None:
@@ -154,8 +172,9 @@ class FakeAirwallex:
         for file_id in request.file_ids:
             if file_id not in self._files or self._files[file_id][0] != merchant_id:
                 raise AirwallexError("validation_error", f"unknown file {file_id}")
-        return self._apply("challenge", request.request_id, signature, entry,
-                           DisputeStatus.CHALLENGED)  # fmt: skip
+        return self._apply(
+            "challenge", request.request_id, signature, entry, DisputeStatus.CHALLENGED
+        )
 
     def upload_file(self, merchant_id: str, *, filename: str, content: bytes) -> str:
         self.calls.append(("upload", filename))

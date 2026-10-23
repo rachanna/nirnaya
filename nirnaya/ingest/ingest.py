@@ -44,8 +44,9 @@ def _reject(store: Store, merchant_id: str, dispute: Dispute, why: str, now: dat
         )
 
 
-def _record(store: Store, merchant_id: str, policy_version: str, dispute: Dispute,
-            now: datetime) -> None:  # fmt: skip
+def _record(
+    store: Store, merchant_id: str, policy_version: str, dispute: Dispute, now: datetime
+) -> None:
     previous = store.latest_dispute(merchant_id, dispute.id)
     digest = store.add_snapshot(merchant_id, dispute, now)
     case = store.case(merchant_id, dispute.id)
@@ -53,8 +54,9 @@ def _record(store: Store, merchant_id: str, policy_version: str, dispute: Disput
 
     if case is None:
         store.create_case(merchant_id, dispute.id, CaseState.INGESTED, dispute.due_at, now)
-        store.start_cycle(merchant_id, dispute.id, 1, stage=dispute.stage,
-                          policy_version=policy_version, at=now)  # fmt: skip
+        store.start_cycle(
+            merchant_id, dispute.id, 1, stage=dispute.stage, policy_version=policy_version, at=now
+        )
         store.audit(merchant_id, dispute.id, "CASE_OPENED", snapshot, now)
         return
 
@@ -66,19 +68,42 @@ def _record(store: Store, merchant_id: str, policy_version: str, dispute: Disput
     if previous is not None and previous.stage != dispute.stage:
         states.check(current, CaseState.INGESTED, external=True)
         cycle = case.cycle + 1
-        store.start_cycle(merchant_id, dispute.id, cycle, stage=dispute.stage,
-                          policy_version=policy_version, at=now)  # fmt: skip
-        store.update_case(merchant_id, dispute.id, state=CaseState.INGESTED, cycle=cycle,
-                          due_at=dispute.due_at, urgent=False, at=now)  # fmt: skip
-        store.audit(merchant_id, dispute.id, "NEW_CYCLE",
-                    {**snapshot, "cycle": cycle, "from_state": current}, now)  # fmt: skip
+        store.start_cycle(
+            merchant_id,
+            dispute.id,
+            cycle,
+            stage=dispute.stage,
+            policy_version=policy_version,
+            at=now,
+        )
+        store.update_case(
+            merchant_id,
+            dispute.id,
+            state=CaseState.INGESTED,
+            cycle=cycle,
+            due_at=dispute.due_at,
+            urgent=False,
+            at=now,
+        )
+        store.audit(
+            merchant_id,
+            dispute.id,
+            "NEW_CYCLE",
+            {**snapshot, "cycle": cycle, "from_state": current},
+            now,
+        )
         return
 
     if (why := closed_reason(dispute)) is not None:
         states.check(current, CaseState.CLOSED, external=True)
         store.update_case(merchant_id, dispute.id, state=CaseState.CLOSED, at=now)
-        store.audit(merchant_id, dispute.id, "CLOSED_BY_AIRWALLEX",
-                    {**snapshot, "why": why, "from_state": current}, now)  # fmt: skip
+        store.audit(
+            merchant_id,
+            dispute.id,
+            "CLOSED_BY_AIRWALLEX",
+            {**snapshot, "why": why, "from_state": current},
+            now,
+        )
         return
 
     store.update_case(merchant_id, dispute.id, due_at=dispute.due_at, at=now)

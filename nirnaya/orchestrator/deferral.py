@@ -5,9 +5,14 @@ from nirnaya.models.enums import CardBrand, DisputeStatus, Stage
 from nirnaya.models.money import Money
 
 TERMINAL_STATUSES = frozenset(
-    {DisputeStatus.ACCEPTED, DisputeStatus.REVERSED, DisputeStatus.WON, DisputeStatus.LOST,
-     DisputeStatus.EXPIRED}
-)  # fmt: skip
+    {
+        DisputeStatus.ACCEPTED,
+        DisputeStatus.REVERSED,
+        DisputeStatus.WON,
+        DisputeStatus.LOST,
+        DisputeStatus.EXPIRED,
+    }
+)
 
 
 def closed_reason(dispute: Dispute) -> str | None:

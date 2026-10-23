@@ -94,8 +94,9 @@ class ToolGateway:
         with self._store.transaction():
             for record in records:
                 self._store.put_evidence(self._merchant, record)
-            self._store.record_tool_called(self._merchant, self._dispute.id, self._cycle,
-                                           f"{tool}:{key}")  # fmt: skip
+            self._store.record_tool_called(
+                self._merchant, self._dispute.id, self._cycle, f"{tool}:{key}"
+            )
             self._store.audit(
                 self._merchant,
                 self._dispute.id,

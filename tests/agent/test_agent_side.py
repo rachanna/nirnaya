@@ -63,8 +63,9 @@ WORLD = SyntheticWorld(
 @pytest.fixture
 def store():
     s = Store(connect())
-    s.register_merchant(MERCHANT, airwallex_account_id="a", policy=DEMO_POLICY,
-                        delegated_authority=True)  # fmt: skip
+    s.register_merchant(
+        MERCHANT, airwallex_account_id="a", policy=DEMO_POLICY, delegated_authority=True
+    )
     with s.transaction():
         s.create_case(MERCHANT, CASE, "INVESTIGATING", T0, T0)
         s.start_cycle(MERCHANT, CASE, 1, stage="CHARGEBACK", policy_version="v", at=T0)
@@ -201,9 +202,10 @@ def test_scripted_drafts_never_fail_verification(case):
 
 
 @pytest.mark.parametrize(
-    "case", [c for c in CASES if c.dispute.reason_category is ReasonCategory.UNKNOWN],
+    "case",
+    [c for c in CASES if c.dispute.reason_category is ReasonCategory.UNKNOWN],
     ids=lambda c: c.id,
-)  # fmt: skip
+)
 def test_no_reason_specific_drafts_under_unknown(case):
     claims = ScriptedDrafter().draft(case.dispute, case.evidence_records())
     assert not {c.establishes for c in claims} & set(REASON_SPECIFIC)

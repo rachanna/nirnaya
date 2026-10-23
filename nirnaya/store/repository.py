@@ -231,8 +231,9 @@ class Store:
         found = [self._case(r) for r in rows]
         return [c for c in found if c is not None and (states is None or c.state in states)]
 
-    def create_case(self, merchant_id: str, case_id: str, state: str, due_at: datetime,
-                    at: datetime) -> None:  # fmt: skip
+    def create_case(
+        self, merchant_id: str, case_id: str, state: str, due_at: datetime, at: datetime
+    ) -> None:
         self.conn.execute(
             "INSERT INTO cases (case_id, merchant_id, state, cycle, due_at, urgent, updated_at)"
             " VALUES (?, ?, ?, 1, ?, 0, ?)",
@@ -243,8 +244,10 @@ class Store:
         allowed = {"state", "cycle", "due_at", "urgent"}
         if not fields or set(fields) - allowed:
             raise StoreError(f"bad case update {sorted(fields)}")
-        values = {k: (_iso(v) if isinstance(v, datetime) else int(v) if isinstance(v, bool) else v)
-                  for k, v in fields.items()}  # fmt: skip
+        values = {
+            k: (_iso(v) if isinstance(v, datetime) else int(v) if isinstance(v, bool) else v)
+            for k, v in fields.items()
+        }
         sets = ", ".join(f"{k} = ?" for k in values)
         cur = self.conn.execute(
             f"UPDATE cases SET {sets}, updated_at = ? WHERE merchant_id = ? AND case_id = ?",
@@ -253,8 +256,16 @@ class Store:
         if cur.rowcount != 1:
             raise StoreError(f"no case {case_id!r} for {merchant_id!r}")
 
-    def start_cycle(self, merchant_id: str, case_id: str, cycle: int, *, stage: str,
-                    policy_version: str, at: datetime) -> None:  # fmt: skip
+    def start_cycle(
+        self,
+        merchant_id: str,
+        case_id: str,
+        cycle: int,
+        *,
+        stage: str,
+        policy_version: str,
+        at: datetime,
+    ) -> None:
         self.conn.execute(
             "INSERT INTO cycles (merchant_id, case_id, cycle, stage, policy_version, started_at)"
             " VALUES (?, ?, ?, ?, ?, ?)",
@@ -349,9 +360,15 @@ class Store:
             return False
         self.conn.execute(
             "INSERT INTO evidence_records VALUES (?, ?, ?, ?, ?, ?)",
-            (merchant_id, record.case_id, record.id, record.model_dump_json(), record.sha256,
-             _iso(record.captured_at)),
-        )  # fmt: skip
+            (
+                merchant_id,
+                record.case_id,
+                record.id,
+                record.model_dump_json(),
+                record.sha256,
+                _iso(record.captured_at),
+            ),
+        )
         return True
 
     def evidence(self, merchant_id: str, case_id: str) -> list[EvidenceRecord]:
@@ -371,8 +388,9 @@ class Store:
 
     # --- decisions, claims, verifications, renders ---------------------------------------
 
-    def add_decision(self, merchant_id: str, case_id: str, cycle: int, decision: Decision,
-                     at: datetime) -> str:  # fmt: skip
+    def add_decision(
+        self, merchant_id: str, case_id: str, cycle: int, decision: Decision, at: datetime
+    ) -> str:
         seq = self.conn.execute(
             "SELECT COALESCE(MAX(seq), 0) + 1 FROM decisions WHERE case_id = ? AND cycle = ?",
             (case_id, cycle),
@@ -380,13 +398,22 @@ class Store:
         decision_id = f"{case_id}:{cycle}:{seq}"
         self.conn.execute(
             "INSERT INTO decisions VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (decision_id, merchant_id, case_id, cycle, seq, decision.action.value,
-             decision.model_dump_json(), _iso(at)),
-        )  # fmt: skip
+            (
+                decision_id,
+                merchant_id,
+                case_id,
+                cycle,
+                seq,
+                decision.action.value,
+                decision.model_dump_json(),
+                _iso(at),
+            ),
+        )
         return decision_id
 
-    def latest_decision(self, merchant_id: str, case_id: str, cycle: int
-                        ) -> tuple[str, Decision] | None:  # fmt: skip
+    def latest_decision(
+        self, merchant_id: str, case_id: str, cycle: int
+    ) -> tuple[str, Decision] | None:
         row = self.conn.execute(
             "SELECT decision_id, decision_json FROM decisions WHERE merchant_id = ? AND case_id = ?"
             " AND cycle = ? ORDER BY seq DESC LIMIT 1",
@@ -423,15 +450,17 @@ class Store:
         )
         return [Claim.model_validate_json(r["claim_json"]) for r in rows]
 
-    def put_verification(self, merchant_id: str, case_id: str, cycle: int, draft: int,
-                         result: VerificationResult) -> None:  # fmt: skip
+    def put_verification(
+        self, merchant_id: str, case_id: str, cycle: int, draft: int, result: VerificationResult
+    ) -> None:
         self.conn.execute(
             "INSERT OR REPLACE INTO verifications VALUES (?, ?, ?, ?, ?, ?)",
             (merchant_id, case_id, cycle, draft, result.outcome.value, result.model_dump_json()),
         )
 
-    def verification(self, merchant_id: str, case_id: str, cycle: int, draft: int
-                     ) -> VerificationResult | None:  # fmt: skip
+    def verification(
+        self, merchant_id: str, case_id: str, cycle: int, draft: int
+    ) -> VerificationResult | None:
         row = self.conn.execute(
             "SELECT result_json FROM verifications WHERE merchant_id = ? AND case_id = ?"
             " AND cycle = ? AND draft = ?",
@@ -439,8 +468,9 @@ class Store:
         ).fetchone()
         return None if row is None else VerificationResult.model_validate_json(row["result_json"])
 
-    def put_render(self, merchant_id: str, case_id: str, cycle: int, draft: int, filename: str,
-                   content: bytes) -> str:  # fmt: skip
+    def put_render(
+        self, merchant_id: str, case_id: str, cycle: int, draft: int, filename: str, content: bytes
+    ) -> str:
         digest = hashlib.sha256(content).hexdigest()
         self.conn.execute(
             "INSERT OR REPLACE INTO renders VALUES (?, ?, ?, ?, ?, ?, ?, NULL)",
@@ -448,8 +478,9 @@ class Store:
         )
         return digest
 
-    def render(self, merchant_id: str, case_id: str, cycle: int, draft: int
-               ) -> dict[str, Any] | None:  # fmt: skip
+    def render(
+        self, merchant_id: str, case_id: str, cycle: int, draft: int
+    ) -> dict[str, Any] | None:
         row = self.conn.execute(
             "SELECT filename, content, sha256, file_id FROM renders WHERE merchant_id = ?"
             " AND case_id = ? AND cycle = ? AND draft = ?",
@@ -457,8 +488,9 @@ class Store:
         ).fetchone()
         return None if row is None else dict(row)
 
-    def set_render_file_id(self, merchant_id: str, case_id: str, cycle: int, draft: int,
-                           file_id: str) -> None:  # fmt: skip
+    def set_render_file_id(
+        self, merchant_id: str, case_id: str, cycle: int, draft: int, file_id: str
+    ) -> None:
         self.conn.execute(
             "UPDATE renders SET file_id = ? WHERE merchant_id = ? AND case_id = ? AND cycle = ?"
             " AND draft = ?",
@@ -467,8 +499,15 @@ class Store:
 
     # --- referrals ------------------------------------------------------------------------
 
-    def open_referral(self, merchant_id: str, case_id: str, cycle: int, reasons: list[str],
-                      urgent: bool, at: datetime) -> str:  # fmt: skip
+    def open_referral(
+        self,
+        merchant_id: str,
+        case_id: str,
+        cycle: int,
+        reasons: list[str],
+        urgent: bool,
+        at: datetime,
+    ) -> str:
         n = self.conn.execute(
             "SELECT COUNT(*) FROM referrals WHERE case_id = ?", (case_id,)
         ).fetchone()[0]
@@ -510,14 +549,26 @@ class Store:
         ).fetchone()
         return None if row is None else self._referral(row)
 
-    def resolve_referral(self, merchant_id: str, referral_id: str, *, resolution: str,
-                         approval: dict[str, Any] | None, at: datetime) -> None:  # fmt: skip
+    def resolve_referral(
+        self,
+        merchant_id: str,
+        referral_id: str,
+        *,
+        resolution: str,
+        approval: dict[str, Any] | None,
+        at: datetime,
+    ) -> None:
         cur = self.conn.execute(
             "UPDATE referrals SET resolution = ?, approval_json = ?, resolved_at = ?"
             " WHERE merchant_id = ? AND referral_id = ? AND resolution IS NULL",
-            (resolution, None if approval is None else json.dumps(approval, sort_keys=True),
-             _iso(at), merchant_id, referral_id),
-        )  # fmt: skip
+            (
+                resolution,
+                None if approval is None else json.dumps(approval, sort_keys=True),
+                _iso(at),
+                merchant_id,
+                referral_id,
+            ),
+        )
         if cur.rowcount != 1:
             raise StoreError(f"no open referral {referral_id!r}")
 
@@ -552,18 +603,44 @@ class Store:
         )
         return [self._write(r) for r in rows]
 
-    def insert_write(self, merchant_id: str, case_id: str, cycle: int, *, request_id: str,
-                     action: str, request: dict[str, Any], status: str, dry_run: bool,
-                     at: datetime) -> None:  # fmt: skip
+    def insert_write(
+        self,
+        merchant_id: str,
+        case_id: str,
+        cycle: int,
+        *,
+        request_id: str,
+        action: str,
+        request: dict[str, Any],
+        status: str,
+        dry_run: bool,
+        at: datetime,
+    ) -> None:
         self.conn.execute(
             "INSERT INTO writes VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)",
-            (request_id, merchant_id, case_id, cycle, action,
-             json.dumps(request, sort_keys=True, default=str), status, int(dry_run), _iso(at),
-             _iso(at)),
-        )  # fmt: skip
+            (
+                request_id,
+                merchant_id,
+                case_id,
+                cycle,
+                action,
+                json.dumps(request, sort_keys=True, default=str),
+                status,
+                int(dry_run),
+                _iso(at),
+                _iso(at),
+            ),
+        )
 
-    def update_write(self, merchant_id: str, request_id: str, *, status: str,
-                     response: dict[str, Any] | None, at: datetime) -> None:  # fmt: skip
+    def update_write(
+        self,
+        merchant_id: str,
+        request_id: str,
+        *,
+        status: str,
+        response: dict[str, Any] | None,
+        at: datetime,
+    ) -> None:
         body = None if response is None else json.dumps(response, sort_keys=True, default=str)
         cur = self.conn.execute(
             "UPDATE writes SET status = ?, response_json = ?, updated_at = ?"
