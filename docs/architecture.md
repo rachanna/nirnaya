@@ -200,9 +200,9 @@ flowchart TB
 | Evidence renderer | `nirnaya/render/` *(new package)* | ⬜ | Verified claims → evidence files that meet card-brand format and size limits | none | models |
 | Write gateway | `nirnaya/guardrails/` | ⬜ | Pre-write checklist, deterministic `request_id`, write ledger, dry-run; the only caller of write endpoints | **enforces** | engine, Airwallex clients, store |
 | Airwallex clients | `nirnaya/integrations/airwallex/` | ⬜ | Auth, typed read client, separate write client, simulation helpers | none | httpx |
-| Merchant mocks | `nirnaya/integrations/mocks/` | ⬜ | SYNTHETIC order, carrier, login, helpdesk and policy systems behind `Protocol` interfaces | none | none |
+| Merchant mocks | `nirnaya/integrations/mocks/` | ✅ | SYNTHETIC order, carrier, login, helpdesk and policy systems behind `Protocol` interfaces | none | none |
 | Demo config | `nirnaya/config/demo.py` | ✅ | `DEMO_POLICY`, `DEMO_FX` (labelled ASSUMPTION) | data | models |
-| Eval harness | `eval/` | ⬜ | Case fixtures, runner, baselines, metrics | none | orchestrator, store |
+| Eval harness | `eval/` (data), `nirnaya/evaluation/` (code) | 🔶 | Case fixtures and expert policy ✅; runner, baselines, metrics ⬜ | none | orchestrator, store |
 | UI | `app/` | ⬜ | Streamlit views and approver actions | none | store, review queue |
 
 `ingest/` and `render/` are additions to the layout in `CLAUDE.md`. They keep wire-format handling and file generation out of the orchestrator.
@@ -942,7 +942,7 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | Milestone | Builds | Proves | Status |
 |---|---|---|---|
 | M1: Deterministic core | `models/`, `evidence/`, `engine/`, `verifier/`, `config/demo.py` | Formulas and boundaries, unknown reasons never challenged, every verifier check, the kit 4 cases end to end at unit level, determinism | ✅ (427 tests), plus Airwallex enum alignment and the decisions in §17.1 |
-| M2: Synthetic world | `integrations/mocks/`, `eval/cases/` | ~30 cases with expected decisions, the kit 4 cases as fixtures, adversarial cases | ⬜ |
+| M2: Synthetic world | `integrations/mocks/`, `evaluation/cases.py`, `eval/cases/`, `eval/EXPERT_POLICY.md` | 42 cases with hand-derived expected decisions (the kit 4 cases, every reason at chargeback and an earlier stage, boundaries, deferrals, adversarial cases); the engine and verifier agree with every one; the lookup chain from `merchant_order_id` reaches exactly each case's records | ✅ (565 tests) |
 | M3: Orchestrator | `store/`, `orchestrator/`, `ingest/` (mock source), scripted investigator, `render/` | End-to-end state machine with no LLM; audit chain; idempotent, resumable handlers; watchdog | ⬜ |
 | M4: Investigating agent | `agent/`, tool gateway | VoI-driven search, budgets, stop conditions, structured drafts, injection resistance | ⬜ |
 | M5: Airwallex sandbox | `integrations/airwallex/`, `guardrails/`, real `ingest/` | Re-fetch checklist, `request_id` ledger, dry run, simulation round-trips, closes the §9 TODOs | ⬜ |

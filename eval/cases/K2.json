@@ -1,0 +1,79 @@
+{
+  "id": "K2",
+  "title": "Kit 2: small not-received claim, delivered without signature",
+  "tags": [
+    "kit4",
+    "demo",
+    "non_receipt",
+    "chargeback",
+    "low_value"
+  ],
+  "dispute": {
+    "id": "K2",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-K2",
+    "payment_attempt_id": "att-K2",
+    "merchant_order_id": "ORD-K2",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "PRODUCT_NOT_RECEIVED",
+      "original_code": "13.1"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "15.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "K2-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-K2",
+        "customer_id": "CUST-K2",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "15.00",
+        "currency": "USD",
+        "tracking_number": "TRK-K2",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "K2-carrier",
+      "system": "CARRIER",
+      "author": "THIRD_PARTY",
+      "fields": {
+        "tracking_number": "TRK-K2",
+        "status": "DELIVERED",
+        "recipient_name": "J. Smith",
+        "delivered_at": "2026-02-14T15:30:00-05:00"
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": {
+    "create_stage": "CHARGEBACK",
+    "reason_code": "13.1"
+  },
+  "expected": {
+    "route": "ACCEPT",
+    "engine": {
+      "action": "ACCEPT",
+      "math_action": "ACCEPT",
+      "accept_reason": "LOW_VALUE_TRANSACTION",
+      "referral_reasons": [],
+      "p": "0.60",
+      "margin": "-71"
+    },
+    "verification": null,
+    "rationale": "Delivery prior 0.60: 0.6*15 - 80 = -71, accept. At p_max 0.9: 13.5 - 80 < 0, so the accept reason is LOW_VALUE_TRANSACTION; the fee exceeds the amount at risk."
+  }
+}

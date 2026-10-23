@@ -1,0 +1,94 @@
+{
+  "id": "K3",
+  "title": "Kit 3: credit not processed, two unanswered emails",
+  "tags": [
+    "kit4",
+    "demo",
+    "unknown",
+    "chargeback",
+    "unanswered_contact"
+  ],
+  "dispute": {
+    "id": "K3",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-K3",
+    "payment_attempt_id": "att-K3",
+    "merchant_order_id": "ORD-K3",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "CREDIT_NOT_PROCESSED",
+      "original_code": "13.6"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "120.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "K3-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-K3",
+        "customer_id": "CUST-K3",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "120.00",
+        "currency": "USD",
+        "tracking_number": "TRK-K3",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "K3-email-1",
+      "system": "HELPDESK",
+      "author": "CUSTOMER",
+      "fields": {
+        "customer_id": "CUST-K3",
+        "ticket_id": "TK-K3-1",
+        "channel": "email",
+        "sent_at": "2026-02-20T09:00:00Z",
+        "message": "I returned the item, where is my refund?"
+      }
+    },
+    {
+      "id": "K3-email-2",
+      "system": "HELPDESK",
+      "author": "CUSTOMER",
+      "fields": {
+        "customer_id": "CUST-K3",
+        "ticket_id": "TK-K3-2",
+        "channel": "email",
+        "sent_at": "2026-02-25T09:00:00Z",
+        "message": "Still no refund, please reply."
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": {
+    "create_stage": "CHARGEBACK",
+    "reason_code": "13.6"
+  },
+  "expected": {
+    "route": "REFER",
+    "engine": {
+      "action": "REFER",
+      "math_action": "ACCEPT",
+      "accept_reason": null,
+      "referral_reasons": [
+        "UNANSWERED_CUSTOMER_CONTACT"
+      ],
+      "p": "0.10",
+      "margin": "-68"
+    },
+    "verification": null,
+    "rationale": "CREDIT_NOT_PROCESSED maps to UNKNOWN (prior 0.10): 12 - 80 = -68, the maths would accept. Two customer emails before the dispute have no reply, so a person decides."
+  }
+}

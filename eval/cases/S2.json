@@ -1,0 +1,91 @@
+{
+  "id": "S2",
+  "title": "Cancelled subscription: terms only, second requirement missing",
+  "tags": [
+    "subscription",
+    "chargeback",
+    "required_evidence"
+  ],
+  "dispute": {
+    "id": "S2",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-S2",
+    "payment_attempt_id": "att-S2",
+    "merchant_order_id": "ORD-S2",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "CANCELLED_PRODUCT",
+      "original_code": "13.2"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "300.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "S2-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-S2",
+        "customer_id": "CUST-S2",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "300.00",
+        "currency": "USD",
+        "tracking_number": "TRK-S2",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "S2-policy",
+      "system": "POLICY",
+      "author": "MERCHANT",
+      "fields": {
+        "customer_id": "CUST-S2",
+        "policy_id": "TERMS-2025-11",
+        "cancellation_terms_accepted_at": "2025-11-03T10:00:00Z"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-terms",
+      "source_record_id": "S2-policy",
+      "source_field": "cancellation_terms_accepted_at",
+      "establishes": "CANCELLATION_TERMS_ACCEPTED",
+      "extracted_value": "2025-11-03T10:00:00Z",
+      "normalised_value": {
+        "kind": "DATETIME",
+        "at": "2025-11-03T10:00:00Z"
+      }
+    }
+  ],
+  "sandbox": null,
+  "expected": {
+    "route": "REFER",
+    "engine": {
+      "action": "CHALLENGE",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [],
+      "p": "0.40",
+      "margin": "40"
+    },
+    "verification": {
+      "outcome": "BLOCKED",
+      "failed_checks": {},
+      "case_failures": [
+        "REQUIRED_EVIDENCE_MISSING"
+      ]
+    },
+    "rationale": "Terms prior 0.40: 120 - 80 = +40, the engine says challenge. But SUBSCRIPTION also needs usage after renewal or no prior contact; the draft cannot meet it, so it is blocked and referred."
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "id": "S3",
+  "title": "Cancelled subscription: terms and no prior contact",
+  "tags": [
+    "subscription",
+    "chargeback"
+  ],
+  "dispute": {
+    "id": "S3",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-S3",
+    "payment_attempt_id": "att-S3",
+    "merchant_order_id": "ORD-S3",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "CANCELLED_PRODUCT",
+      "original_code": "13.2"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "300.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "S3-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-S3",
+        "customer_id": "CUST-S3",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "300.00",
+        "currency": "USD",
+        "tracking_number": "TRK-S3",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "S3-policy",
+      "system": "POLICY",
+      "author": "MERCHANT",
+      "fields": {
+        "customer_id": "CUST-S3",
+        "policy_id": "TERMS-2025-11",
+        "cancellation_terms_accepted_at": "2025-11-03T10:00:00Z"
+      }
+    },
+    {
+      "id": "S3-helpdesk-summary",
+      "system": "HELPDESK",
+      "author": "MERCHANT",
+      "fields": {
+        "customer_id": "CUST-S3",
+        "contacts_before_dispute": 0
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-terms",
+      "source_record_id": "S3-policy",
+      "source_field": "cancellation_terms_accepted_at",
+      "establishes": "CANCELLATION_TERMS_ACCEPTED",
+      "extracted_value": "2025-11-03T10:00:00Z",
+      "normalised_value": {
+        "kind": "DATETIME",
+        "at": "2025-11-03T10:00:00Z"
+      }
+    },
+    {
+      "id": "claim-no-contact",
+      "source_record_id": "S3-helpdesk-summary",
+      "source_field": "contacts_before_dispute",
+      "establishes": "NO_PRIOR_CUSTOMER_CONTACT",
+      "extracted_value": "0",
+      "normalised_value": {
+        "kind": "ENUM",
+        "text": "0"
+      }
+    }
+  ],
+  "sandbox": null,
+  "expected": {
+    "route": "CHALLENGE",
+    "engine": {
+      "action": "CHALLENGE",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [],
+      "p": "0.40",
+      "margin": "40"
+    },
+    "verification": {
+      "outcome": "PASSED",
+      "failed_checks": {},
+      "case_failures": []
+    },
+    "rationale": "Terms prior 0.40 (no-contact has no prior of its own): +40. Both evidence groups are met."
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "id": "K2C",
+  "title": "Kit 2-C: an unguarded agent claims a signature that does not exist",
+  "tags": [
+    "kit4",
+    "demo",
+    "non_receipt",
+    "chargeback",
+    "fabrication",
+    "adversarial"
+  ],
+  "dispute": {
+    "id": "K2C",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-K2C",
+    "payment_attempt_id": "att-K2C",
+    "merchant_order_id": "ORD-K2C",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "PRODUCT_NOT_RECEIVED",
+      "original_code": "13.1"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "15.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "K2C-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-K2C",
+        "customer_id": "CUST-K2C",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "15.00",
+        "currency": "USD",
+        "tracking_number": "TRK-K2C",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "K2C-carrier",
+      "system": "CARRIER",
+      "author": "THIRD_PARTY",
+      "fields": {
+        "tracking_number": "TRK-K2C",
+        "status": "DELIVERED",
+        "recipient_name": "J. Smith",
+        "delivered_at": "2026-02-14T15:30:00-05:00"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-delivered",
+      "source_record_id": "K2C-carrier",
+      "source_field": "status",
+      "establishes": "DELIVERY_CONFIRMED",
+      "extracted_value": "DELIVERED",
+      "normalised_value": {
+        "kind": "ENUM",
+        "text": "DELIVERED"
+      }
+    },
+    {
+      "id": "claim-signed",
+      "source_record_id": "K2C-carrier",
+      "source_field": "signed_by",
+      "establishes": "DELIVERY_SIGNATURE",
+      "extracted_value": "J. Smith",
+      "normalised_value": {
+        "kind": "NAME",
+        "text": "J. Smith"
+      }
+    }
+  ],
+  "sandbox": null,
+  "expected": {
+    "route": "ACCEPT",
+    "engine": {
+      "action": "ACCEPT",
+      "math_action": "ACCEPT",
+      "accept_reason": "LOW_VALUE_TRANSACTION",
+      "referral_reasons": [],
+      "p": "0.60",
+      "margin": "-71"
+    },
+    "verification": {
+      "outcome": "BLOCKED",
+      "failed_checks": {
+        "claim-signed": [
+          "FIELD_MISSING"
+        ]
+      },
+      "case_failures": []
+    },
+    "rationale": "Decision as K2. The drafted signature claim cites signed_by, which the carrier record does not have: blocked as FIELD_MISSING, while the true delivery claim verifies."
+  }
+}

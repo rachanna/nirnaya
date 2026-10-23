@@ -1,0 +1,108 @@
+{
+  "id": "S1",
+  "title": "Cancelled subscription: terms accepted and used after renewal",
+  "tags": [
+    "subscription",
+    "chargeback"
+  ],
+  "dispute": {
+    "id": "S1",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-S1",
+    "payment_attempt_id": "att-S1",
+    "merchant_order_id": "ORD-S1",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "CANCELLED_PRODUCT",
+      "original_code": "13.2"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "300.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "S1-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-S1",
+        "customer_id": "CUST-S1",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "300.00",
+        "currency": "USD",
+        "tracking_number": "TRK-S1",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "S1-policy",
+      "system": "POLICY",
+      "author": "MERCHANT",
+      "fields": {
+        "customer_id": "CUST-S1",
+        "policy_id": "TERMS-2025-11",
+        "cancellation_terms_accepted_at": "2025-11-03T10:00:00Z"
+      }
+    },
+    {
+      "id": "S1-login",
+      "system": "LOGIN",
+      "author": "MERCHANT",
+      "fields": {
+        "customer_id": "CUST-S1",
+        "active_after_renewal_at": "2026-02-02T08:00:00Z"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-terms",
+      "source_record_id": "S1-policy",
+      "source_field": "cancellation_terms_accepted_at",
+      "establishes": "CANCELLATION_TERMS_ACCEPTED",
+      "extracted_value": "2025-11-03T10:00:00Z",
+      "normalised_value": {
+        "kind": "DATETIME",
+        "at": "2025-11-03T10:00:00Z"
+      }
+    },
+    {
+      "id": "claim-usage",
+      "source_record_id": "S1-login",
+      "source_field": "active_after_renewal_at",
+      "establishes": "USAGE_AFTER_RENEWAL",
+      "extracted_value": "2026-02-02T08:00:00Z",
+      "normalised_value": {
+        "kind": "DATETIME",
+        "at": "2026-02-02T08:00:00Z"
+      }
+    }
+  ],
+  "sandbox": null,
+  "expected": {
+    "route": "CHALLENGE",
+    "engine": {
+      "action": "CHALLENGE",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [],
+      "p": "0.60",
+      "margin": "100"
+    },
+    "verification": {
+      "outcome": "PASSED",
+      "failed_checks": {},
+      "case_failures": []
+    },
+    "rationale": "Terms + usage prior 0.60: 180 - 80 = +100. Both evidence groups are met."
+  }
+}

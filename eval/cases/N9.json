@@ -1,0 +1,89 @@
+{
+  "id": "N9",
+  "title": "Not received at RFI with a delivery scan",
+  "tags": [
+    "non_receipt",
+    "rfi"
+  ],
+  "dispute": {
+    "id": "N9",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-N9",
+    "payment_attempt_id": "att-N9",
+    "merchant_order_id": "ORD-N9",
+    "stage": "RFI",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "PRODUCT_NOT_RECEIVED",
+      "original_code": "13.1"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "300.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "N9-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-N9",
+        "customer_id": "CUST-N9",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "300.00",
+        "currency": "USD",
+        "tracking_number": "TRK-N9",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "N9-carrier",
+      "system": "CARRIER",
+      "author": "THIRD_PARTY",
+      "fields": {
+        "tracking_number": "TRK-N9",
+        "status": "DELIVERED",
+        "recipient_name": "J. Smith",
+        "delivered_at": "2026-02-14T15:30:00-05:00"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-delivered",
+      "source_record_id": "N9-carrier",
+      "source_field": "status",
+      "establishes": "DELIVERY_CONFIRMED",
+      "extracted_value": "DELIVERED",
+      "normalised_value": {
+        "kind": "ENUM",
+        "text": "DELIVERED"
+      }
+    }
+  ],
+  "sandbox": null,
+  "expected": {
+    "route": "CHALLENGE",
+    "engine": {
+      "action": "CHALLENGE",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [],
+      "p": "0.60",
+      "margin": "25"
+    },
+    "verification": {
+      "outcome": "PASSED",
+      "failed_checks": {},
+      "case_failures": []
+    },
+    "rationale": "G_cb = 180 - 70 = 110; RFI margin = 110 - 85 = +25."
+  }
+}

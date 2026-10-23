@@ -1,0 +1,101 @@
+{
+  "id": "N3",
+  "title": "Not received, chargeback, signed delivery",
+  "tags": [
+    "non_receipt",
+    "chargeback"
+  ],
+  "dispute": {
+    "id": "N3",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-N3",
+    "payment_attempt_id": "att-N3",
+    "merchant_order_id": "ORD-N3",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "PRODUCT_NOT_RECEIVED",
+      "original_code": "13.1"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "600.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "N3-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-N3",
+        "customer_id": "CUST-N3",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "600.00",
+        "currency": "USD",
+        "tracking_number": "TRK-N3",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "N3-carrier",
+      "system": "CARRIER",
+      "author": "THIRD_PARTY",
+      "fields": {
+        "tracking_number": "TRK-N3",
+        "status": "DELIVERED",
+        "recipient_name": "J. Smith",
+        "delivered_at": "2026-02-14T15:30:00-05:00",
+        "signed_by": "J. Smith"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-delivered",
+      "source_record_id": "N3-carrier",
+      "source_field": "status",
+      "establishes": "DELIVERY_CONFIRMED",
+      "extracted_value": "DELIVERED",
+      "normalised_value": {
+        "kind": "ENUM",
+        "text": "DELIVERED"
+      }
+    },
+    {
+      "id": "claim-signed",
+      "source_record_id": "N3-carrier",
+      "source_field": "signed_by",
+      "establishes": "DELIVERY_SIGNATURE",
+      "extracted_value": "J. Smith",
+      "normalised_value": {
+        "kind": "NAME",
+        "text": "J. Smith"
+      }
+    }
+  ],
+  "sandbox": null,
+  "expected": {
+    "route": "CHALLENGE",
+    "engine": {
+      "action": "CHALLENGE",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [],
+      "p": "0.80",
+      "margin": "400"
+    },
+    "verification": {
+      "outcome": "PASSED",
+      "failed_checks": {},
+      "case_failures": []
+    },
+    "rationale": "Delivery + signature prior 0.80: 480 - 80 = +400."
+  }
+}

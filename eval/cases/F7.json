@@ -1,0 +1,77 @@
+{
+  "id": "F7",
+  "title": "Fraud chargeback above the referral threshold",
+  "tags": [
+    "fraud",
+    "chargeback",
+    "threshold"
+  ],
+  "dispute": {
+    "id": "F7",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-F7",
+    "payment_attempt_id": "att-F7",
+    "merchant_order_id": "ORD-F7",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "FRAUDULENT",
+      "original_code": "10.4"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "3000.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": {
+    "id": "att-F7",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-F7",
+    "amount": {
+      "amount": "3000.00",
+      "currency": "USD"
+    },
+    "three_ds": "AUTHENTICATED",
+    "avs": "NOT_CHECKED",
+    "cvc": "NOT_CHECKED",
+    "created_at": "2026-02-10T09:00:00Z"
+  },
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "F7-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-F7",
+        "customer_id": "CUST-F7",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "3000.00",
+        "currency": "USD",
+        "tracking_number": "TRK-F7",
+        "fulfilment_status": "SHIPPED"
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": null,
+  "expected": {
+    "route": "REFER",
+    "engine": {
+      "action": "REFER",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [
+        "AMOUNT_ABOVE_THRESHOLD"
+      ],
+      "p": "0.70",
+      "margin": "2020"
+    },
+    "verification": null,
+    "rationale": "0.7*3000 - 80 = +2020 favours a challenge, but 3000 > 2000: a person decides."
+  }
+}

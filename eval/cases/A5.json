@@ -1,0 +1,76 @@
+{
+  "id": "A5",
+  "title": "Payment ownership unresolved on a platform",
+  "tags": [
+    "non_receipt",
+    "chargeback",
+    "ownership"
+  ],
+  "dispute": {
+    "id": "A5",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-A5",
+    "payment_attempt_id": "att-A5",
+    "merchant_order_id": "ORD-A5",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "PRODUCT_NOT_RECEIVED",
+      "original_code": "13.1"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "200.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": false,
+  "world": [
+    {
+      "id": "A5-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-A5",
+        "customer_id": "CUST-A5",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "200.00",
+        "currency": "USD",
+        "tracking_number": "TRK-A5",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "A5-carrier",
+      "system": "CARRIER",
+      "author": "THIRD_PARTY",
+      "fields": {
+        "tracking_number": "TRK-A5",
+        "status": "DELIVERED",
+        "recipient_name": "J. Smith",
+        "delivered_at": "2026-02-14T15:30:00-05:00"
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": null,
+  "expected": {
+    "route": "REFER",
+    "engine": {
+      "action": "REFER",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [
+        "OWNERSHIP_UNRESOLVED"
+      ],
+      "p": "0.60",
+      "margin": "40"
+    },
+    "verification": null,
+    "rationale": "+40, but which connected merchant owns the payment is unresolved: refer."
+  }
+}

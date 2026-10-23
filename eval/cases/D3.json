@@ -1,0 +1,62 @@
+{
+  "id": "D3",
+  "title": "Duplicate charge already fully refunded",
+  "tags": [
+    "duplicate",
+    "chargeback",
+    "deferred"
+  ],
+  "dispute": {
+    "id": "D3",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-D3",
+    "payment_attempt_id": "att-D3",
+    "merchant_order_id": "ORD-D3",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "DUPLICATE_CHARGE",
+      "original_code": "12.6.1"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "300.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z",
+    "refunded_amount": {
+      "amount": "300.00",
+      "currency": "USD"
+    }
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "D3-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-D3",
+        "customer_id": "CUST-D3",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "300.00",
+        "currency": "USD",
+        "tracking_number": "TRK-D3",
+        "fulfilment_status": "SHIPPED",
+        "refunded_amount": "300.00",
+        "refund_status": "REFUNDED"
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": null,
+  "expected": {
+    "route": "DEFER",
+    "engine": null,
+    "verification": null,
+    "rationale": "A full refund is already posted: Airwallex auto-defends. Nirnaya records the case only."
+  }
+}

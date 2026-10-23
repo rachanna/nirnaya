@@ -38,7 +38,8 @@ nirnaya/
     mocks/       # synthetic order, carrier, login, helpdesk, policy store (labelled SYNTHETIC)
   guardrails/    # pre-write checklist, idempotency, dry-run
   store/         # SQLite audit log + evidence hashing
-eval/            # ~30 synthetic cases, expected decisions, baselines, metrics
+  evaluation/    # case schema + loader (cases.py); baselines and metrics in M6
+eval/            # cases/*.json (42 SYNTHETIC cases) + EXPERT_POLICY.md (how expectations are derived)
 app/             # Streamlit demo
 tests/
 docs/spec.md

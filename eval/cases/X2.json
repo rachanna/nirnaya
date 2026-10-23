@@ -1,0 +1,66 @@
+{
+  "id": "X2",
+  "title": "Pre-arbitration under Airwallex review",
+  "tags": [
+    "fraud",
+    "pre_arbitration",
+    "deferred"
+  ],
+  "dispute": {
+    "id": "X2",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-X2",
+    "payment_attempt_id": "att-X2",
+    "merchant_order_id": "ORD-X2",
+    "stage": "PRE_ARBITRATION",
+    "status": "PENDING_CLOSURE",
+    "reason": {
+      "type": "FRAUDULENT",
+      "original_code": "10.4"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "400.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "X2-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-X2",
+        "customer_id": "CUST-X2",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "400.00",
+        "currency": "USD",
+        "tracking_number": "TRK-X2",
+        "fulfilment_status": "SHIPPED"
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": null,
+  "expected": {
+    "route": "DEFER",
+    "engine": {
+      "action": "REFER",
+      "math_action": null,
+      "accept_reason": null,
+      "referral_reasons": [
+        "STAGE_NOT_AUTOMATED",
+        "STATUS_NOT_ACTIONABLE"
+      ],
+      "p": null,
+      "margin": null
+    },
+    "verification": null,
+    "rationale": "Airwallex reviews non-AMEX pre-arbitrations itself (PENDING_CLOSURE). Not automated; recorded only."
+  }
+}

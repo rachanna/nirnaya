@@ -1,0 +1,91 @@
+{
+  "id": "F9",
+  "title": "Unrecognised charge treated as fraud, with 3-D Secure",
+  "tags": [
+    "fraud",
+    "chargeback",
+    "reason_mapping"
+  ],
+  "dispute": {
+    "id": "F9",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-F9",
+    "payment_attempt_id": "att-F9",
+    "merchant_order_id": "ORD-F9",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "UNRECOGNIZED_CHARGE",
+      "original_code": null
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "500.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": {
+    "id": "att-F9",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-F9",
+    "amount": {
+      "amount": "500.00",
+      "currency": "USD"
+    },
+    "three_ds": "AUTHENTICATED",
+    "avs": "NOT_CHECKED",
+    "cvc": "NOT_CHECKED",
+    "created_at": "2026-02-10T09:00:00Z"
+  },
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "F9-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-F9",
+        "customer_id": "CUST-F9",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "500.00",
+        "currency": "USD",
+        "tracking_number": "TRK-F9",
+        "fulfilment_status": "SHIPPED"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-3ds",
+      "source_record_id": "payment_attempt:att-F9",
+      "source_field": "three_ds",
+      "establishes": "THREE_DS_AUTHENTICATED",
+      "extracted_value": "AUTHENTICATED",
+      "normalised_value": {
+        "kind": "ENUM",
+        "text": "AUTHENTICATED"
+      }
+    }
+  ],
+  "sandbox": null,
+  "expected": {
+    "route": "CHALLENGE",
+    "engine": {
+      "action": "CHALLENGE",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [],
+      "p": "0.70",
+      "margin": "270"
+    },
+    "verification": {
+      "outcome": "PASSED",
+      "failed_checks": {},
+      "case_failures": []
+    },
+    "rationale": "UNRECOGNIZED_CHARGE maps to FRAUD, so the 3DS claim is allowed: 0.7*500 - 80 = +270."
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "id": "D4",
+  "title": "Duplicate charge at pre-chargeback, separate purchase",
+  "tags": [
+    "duplicate",
+    "pre_chargeback",
+    "offline_only"
+  ],
+  "dispute": {
+    "id": "D4",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-D4",
+    "payment_attempt_id": "att-D4",
+    "merchant_order_id": "ORD-D4",
+    "stage": "PRE_CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "DUPLICATE_CHARGE",
+      "original_code": "12.6.1"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "300.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-04T05:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "D4-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-D4",
+        "customer_id": "CUST-D4",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "300.00",
+        "currency": "USD",
+        "tracking_number": "TRK-D4",
+        "fulfilment_status": "SHIPPED",
+        "is_distinct_purchase": true
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": null,
+  "expected": {
+    "route": "CHALLENGE",
+    "engine": {
+      "action": "CHALLENGE",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [],
+      "p": "0.65",
+      "margin": "55"
+    },
+    "verification": null,
+    "rationale": "G_cb = 195 - 70 = 125; margin = 125 - 70 = +55."
+  }
+}

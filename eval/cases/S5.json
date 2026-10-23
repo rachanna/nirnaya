@@ -1,0 +1,81 @@
+{
+  "id": "S5",
+  "title": "Cancelled subscription at RFI",
+  "tags": [
+    "subscription",
+    "rfi"
+  ],
+  "dispute": {
+    "id": "S5",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-S5",
+    "payment_attempt_id": "att-S5",
+    "merchant_order_id": "ORD-S5",
+    "stage": "RFI",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "CANCELLED_PRODUCT",
+      "original_code": "13.2"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "300.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "S5-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-S5",
+        "customer_id": "CUST-S5",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "300.00",
+        "currency": "USD",
+        "tracking_number": "TRK-S5",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "S5-policy",
+      "system": "POLICY",
+      "author": "MERCHANT",
+      "fields": {
+        "customer_id": "CUST-S5",
+        "policy_id": "TERMS-2025-11",
+        "cancellation_terms_accepted_at": "2025-11-03T10:00:00Z"
+      }
+    },
+    {
+      "id": "S5-login",
+      "system": "LOGIN",
+      "author": "MERCHANT",
+      "fields": {
+        "customer_id": "CUST-S5",
+        "active_after_renewal_at": "2026-02-02T08:00:00Z"
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": null,
+  "expected": {
+    "route": "CHALLENGE",
+    "engine": {
+      "action": "CHALLENGE",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [],
+      "p": "0.60",
+      "margin": "25"
+    },
+    "verification": null,
+    "rationale": "G_cb = 180 - 70 = 110; RFI margin = 110 - 85 = +25."
+  }
+}

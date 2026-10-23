@@ -1,0 +1,78 @@
+{
+  "id": "F4",
+  "title": "Fraud chargeback inside the marginal band",
+  "tags": [
+    "fraud",
+    "chargeback",
+    "boundary",
+    "marginal"
+  ],
+  "dispute": {
+    "id": "F4",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-F4",
+    "payment_attempt_id": "att-F4",
+    "merchant_order_id": "ORD-F4",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "FRAUDULENT",
+      "original_code": "10.4"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "266.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": {
+    "id": "att-F4",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-F4",
+    "amount": {
+      "amount": "266.00",
+      "currency": "USD"
+    },
+    "three_ds": "NOT_PERFORMED",
+    "avs": "MATCH",
+    "cvc": "MATCH",
+    "created_at": "2026-02-10T09:00:00Z"
+  },
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "F4-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-F4",
+        "customer_id": "CUST-F4",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "266.00",
+        "currency": "USD",
+        "tracking_number": "TRK-F4",
+        "fulfilment_status": "SHIPPED"
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": null,
+  "expected": {
+    "route": "REFER",
+    "engine": {
+      "action": "REFER",
+      "math_action": "ACCEPT",
+      "accept_reason": null,
+      "referral_reasons": [
+        "MARGINAL"
+      ],
+      "p": "0.30",
+      "margin": "-0.2"
+    },
+    "verification": null,
+    "rationale": "0.3*266 - 80 = -0.2, inside the band of 5: refer."
+  }
+}

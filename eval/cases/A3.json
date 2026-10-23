@@ -1,0 +1,110 @@
+{
+  "id": "A3",
+  "title": "Draft overstates the order amount",
+  "tags": [
+    "non_receipt",
+    "chargeback",
+    "fabrication",
+    "adversarial"
+  ],
+  "dispute": {
+    "id": "A3",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-A3",
+    "payment_attempt_id": "att-A3",
+    "merchant_order_id": "ORD-A3",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "PRODUCT_NOT_RECEIVED",
+      "original_code": "13.1"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "200.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "A3-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-A3",
+        "customer_id": "CUST-A3",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "200.00",
+        "currency": "USD",
+        "tracking_number": "TRK-A3",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "A3-carrier",
+      "system": "CARRIER",
+      "author": "THIRD_PARTY",
+      "fields": {
+        "tracking_number": "TRK-A3",
+        "status": "DELIVERED",
+        "recipient_name": "J. Smith",
+        "delivered_at": "2026-02-14T15:30:00-05:00"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-delivered",
+      "source_record_id": "A3-carrier",
+      "source_field": "status",
+      "establishes": "DELIVERY_CONFIRMED",
+      "extracted_value": "DELIVERED",
+      "normalised_value": {
+        "kind": "ENUM",
+        "text": "DELIVERED"
+      }
+    },
+    {
+      "id": "claim-amount",
+      "source_record_id": "A3-order",
+      "source_field": "total_amount",
+      "establishes": "ORDER_PLACED",
+      "extracted_value": "200.00",
+      "normalised_value": {
+        "kind": "MONEY",
+        "basis": "GROSS",
+        "money": {
+          "amount": "250.00",
+          "currency": "USD"
+        }
+      }
+    }
+  ],
+  "sandbox": null,
+  "expected": {
+    "route": "REFER",
+    "engine": {
+      "action": "CHALLENGE",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [],
+      "p": "0.60",
+      "margin": "40"
+    },
+    "verification": {
+      "outcome": "BLOCKED",
+      "failed_checks": {
+        "claim-amount": [
+          "AMOUNT_MISMATCH"
+        ]
+      },
+      "case_failures": []
+    },
+    "rationale": "+40, challenge, but the draft claims an order total of 250 against a record of 200: blocked, so the case is referred with the exact claim."
+  }
+}

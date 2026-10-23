@@ -1,0 +1,105 @@
+{
+  "id": "N4",
+  "title": "Not received, carrier scans disagree",
+  "tags": [
+    "non_receipt",
+    "chargeback",
+    "contradiction"
+  ],
+  "dispute": {
+    "id": "N4",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-N4",
+    "payment_attempt_id": "att-N4",
+    "merchant_order_id": "ORD-N4",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "PRODUCT_NOT_RECEIVED",
+      "original_code": "13.1"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "200.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "N4-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-N4",
+        "customer_id": "CUST-N4",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "200.00",
+        "currency": "USD",
+        "tracking_number": "TRK-N4",
+        "fulfilment_status": "SHIPPED"
+      }
+    },
+    {
+      "id": "N4-carrier-a",
+      "system": "CARRIER",
+      "author": "THIRD_PARTY",
+      "fields": {
+        "tracking_number": "TRK-N4",
+        "status": "DELIVERED",
+        "recipient_name": "J. Smith",
+        "delivered_at": "2026-02-14T15:30:00-05:00"
+      }
+    },
+    {
+      "id": "N4-carrier-b",
+      "system": "CARRIER",
+      "author": "THIRD_PARTY",
+      "fields": {
+        "tracking_number": "TRK-N4",
+        "status": "RETURNED_TO_SENDER",
+        "recipient_name": "J. Smith"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-delivered",
+      "source_record_id": "N4-carrier-a",
+      "source_field": "status",
+      "establishes": "DELIVERY_CONFIRMED",
+      "extracted_value": "DELIVERED",
+      "normalised_value": {
+        "kind": "ENUM",
+        "text": "DELIVERED"
+      }
+    }
+  ],
+  "sandbox": null,
+  "expected": {
+    "route": "REFER",
+    "engine": {
+      "action": "REFER",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [
+        "CONTRADICTORY_RECORDS"
+      ],
+      "p": "0.60",
+      "margin": "40"
+    },
+    "verification": {
+      "outcome": "REFER",
+      "failed_checks": {},
+      "case_failures": [],
+      "counterevidence_ids": [
+        "N4-carrier-b"
+      ]
+    },
+    "rationale": "One scan says DELIVERED (+40), another RETURNED_TO_SENDER: records disagree, refer. The delivery claim is supported but in conflict."
+  }
+}

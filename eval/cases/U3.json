@@ -1,0 +1,64 @@
+{
+  "id": "U3",
+  "title": "Product unacceptable (no category), small",
+  "tags": [
+    "unknown",
+    "chargeback",
+    "low_value",
+    "reason_mapping"
+  ],
+  "dispute": {
+    "id": "U3",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-U3",
+    "payment_attempt_id": "att-U3",
+    "merchant_order_id": "ORD-U3",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "PRODUCT_UNACCEPTABLE",
+      "original_code": "13.3"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "50.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "U3-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-U3",
+        "customer_id": "CUST-U3",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "50.00",
+        "currency": "USD",
+        "tracking_number": "TRK-U3",
+        "fulfilment_status": "SHIPPED"
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": null,
+  "expected": {
+    "route": "ACCEPT",
+    "engine": {
+      "action": "ACCEPT",
+      "math_action": "ACCEPT",
+      "accept_reason": "LOW_VALUE_TRANSACTION",
+      "referral_reasons": [],
+      "p": "0.10",
+      "margin": "-75"
+    },
+    "verification": null,
+    "rationale": "PRODUCT_UNACCEPTABLE maps to UNKNOWN: 5 - 80 = -75. At p_max: 45 - 80 < 0: low value."
+  }
+}

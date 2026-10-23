@@ -1,0 +1,64 @@
+{
+  "id": "U4",
+  "title": "Reason unknown at RFI",
+  "tags": [
+    "unknown",
+    "rfi"
+  ],
+  "dispute": {
+    "id": "U4",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-U4",
+    "payment_attempt_id": "att-U4",
+    "merchant_order_id": "ORD-U4",
+    "stage": "RFI",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "UNKNOWN",
+      "original_code": null
+    },
+    "card_brand": "mastercard",
+    "amount": {
+      "amount": "200.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "U4-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-U4",
+        "customer_id": "CUST-U4",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "200.00",
+        "currency": "USD",
+        "tracking_number": "TRK-U4",
+        "fulfilment_status": "SHIPPED"
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": null,
+  "expected": {
+    "route": "REFER",
+    "engine": {
+      "action": "REFER",
+      "math_action": "ACCEPT",
+      "accept_reason": null,
+      "referral_reasons": [
+        "RFI_ACCEPT_NEEDS_APPROVAL"
+      ],
+      "p": "0.10",
+      "margin": "-85"
+    },
+    "verification": null,
+    "rationale": "G_cb = max(0, 20 - 70) = 0; RFI margin = -85, accept, which at RFI needs a person."
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "id": "D1",
+  "title": "Duplicate charge, separate purchase proven",
+  "tags": [
+    "duplicate",
+    "chargeback"
+  ],
+  "dispute": {
+    "id": "D1",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-D1",
+    "payment_attempt_id": "att-D1",
+    "merchant_order_id": "ORD-D1",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "DUPLICATE_CHARGE",
+      "original_code": "12.6.1"
+    },
+    "card_brand": "visa",
+    "amount": {
+      "amount": "300.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "D1-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-D1",
+        "customer_id": "CUST-D1",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "300.00",
+        "currency": "USD",
+        "tracking_number": "TRK-D1",
+        "fulfilment_status": "SHIPPED",
+        "is_distinct_purchase": true
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-distinct",
+      "source_record_id": "D1-order",
+      "source_field": "order_id",
+      "establishes": "DISTINCT_TRANSACTIONS",
+      "extracted_value": "ORD-D1",
+      "normalised_value": {
+        "kind": "IDENTIFIER",
+        "text": "ORD-D1"
+      }
+    }
+  ],
+  "sandbox": null,
+  "expected": {
+    "route": "CHALLENGE",
+    "engine": {
+      "action": "CHALLENGE",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [],
+      "p": "0.65",
+      "margin": "115"
+    },
+    "verification": {
+      "outcome": "PASSED",
+      "failed_checks": {},
+      "case_failures": []
+    },
+    "rationale": "Distinct-purchase prior 0.65: 195 - 80 = +115."
+  }
+}

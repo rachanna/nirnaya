@@ -1,0 +1,64 @@
+{
+  "id": "U2",
+  "title": "Reason unknown, large chargeback",
+  "tags": [
+    "unknown",
+    "chargeback"
+  ],
+  "dispute": {
+    "id": "U2",
+    "merchant_id": "merchant-demo",
+    "payment_intent_id": "int-U2",
+    "payment_attempt_id": "att-U2",
+    "merchant_order_id": "ORD-U2",
+    "stage": "CHARGEBACK",
+    "status": "REQUIRES_RESPONSE",
+    "reason": {
+      "type": "UNKNOWN",
+      "original_code": null
+    },
+    "card_brand": "mastercard",
+    "amount": {
+      "amount": "1500.00",
+      "currency": "USD"
+    },
+    "opened_at": "2026-03-01T12:00:00Z",
+    "due_at": "2026-03-16T12:00:00Z"
+  },
+  "payment_attempt": null,
+  "ownership_resolved": true,
+  "world": [
+    {
+      "id": "U2-order",
+      "system": "ORDER",
+      "author": "MERCHANT",
+      "fields": {
+        "order_id": "ORD-U2",
+        "customer_id": "CUST-U2",
+        "customer_name": "J. Smith",
+        "placed_at": "2026-02-10T17:00:00+08:00",
+        "total_amount": "1500.00",
+        "currency": "USD",
+        "tracking_number": "TRK-U2",
+        "fulfilment_status": "SHIPPED"
+      }
+    }
+  ],
+  "claims": [],
+  "sandbox": null,
+  "expected": {
+    "route": "REFER",
+    "engine": {
+      "action": "REFER",
+      "math_action": "CHALLENGE",
+      "accept_reason": null,
+      "referral_reasons": [
+        "UNKNOWN_REASON_CHALLENGE"
+      ],
+      "p": "0.10",
+      "margin": "70"
+    },
+    "verification": null,
+    "rationale": "0.1*1500 - 80 = +70 favours a challenge, but an unknown reason is never challenged automatically."
+  }
+}

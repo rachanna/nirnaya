@@ -13,6 +13,8 @@ class Dispute(DomainModel):
     merchant_id: NonBlankStr
     payment_intent_id: NonBlankStr
     payment_attempt_id: NonBlankStr | None = None
+    # The merchant's own order reference: the first lookup key for evidence in merchant systems.
+    merchant_order_id: NonBlankStr | None = None
     stage: Stage
     status: DisputeStatus
     reason: DisputeReason
