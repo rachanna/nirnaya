@@ -21,6 +21,7 @@ These are the product. Never weaken them for convenience, and stop and ask if a 
 - Time: timezone-aware `datetime` (UTC internally). Deadlines computed in UTC.
 - Storage: SQLite via stdlib `sqlite3` (audit log, cases, evidence snapshots with SHA-256 hashes).
 - LLM: provider-neutral interface in `nirnaya/llm/` (tool use; structured output via a forced tool call). `NIRNAYA_LLM_PROVIDER` = `anthropic` (default) or `openai`; model from `NIRNAYA_MODEL` (default `claude-sonnet-5-5` for Anthropic, required for OpenAI). Agent code depends only on `LLMClient`, never on an SDK.
+- Agent: `NIRNAYA_AGENT=scripted` (default, no model) or `llm`. Try it with `uv run python -m nirnaya.demo`. Live model tests are opt-in: `NIRNAYA_LIVE_LLM=1 uv run pytest -m live -s`.
 - UI: Streamlit (`app/`), thin — no business logic in the UI.
 - Secrets only from env / `.env` (gitignored). Never commit keys.
 

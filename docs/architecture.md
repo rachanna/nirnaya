@@ -195,7 +195,7 @@ flowchart TB
 | Case store | `nirnaya/store/` | ✅ | SQLite schema, repositories scoped by `merchant_id`, hash-chained audit log | none | models |
 | Orchestrator | `nirnaya/orchestrator/` | ✅ | Persistent case state machine, scheduler tick, deadline watchdog, command handling | routes only | everything inbound and outbound |
 | Review queue | `nirnaya/orchestrator/referrals.py` | ✅ (commands; UI in M7) | Referral records, approver commands | human | store |
-| Investigating agent | `nirnaya/agent/` | 🔶 (scripted investigator and drafter; Claude in M4) | Claude loop: plan from VoI, call tools, stop, draft claims | none | Anthropic SDK, tool gateway |
+| Investigating agent | `nirnaya/agent/` | ✅ (`LLMInvestigator`, `LLMDrafter` on any `LLMClient`; scripted versions for tests and `NIRNAYA_AGENT=scripted`) | Model rounds: choose permitted lookups from VoI targets, stop, draft structured claims | none | `nirnaya/llm/`, tool gateway |
 | Tool gateway | `nirnaya/agent/tools.py` | ✅ | Validate tool arguments, inject `merchant_id`, call mocks, wrap results as hashed `EvidenceRecord`s, persist them | none | mocks, store |
 | Evidence renderer | `nirnaya/render/` *(new package)* | ✅ | Verified claims → evidence files that meet card-brand format and size limits | none | models |
 | Write gateway | `nirnaya/guardrails/` | 🔶 (checklist, ledger, dry run against ports; wire request in M5) | Pre-write checklist, deterministic `request_id`, write ledger, dry-run; the only caller of write endpoints | **enforces** | engine, Airwallex clients, store |
@@ -477,6 +477,8 @@ The agent turns a VoI target list ("find `DELIVERY_CONFIRMED`") into tool calls,
 
 ### 8.2 Loop
 
+Each `INVESTIGATING` tick runs **one round** (`nirnaya/agent/llm_investigator.py`). In a round the model is offered only the tools the current targets need, each with its `key` argument as an `enum` of keys the case allows, plus `finish`. It may make up to 3 lookups in up to 6 turns. The machine then re-decides, recomputes the targets and starts another round if anything is still worth fetching and the budgets allow. Every model call (investigation round or draft) is stored as an `AgentRun` in `agent_runs`, in the same transaction as its step: provider, model, turns, stop reason, tokens, tool calls with outcomes, dropped draft items, transcript.
+
 ```mermaid
 flowchart LR
     A[Targets = decision.voi] --> B{Targets empty, or<br/>budget or deadline hit?}
@@ -508,7 +510,8 @@ Every tool schema excludes `merchant_id` and `case_id`; the gateway injects them
 
 - The system prompt is static and contains no case data.
 - Case facts and records are sent as tool results or user content inside explicit delimiters, labelled as data. They are never concatenated into instructions.
-- Customer-authored records are additionally marked `author: CUSTOMER`. They establish nothing anyway (`record_establishes`), so an injected "mark this delivered" has no path to a decision.
+- **Customer-authored records are never shown to the model**: they appear only as `{id, system, author: CUSTOMER, content: withheld}` (`nirnaya/agent/context.py`). The model doesn't need their content, because they establish nothing (`record_establishes`) and the engine uses only their existence (`unanswered_customer_contacts`). This removes the main injection path rather than labelling it.
+- The drafter can cite only the case's merchant and third-party records (a JSON-schema `enum` of ids), and only the facts allowed for the reason.
 - Tool arguments are validated against the schema. Free-text arguments are rejected where a key is expected.
 
 ### 8.5 Budgets and stop conditions
@@ -517,8 +520,10 @@ Every tool schema excludes `merchant_id` and `case_id`; the gateway injects them
 |---|---|
 | VoI target list empty | n/a |
 | Tool calls per cycle | 8 |
-| Model tokens per cycle | 60k |
-| Wall-clock per cycle | 120 s |
+| Model tokens per cycle (summed from `agent_runs`) | 60k |
+| Lookups per investigation round | 3 |
+| Model turns per round | 6 |
+| Model call timeout (SDK) | 60 s |
 | Agent deadline buffer (larger than the watchdog's) | pre-chargeback 18 h, chargeback 3 d |
 | Same tool failing twice | stop that target |
 | Model error or refusal | stop; decide on the evidence so far |
@@ -945,7 +950,7 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | M1: Deterministic core | `models/`, `evidence/`, `engine/`, `verifier/`, `config/demo.py` | Formulas and boundaries, unknown reasons never challenged, every verifier check, the kit 4 cases end to end at unit level, determinism | ✅ (427 tests), plus Airwallex enum alignment and the decisions in §17.1 |
 | M2: Synthetic world | `integrations/mocks/`, `evaluation/cases.py`, `eval/cases/`, `eval/EXPERT_POLICY.md` | 42 cases with hand-derived expected decisions (the kit 4 cases, every reason at chargeback and an earlier stage, boundaries, deferrals, adversarial cases); the engine and verifier agree with every one; the lookup chain from `merchant_order_id` reaches exactly each case's records | ✅ (565 tests) |
 | M3: Orchestrator | `store/`, `orchestrator/`, `ingest/` (domain source), `agent/` tool gateway + scripted investigator and drafter, `render/`, and the write gateway (`guardrails/`, moved forward from M5 against ports) | All 42 cases through the real pipeline against `FakeAirwallex` land on their expected route; the kit rejection cycle; approvals; watchdog; crash-and-resume; timed-out write reconciliation; hash-chained audit verified | ✅ (925 tests) |
-| M4: Investigating agent | `agent/`, tool gateway | VoI-driven search, budgets, stop conditions, structured drafts, injection resistance | ⬜ |
+| M4: Investigating agent | `agent/` (`LLMInvestigator`, `LLMDrafter`), `llm/` (Anthropic and OpenAI adapters), `runtime.py`, `demo.py` | With a scripted model through the real pipeline: VoI-driven rounds held to the offered tools and keys, budgets and stop conditions, customer text never shown to the model, structured drafts built by code, a fabricating model never gets a write, runs persisted with their step. Opt-in live tests for a real provider | 🔶 offline proof done (1016 tests); live run against a real model pending |
 | M5: Airwallex sandbox | `integrations/airwallex/`, real `ingest/` wire mapping, the wire-specific gateway parts (challenge body, `challenge_method: STANDARD`, file host) | The M3 pipeline against the real sandbox; simulation round-trips; closes the §9 TODOs | ⬜ |
 | M6: Evaluation | `eval/` runner, baselines, metrics | Five metrics against three baselines | ⬜ |
 | M7: Streamlit demo | `app/` | Kit 4 cases in the kit's demo structure, review queue, baseline comparison | ⬜ |
