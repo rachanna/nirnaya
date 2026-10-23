@@ -253,6 +253,10 @@ stateDiagram-v2
     REFERRED --> PRE_WRITE_CHECK: approver approves ACCEPT
     REFERRED --> DRAFTING: approver approves CHALLENGE
     REFERRED --> CLOSED: approver handles outside Nirnaya
+    note right of ASSESSED
+      Amount changed within the stage before any write:
+      ASSESSED to REFERRED all return to ASSESSED (DISPUTE_AMENDED)
+    end note
 
     AWAITING_OUTCOME --> INGESTED: stage changed (new cycle)
     AWAITING_OUTCOME --> CLOSED: WON, LOST, ACCEPTED, REVERSED, EXPIRED
@@ -282,6 +286,8 @@ stateDiagram-v2
 - **One step per case per tick.** The scheduler loads runnable cases, earliest `due_at` first, and runs one handler for each. Each handler is a pure function `(case, store snapshot, now) → (new state, effects)`, applied in **one SQLite transaction** together with an audit event.
 - **Idempotent and resumable.** Re-running a handler after a crash produces the same effects. Writes are protected by the `request_id` ledger (§7.3), so `SUBMITTING` can be retried safely.
 - **Leases.** `cases.lease_until` stops two workers advancing the same case. The demo runs one worker, but the column keeps the invariant explicit.
+- **Per-case isolation.** A step that raises is rolled back with its transaction, audited as `STEP_FAILED` (state and error type), and skipped; the tick carries on with the other cases. After 3 failures in the same state the case is referred (urgent, `STEP_FAILED`), except in `SUBMITTING`: a write in flight is never interrupted and keeps reconciling through the gateway. `Settings.isolate_step_failures` turns this off for debugging.
+- **Amendments re-decide.** If ingestion sees the dispute's amount or currency change within the same stage while the case is between `ASSESSED` and `REFERRED` (no write yet), the case returns to `ASSESSED` (`EXTERNAL_REASSESS`), any open referral is closed as `SUPERSEDED_BY_DISPUTE_CHANGE`, every approval of the cycle is voided, and `DISPUTE_AMENDED` is audited. The new decision gets a new draft, verification and PDF with the current amount.
 - **Clock injection.** The orchestrator owns `now` and passes it to the guardrails and the watchdog. The engine and verifier never see a clock (I2).
 
 ### 4.3 Deferral rules (Airwallex acts on its own)
@@ -443,7 +449,7 @@ They take **ids, not objects**. The gateway reloads everything it needs from the
 |---|---|---|
 | 1 | Re-fetch the dispute from Airwallex (`retrieve`) | `REFETCH_FAILED` |
 | 2 | `status is ACTIONABLE_STATUS` (`REQUIRES_RESPONSE`) | `STATUS_CHANGED` |
-| 3 | `stage`, `amount`, `currency` unchanged since the decision | `DISPUTE_CHANGED` |
+| 3 | `stage`, `amount`, `currency` equal to those the **decision** was made on (`decision.stage`, `decision.inputs.amount`), not merely the latest snapshot | `DISPUTE_CHANGED` |
 | 4 | `now < due_at − buffer(stage)` | `TOO_CLOSE_TO_DEADLINE` |
 | 5 | The dispute's account matches the case's merchant, and the merchant has delegated authority or a human approval exists for this cycle | `NO_AUTHORITY` |
 | 6 | `decide()` re-run on the fresh dispute (and, for a challenge, on `established`) returns the same action (§6) | `DECISION_CHANGED` / `DECISION_NOT_SUPPORTED_BY_VERIFIED_CLAIMS` |
@@ -458,7 +464,8 @@ Each approval is **bound to what the approver saw** ([kit 4 guide](https://airwa
 ### 7.3 Idempotency
 
 - `request_id` is a **UUID**, reused only to retry the same operation. Reusing it for a different operation within 7 days returns `duplicate_request_id` ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)).
-- Nirnaya derives it deterministically as a **UUIDv5** of (merchant, case, cycle, stage, action, decision id), so a retry after a crash sends the same id and needs no stored randomness.
+- Nirnaya derives it deterministically as a **UUIDv5** of (merchant, case, cycle, stage, action, decision id, attempt), so a retry after a crash sends the same id and needs no stored randomness.
+- `attempt` is 1 plus the number of `FAILED` ledger rows for the same cycle and action. A timeout (`PENDING`/`UNKNOWN`) does not count, so its retry reuses the id; a new attempt after a rejected write (for example, after a human approval) is a new operation and gets a new id.
 - Both accept and challenge require `request_id` ([API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve), [Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md)).
 - Never retry a write that timed out without first re-fetching the dispute to see whether it landed (§12).
 - The `writes` table has a **unique** constraint on `request_id`. The row is inserted as `PENDING` *before* the HTTP call and updated to `SENT`, `CONFIRMED` or `FAILED` after it. On restart, `PENDING`/`SENT` rows are reconciled by re-fetching the dispute rather than re-sending.
@@ -638,7 +645,7 @@ Format and size limits by card brand, from [Handle disputes using our APIs](http
 | Brand | Formats | Limits |
 |---|---|---|
 | Visa | tiff, tif, pdf, jpg, jpeg (**no PNG**; the [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) says use JPG or PDF for every brand) | 15 MB total; PDF ≤ 2 MB, JPEG/TIFF ≤ 10 MB each |
-| Mastercard | tiff, tif, pdf, jpg, jpeg, png | 14.5 MB total |
+| Mastercard | tiff, tif, pdf, jpg, jpeg (Airwallex's page lists PNG, but the kit 4 guide says PNG is rejected, so Nirnaya never sends it) | 14.5 MB total |
 | AMEX | see source | 900 MB total, 4 MB per file |
 | UnionPay, JCB, Discover/Diners | see source | `TODO(verify-airwallex-docs)`: copy exact limits |
 
@@ -830,6 +837,9 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 | Unknown `reason.type` | `ReasonCategory.UNKNOWN`: never auto-challenged |
 | Missing FX rate | Engine `MISSING_FX_RATE` referral; verifier `AMOUNT_MISMATCH` |
 | Mock or merchant system error | That tool target is stopped; decide on the evidence so far |
+| A source record changed since it was captured | Stored as a new version `<id>@<content digest>` (`EVIDENCE_REVISED`); the original is kept. Contradiction rules see both, so DELIVERED → LOST refers the case |
+| A handler raises | `STEP_FAILED` audited; other cases continue; 3 failures in one state → `REFERRED` (urgent), never from `SUBMITTING` (§4.2) |
+| Dispute amount changes before the write | Ingested: re-decide from `ASSESSED`, referrals and approvals superseded. Not yet ingested: gateway `DISPUTE_CHANGED` → `REFERRED`, then the next ingestion re-assesses |
 | LLM error, refusal or timeout | Stop the agent; decide on stored evidence; a CHALLENGE without a verified draft → `REFERRED` |
 | LLM proposes an unlisted tool or arguments | Refused and audited |
 | Evidence hash mismatch | Verifier `HASH_MISMATCH` → BLOCKED |
@@ -954,5 +964,7 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | M5: Airwallex sandbox | `integrations/airwallex/`, real `ingest/` wire mapping, the wire-specific gateway parts (challenge body, `challenge_method: STANDARD`, file host) | The M3 pipeline against the real sandbox; simulation round-trips; closes the §9 TODOs | ⬜ |
 | M6: Evaluation | `eval/` runner, baselines, metrics | Five metrics against three baselines | ⬜ |
 | M7: Streamlit demo | `app/` | Kit 4 cases in the kit's demo structure, review queue, baseline comparison | ⬜ |
+
+**Pre-submission audit, batch 1** ✅ (1047 tests): a changed source record is versioned instead of halting the scheduler, and a failing step is isolated per case (H1); a new attempt after a rejected write gets a new `request_id` (M1); the gateway compares against the decision's own dispute, and an amended amount re-decides the case and voids stale approvals (M2); no PNG for any brand (L1). Still open from the audit: temporal invariants in the verifier (M3), metrics and baselines (M6), the sandbox client (M5), and the low items.
 
 Each milestone is finished and tested before the next starts (`CLAUDE.md`).
