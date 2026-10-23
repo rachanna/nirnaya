@@ -434,17 +434,17 @@ For an ACCEPT there is nothing to prove, but the gateway still re-runs `decide()
 
 | Fact | Field | Must be |
 |---|---|---|
-| Delivery confirmed or signed | carrier `delivered_at` | not before the disputed order's `placed_at` |
+| Delivery confirmed or signed | carrier `delivered_at` | not before its own order's `placed_at` (the order with the same tracking number) |
 | Usage after renewal | login `active_after_renewal_at` | not before the disputed order (the renewal charge) |
 | Cancellation terms accepted | policy `cancellation_terms_accepted_at` | not after the disputed order |
 | Any order fact | order `placed_at` | not after the dispute opened |
 | All of the above, and the purchase-device login | the dated field | not after the record's capture; readable with a time zone |
 
-The engine then refers with `CONTRADICTORY_RECORDS` before any drafting, and its referral lists each clash with its description; a claim on such a record is `CONFLICT` in the verifier, and every reason a record contradicts a claim is surfaced.
+The engine then refers with `CONTRADICTORY_RECORDS` before any drafting. It records each contradiction (record, fact, description) in `Decision.inputs`, and the referral copies them from the decision, so it always matches what was decided; a claim on such a record is `CONFLICT` in the verifier, and every reason a record contradicts a claim is surfaced.
 
-The disputed order is the trusted, intact order record whose `order_id` is the dispute's `merchant_order_id`. If it cannot be identified, the bounds fall back to all orders on file, leniently (earliest for lower bounds, latest for upper), and with no order record they are skipped. Tampered records (hash mismatch) neither anchor nor clash. `derive.cross_check()` computes rule contradictions, date clashes and late notes in one pass per case.
+Each record is compared with its own order: the order that shares the rule's `order_link` field with it (a carrier record's `tracking_number`); otherwise the disputed order, whose `order_id` is the dispute's `merchant_order_id` (login and policy facts are about the disputed charge, so they always use it); otherwise all orders on file, leniently (earliest for lower bounds, latest for upper). Only trusted, intact orders count, and with none the order bounds are skipped. An unreadable or out-of-range timestamp is a clash. Tampered records (hash mismatch) neither anchor nor clash. `derive.cross_check()` computes rule contradictions, date clashes and late notes in one pass per case.
 
-Evidence dated after the dispute opened still counts; it is listed in `VerificationResult.notes`. If the case is referred, the notes are in the referral. If it is submitted under delegated authority, `SUBMITTED_WITH_NOTES` records them with the `request_id` for review afterwards. ASSUMPTION: expert policy, like the rest of the catalogue.
+Evidence dated after the dispute opened still counts; it is listed in `VerificationResult.notes`. If the case is referred, the notes are in the referral. If it is submitted, `SUBMITTED_WITH_NOTES` records them with the `request_id` and the authority (`DELEGATED`, or `APPROVED` and the approver) for review afterwards. ASSUMPTION: expert policy, like the rest of the catalogue.
 
 ---
 
@@ -802,7 +802,7 @@ erDiagram
 - **Evidence records are immutable.** A changed source creates a new record id; it never updates the old one. `sha256` is the capture hash used as `expected_hashes` in `verify()`.
 - **The audit log is append-only and hash-chained:** `hash = sha256(prev_hash ‖ canonical(event))`. ⬜ A verification command walks the chain.
 - **Money is stored as a string Decimal plus a currency, and times as ISO-8601 UTC.** No floats anywhere.
-- **Schema migrations are step-wise.** `MIGRATIONS[n]` brings version n to n+1. Each step runs in its own `BEGIN IMMEDIATE` transaction that re-reads the version, and must be safe to re-run, so a crash or a second process opening the same file cannot leave it half-migrated.
+- **Schema migrations are step-wise.** `MIGRATIONS[n]` brings version n to n+1. Each step runs in its own `BEGIN IMMEDIATE` transaction that re-reads the version, and must be safe to re-run, so a crash or a second process opening the same file cannot leave it half-migrated. Opening an up-to-date database only reads the version and never takes the write lock.
 - **Every query is scoped by `merchant_id`,** including sequence numbers and ids (referral ids are `<merchant>:<case>:ref:<n>`). The one deliberate exception is `case_owner()`, the cross-tenant ownership check at ingestion.
 
 ### 10.3 Repository layer
@@ -859,6 +859,7 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 | Missing FX rate | Engine `MISSING_FX_RATE` referral; verifier `AMOUNT_MISMATCH` |
 | Mock or merchant system error | That tool target is stopped; decide on the evidence so far |
 | Merchant records disagree on dates (delivery before the order, terms after the charge, a date after capture, an unreadable date) | `CONTRADICTORY_RECORDS` → `REFERRED`; the clash is the counterevidence and is described in the referral (§6) |
+| The dispute moves to a new stage while a referral is open | The old cycle's referral is closed as `SUPERSEDED_BY_NEW_CYCLE`; only the current cycle's referral can be escalated or approved |
 | A challenge cites evidence dated after the dispute opened | Still evidence; submitted if everything else passes, with `SUBMITTED_WITH_NOTES` audited for review afterwards (§6) |
 | A source record changed since it was captured | Stored as a new version `<id>@<content digest>` (`EVIDENCE_REVISED`); the original is kept. Contradiction rules see both, so DELIVERED → LOST refers the case |
 | A handler raises | `STEP_FAILED` audited; other cases continue; 3 failures in one state → `REFERRED` (urgent), never from `SUBMITTING` (§4.2) |
@@ -987,6 +988,8 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | M5: Airwallex sandbox | `integrations/airwallex/`, real `ingest/` wire mapping, the wire-specific gateway parts (challenge body, `challenge_method: STANDARD`, file host) | The M3 pipeline against the real sandbox; simulation round-trips; closes the §9 TODOs | ⬜ |
 | M6: Evaluation | `eval/` runner, baselines, metrics | Five metrics against three baselines | ⬜ |
 | M7: Streamlit demo | `app/` | Kit 4 cases in the kit's demo structure, review queue, baseline comparison | ⬜ |
+
+**Second code review** ✅ (1108 tests): out-of-range timestamps are unreadable rather than a crash, a new cycle closes the old cycle's referral, each record is dated against its own order, the note event states its authority, cross-tenant record ids fail as `StoreError`, referral descriptions come from the decision, one rule matcher and one date-only rule, and no write lock on opening an up-to-date database.
 
 **Code review of batch 2** ✅ (1094 tests): disputed-order anchors, all counterevidence kept, tampered records excluded from date checks, safe step-wise migrations, notes recorded on delegated submissions, contradiction descriptions in referrals, merchant-scoped ids and counts, one-pass cross-check, one-query escalation, one UTC timestamp parser.
 

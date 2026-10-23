@@ -84,7 +84,7 @@ The evidence each reason requires must be established by **verified** claims, so
 
 Dates must be possible across records, or the records disagree and the case is referred (`CONTRADICTORY_RECORDS`):
 
-- A delivery scan is not earlier than the disputed order.
+- A delivery scan is not earlier than its own order (the order with the same tracking number; if none is on file, the disputed order).
 - Usage after renewal is not earlier than the disputed order (the renewal charge).
 - Cancellation terms are accepted no later than the disputed order (the charge).
 - The disputed order is the order whose `order_id` is the dispute's `merchant_order_id`. If there is none, every order on file is used, leniently (earliest for lower bounds, latest for upper).
