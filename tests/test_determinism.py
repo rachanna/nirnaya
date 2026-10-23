@@ -50,6 +50,26 @@ def test_core_module_has_no_forbidden_imports_or_calls(path):
             assert node.func.attr not in FORBIDDEN_CALLS, f"{path}: calls .{node.func.attr}()"
 
 
+# Outside the core, I/O is allowed but time is always passed in, never read from a clock.
+CLOCK_FREE = ["store", "ingest", "orchestrator", "guardrails", "agent", "render"]
+CLOCK_CALLS = {"now", "today", "utcnow", "time", "time_ns", "monotonic", "perf_counter"}
+
+
+def clock_free_files() -> list[Path]:
+    return sorted(p for pkg in CLOCK_FREE for p in (ROOT / "nirnaya" / pkg).rglob("*.py"))
+
+
+@pytest.mark.parametrize("path", clock_free_files(), ids=lambda p: str(p.relative_to(ROOT)))
+def test_orchestration_never_reads_the_clock(path):
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module]
+            assert not any((n or "").split(".")[0] in {"time", "random"} for n in names), path
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            assert node.func.attr not in CLOCK_CALLS, f"{path}: calls .{node.func.attr}()"
+
+
 def test_scan_covers_every_core_package():
     assert {p.parent.name for p in core_files()} >= set(CORE)
 

@@ -30,11 +30,41 @@ def ingest(store: Store, source: DisputeSource, merchant_id: str, now: datetime)
             )
             continue
         if store.latest_dispute(merchant_id, dispute.id) == dispute:
+            # Unchanged, but a case that was mid-write when the dispute resolved closes now.
+            case = store.case(merchant_id, dispute.id)
+            if case is not None and _close_if_resolved(
+                store, merchant_id, case.state, dispute, now
+            ):
+                touched.append(dispute.id)
             continue
         with store.transaction():
             _record(store, merchant_id, merchant.active_policy_version, dispute, now)
         touched.append(dispute.id)
     return touched
+
+
+# A write in flight is reconciled by the write gateway first; ingestion never closes it.
+_NOT_CLOSED_BY_INGEST = {CaseState.CLOSED, CaseState.SUBMITTING}
+
+
+def _close_if_resolved(
+    store: Store, merchant_id: str, state: str, dispute: Dispute, now: datetime
+) -> bool:
+    current = CaseState(state)
+    why = closed_reason(dispute)
+    if why is None or current in _NOT_CLOSED_BY_INGEST:
+        return False
+    states.check(current, CaseState.CLOSED, external=True)
+    with store.transaction():
+        store.update_case(merchant_id, dispute.id, state=CaseState.CLOSED, at=now)
+        store.audit(
+            merchant_id,
+            dispute.id,
+            "CLOSED_BY_AIRWALLEX",
+            {"status": dispute.status, "why": why, "from_state": current},
+            now,
+        )
+    return True
 
 
 def _reject(store: Store, merchant_id: str, dispute: Dispute, why: str, now: datetime) -> None:
@@ -94,7 +124,7 @@ def _record(
         )
         return
 
-    if (why := closed_reason(dispute)) is not None:
+    if (why := closed_reason(dispute)) is not None and current not in _NOT_CLOSED_BY_INGEST:
         states.check(current, CaseState.CLOSED, external=True)
         store.update_case(merchant_id, dispute.id, state=CaseState.CLOSED, at=now)
         store.audit(

@@ -351,13 +351,18 @@ class Store:
         if record.merchant_id != merchant_id:
             raise StoreError("evidence belongs to another merchant")
         existing = self.conn.execute(
-            "SELECT sha256 FROM evidence_records WHERE case_id = ? AND record_id = ?",
+            "SELECT sha256, record_json FROM evidence_records WHERE case_id = ? AND record_id = ?",
             (record.case_id, record.id),
         ).fetchone()
         if existing is not None:
-            if existing["sha256"] != record.sha256:
-                raise StoreError(f"record {record.id!r} changed after capture")
-            return False
+            if existing["sha256"] == record.sha256:
+                return False
+            # Re-fetched later with identical content: keep the original capture.
+            kept = EvidenceRecord.model_validate_json(existing["record_json"])
+            content = {"captured_at", "sha256"}
+            if kept.model_dump(exclude=content) == record.model_dump(exclude=content):
+                return False
+            raise StoreError(f"record {record.id!r} changed after capture")
         self.conn.execute(
             "INSERT INTO evidence_records VALUES (?, ?, ?, ?, ?, ?)",
             (
