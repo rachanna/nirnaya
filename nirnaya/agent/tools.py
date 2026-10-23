@@ -63,6 +63,10 @@ class ToolGateway:
     def called(self) -> set[str]:
         return self._store.tools_called(self._merchant, self._dispute.id, self._cycle)
 
+    def case_evidence(self) -> list[EvidenceRecord]:
+        """The case's records captured so far (for showing the model what is on file)."""
+        return self._store.evidence(self._merchant, self._dispute.id)
+
     def lookup_keys(self, tool: Tool) -> list[str]:
         """The keys this case allows for a tool: the dispute's order id, or values found in
         the case's own order records. The investigator cannot invent a key."""
@@ -76,6 +80,17 @@ class ToolGateway:
         ]
         field = "tracking_number" if tool is Tool.CARRIER else "customer_id"
         return sorted({v for r in orders if isinstance(v := r.fields.get(field), str) and v})
+
+    def refuse(self, tool: str, key: object, why: str) -> None:
+        """Audit a call the investigator asked for and was not allowed to make."""
+        with self._store.transaction():
+            self._store.audit(
+                self._merchant,
+                self._dispute.id,
+                "TOOL_REFUSED",
+                {"tool": str(tool), "key": str(key), "why": why},
+                self._now,
+            )
 
     def fetch(self, tool: Tool, key: str) -> list[EvidenceRecord]:
         if key not in self.lookup_keys(tool):

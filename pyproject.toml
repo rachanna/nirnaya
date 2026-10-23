@@ -27,7 +27,8 @@ packages = ["nirnaya"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -m 'not live'"
+markers = ["live: calls a real model provider (opt-in: NIRNAYA_LIVE_LLM=1 uv run pytest -m live)"]
 
 [tool.ruff]
 line-length = 100
