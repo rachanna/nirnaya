@@ -191,16 +191,16 @@ flowchart TB
 | Evidence catalogue | `nirnaya/evidence/` | ✅ | `FIELD_RULES`, `REQUIRED_EVIDENCE`, `CONTRADICTION_RULES`, `REASON_SPECIFIC`, `render_claim_text`; `evidence_present()`, `contradictory_record_ids()` | data | models |
 | Decision engine | `nirnaya/engine/` | ✅ | `decide()` → `Decision` with `voi`; `value_of_information()` | **sole decider** | models, evidence |
 | Verifier | `nirnaya/verifier/` | ✅ | `verify()` → `VerificationResult` | **sole clearer** | models, evidence |
-| Ingestion | `nirnaya/ingest/` *(new package)* | ⬜ | Poll and reconcile disputes; optional webhook receiver; snapshot disputes and payment attempts; map wire → domain | none | Airwallex read client, store |
-| Case store | `nirnaya/store/` | ⬜ | SQLite schema, repositories scoped by `merchant_id`, hash-chained audit log | none | models |
-| Orchestrator | `nirnaya/orchestrator/` | ⬜ | Persistent case state machine, scheduler tick, deadline watchdog, command handling | routes only | everything inbound and outbound |
-| Review queue | `nirnaya/orchestrator/referrals.py` | ⬜ | Referral records, approver commands | human | store |
-| Investigating agent | `nirnaya/agent/` | ⬜ | Claude loop: plan from VoI, call tools, stop, draft claims | none | Anthropic SDK, tool gateway |
-| Tool gateway | `nirnaya/agent/tools.py` | ⬜ | Validate tool arguments, inject `merchant_id`, call mocks, wrap results as hashed `EvidenceRecord`s, persist them | none | mocks, store |
-| Evidence renderer | `nirnaya/render/` *(new package)* | ⬜ | Verified claims → evidence files that meet card-brand format and size limits | none | models |
-| Write gateway | `nirnaya/guardrails/` | ⬜ | Pre-write checklist, deterministic `request_id`, write ledger, dry-run; the only caller of write endpoints | **enforces** | engine, Airwallex clients, store |
+| Ingestion | `nirnaya/ingest/` *(new package)* | 🔶 (domain disputes; wire mapping in M5) | Poll and reconcile disputes; optional webhook receiver; snapshot disputes and payment attempts; map wire → domain | none | Airwallex read client, store |
+| Case store | `nirnaya/store/` | ✅ | SQLite schema, repositories scoped by `merchant_id`, hash-chained audit log | none | models |
+| Orchestrator | `nirnaya/orchestrator/` | ✅ | Persistent case state machine, scheduler tick, deadline watchdog, command handling | routes only | everything inbound and outbound |
+| Review queue | `nirnaya/orchestrator/referrals.py` | ✅ (commands; UI in M7) | Referral records, approver commands | human | store |
+| Investigating agent | `nirnaya/agent/` | 🔶 (scripted investigator and drafter; Claude in M4) | Claude loop: plan from VoI, call tools, stop, draft claims | none | Anthropic SDK, tool gateway |
+| Tool gateway | `nirnaya/agent/tools.py` | ✅ | Validate tool arguments, inject `merchant_id`, call mocks, wrap results as hashed `EvidenceRecord`s, persist them | none | mocks, store |
+| Evidence renderer | `nirnaya/render/` *(new package)* | ✅ | Verified claims → evidence files that meet card-brand format and size limits | none | models |
+| Write gateway | `nirnaya/guardrails/` | 🔶 (checklist, ledger, dry run against ports; wire request in M5) | Pre-write checklist, deterministic `request_id`, write ledger, dry-run; the only caller of write endpoints | **enforces** | engine, Airwallex clients, store |
 | Airwallex clients | `nirnaya/integrations/airwallex/` | ⬜ | Auth, typed read client, separate write client, simulation helpers | none | httpx |
-| Merchant mocks | `nirnaya/integrations/mocks/` | ✅ | SYNTHETIC order, carrier, login, helpdesk and policy systems behind `Protocol` interfaces | none | none |
+| Merchant mocks | `nirnaya/integrations/mocks/` | ✅ (plus `FakeAirwallex` for tests) | SYNTHETIC order, carrier, login, helpdesk and policy systems behind `Protocol` interfaces | none | none |
 | Demo config | `nirnaya/config/demo.py` | ✅ | `DEMO_POLICY`, `DEMO_FX` (labelled ASSUMPTION) | data | models |
 | Eval harness | `eval/` (data), `nirnaya/evaluation/` (code) | 🔶 | Case fixtures and expert policy ✅; runner, baselines, metrics ⬜ | none | orchestrator, store |
 | UI | `app/` | ⬜ | Streamlit views and approver actions | none | store, review queue |
@@ -263,7 +263,7 @@ stateDiagram-v2
 
 | State | Meaning | Handler does | Exits when |
 |---|---|---|---|
-| `INGESTED` | New dispute or new cycle | Resolve ownership (§11.2); snapshot the payment attempt as evidence; **run the helpdesk lookup** (code, not the agent) so `unanswered_customer_contacts()` always has its input; apply deferral rules | Always, in one step |
+| `INGESTED` | New dispute or new cycle | Close if Airwallex already resolved it; apply deferral rules; resolve ownership (§11.2); snapshot the payment attempt; **look up the order and the helpdesk** (code, not the agent): the order is the anchor for every other lookup, and `unanswered_customer_contacts()` needs the helpdesk | Always, in one step |
 | `DEFERRED` | Airwallex will act; Nirnaya records only | Nothing; it is re-evaluated when Airwallex reports a change | Status or stage changes |
 | `ASSESSED` | Initial decision on current evidence | `evidence_present()`, `contradictory_record_ids()`, `unanswered_customer_contacts()`, `decide()` | Always |
 | `INVESTIGATING` | Agent searching for VoI evidence | One agent turn per tick (§8) | VoI empty, budget spent, or deadline buffer |
@@ -317,7 +317,7 @@ Each flow follows the kit's demo structure: **goal → initial plan → new info
 
 ### 5.1 Kit case 1: large fraud claim (1,500, RFI, Visa 10.4), recover revenue
 
-Initial plan: only the payment attempt is known (CVC match, no 3DS, AVS not checked). p = 0.10, G_cb = 80, margin −5, so the maths says ACCEPT, which at RFI is referred (`RFI_ACCEPT_NEEDS_APPROVAL`). VoI names `PRIOR_UNDISPUTED_ORDERS_MATCH` among the targets. New information: the order system shows 3 earlier undisputed orders from the same device and IP, and the carrier shows a signed delivery. Revised decision: p = 0.75, G_cb = 1,055, margin +970 → CHALLENGE.
+With the payment attempt alone (CVC match, no 3DS, AVS not checked) the maths says ACCEPT (p = 0.10, margin −5), which at RFI would be referred. The order lookup at `INGESTED` brings the order history: 3 earlier undisputed orders from the same device and IP. That gives p = 0.60, G_cb = 830 and margin +745, so the decision is CHALLENGE at assessment, and VoI is empty, so no further search is needed. The verified claim cites the prior orders. (With the signed delivery also on file, p rises to 0.75 and the margin to +970; the evaluation fixture assumes full investigation.) The diagram shows the general pattern for a case whose deciding evidence is found by the investigator.
 
 ```mermaid
 sequenceDiagram
@@ -488,7 +488,7 @@ flowchart LR
     F --> A
 ```
 
-Targets are **recomputed by code** after every tool result. The agent never adds a target of its own. If it asks for a tool unrelated to the current targets, the gateway refuses and records the attempt.
+Targets are **recomputed by code** after every tool result (`nirnaya/agent/targets.py`): the VoI evidence types, plus, when the maths favours a challenge, the reason's unmet evidence requirements. Without the second part a challenge could be decided but never verified (for example, a subscription case decided on accepted terms still needs usage after renewal or no prior contact). Types no tool can find (the payment-attempt facts) are dropped. The agent never adds a target of its own, and the tool gateway accepts only lookup keys that come from the dispute or the case's own order records.
 
 ### 8.3 Tools
 
@@ -637,7 +637,7 @@ Format and size limits by card brand, from [Handle disputes using our APIs](http
 | AMEX | see source | 900 MB total, 4 MB per file |
 | UnionPay, JCB, Discover/Diners | see source | `TODO(verify-airwallex-docs)`: copy exact limits |
 
-The renderer is deterministic: the same claims give byte-identical output, and its hash is stored. Material counterevidence goes to the approver view (§15). It is never contradicted by the submission, and it is not removed from the store.
+The renderer (`nirnaya/render/`) is a small hand-written text PDF writer with no dependency and no dates or document ids, so the same claims give byte-identical output; its hash is stored. Only a PASSED verification can be rendered. Material counterevidence goes to the approver view (§15). It is never contradicted by the submission, and it is not removed from the store.
 
 ---
 
@@ -785,11 +785,11 @@ Every repository method takes `merchant_id` as a required first argument and add
 | Layer | Mechanism | Status |
 |---|---|---|
 | Store | Repositories scoped by `merchant_id` (§10.3) | ⬜ |
-| Tool gateway | Injects `merchant_id`; the LLM cannot supply it | ⬜ |
+| Tool gateway | Injects `merchant_id`; the LLM cannot supply it | ✅ |
 | Evidence derivation | `case_records()` drops records from other cases or merchants | ✅ |
 | Engine | `TenantMismatchError` if the policy's merchant differs from the dispute's | ✅ |
 | Verifier | `CASE_MERCHANT_MISMATCH` blocks the claim, and nothing from the foreign record is echoed | ✅ |
-| Write gateway | The account check (§7.2 #5) | ⬜ |
+| Write gateway | Authority check (§7.2 #5); account mapping in M5 | 🔶 |
 
 ### 11.2 Platforms and ownership
 
@@ -831,7 +831,7 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 | Draft fails verification | `REFERRED` with the exact failed claims |
 | Decision not supported by verified claims | `REFERRED` (§6) |
 | Deadline buffer reached | Watchdog → `REFERRED` (urgent) |
-| Crash mid-write | Ledger row is `PENDING`/`SENT`; on restart, re-fetch and reconcile, never blind resend |
+| Crash mid-write | Ledger row is `PENDING`/`UNKNOWN`; the case stays in `SUBMITTING`; the next tick re-fetches and reconciles, and resends with the same `request_id` only if the write did not land. Ingestion never closes a case mid-write |
 | Duplicate submit | The unique `request_id` returns the earlier result |
 | Write timed out | Re-fetch the dispute; resend with the **same** `request_id` only if it did not land |
 | Rate limited (429) | Back off and retry later; the watchdog still guards the deadline |
@@ -927,13 +927,14 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | 6 | Webhook signature verification | per Airwallex docs | Whether webhooks can be enabled at all | M5 (if webhooks are used) |
 | 7 | Real fee values (F_pre, F_cb, F_pa, Visa fraud fee) | from Airwallex pricing | All economics | Before any real merchant |
 | 8 | Is the reason hidden for Mastercard Collaboration? | per docs; `reason.type = UNKNOWN` exists | Frequency of UNKNOWN cases | M5 |
-| 9 | Evidence rendering library | reportlab, or HTML → PDF | Determinism and size of files | M5 |
 | 10 | Deadline-buffer and agent-budget defaults | §4.4, §8.5 | Automation coverage versus safety | M4 |
 | 11 | Polling interval and backoff | e.g. 60 s | API load versus latency | M5 |
 | 12 | Auto-accept threshold source | merchant config, or read from Airwallex if exposed | Deferral correctness | M5 |
 | 14 | Evidence upload host and path: `files.sandbox.airwallex.com` `POST /files/upload` (kit guide) or `/api/v1/files/upload/{file_path}` (disputes guide) | check with the Docs MCP | Whether uploads work at all | M5 |
 | 15 | Is there a fee for accepting at RFI (`fee_rfi_accept`, default 0)? | per Airwallex pricing | RFI economics | Before any real merchant |
 | 16 | Which `reason.type` does the sandbox assign to Visa codes 10.4, 13.1 and 13.6? | observe on simulated disputes | Whether the demo cases map to FRAUD, NON_RECEIPT and UNKNOWN as expected | M5 |
+| 17 | **Evidence that only flips the decision jointly** (case S5: accepted terms and usage after renewal together). VoI tests single types (spec appendix 4), so the pipeline never searches for it and refers the case | keep single-type VoI; or also test each configured prior entry's missing set as a unit (bounded by the priors table) | Automation coverage; S5 is a strict expected failure in `tests/test_pipeline_e2e.py` | Before M6 (spec change) |
+| 18 | Can a **pre-chargeback** be challenged? The disputes guide says yes (it escalates to chargeback); the Challenge API reference lists only RFI and CHARGEBACK | check with the Docs MCP | Pre-chargeback challenges (`FakeAirwallex` refuses them); sandbox pre-chargebacks auto-accept anyway | M5 |
 
 ---
 
@@ -943,9 +944,9 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 |---|---|---|---|
 | M1: Deterministic core | `models/`, `evidence/`, `engine/`, `verifier/`, `config/demo.py` | Formulas and boundaries, unknown reasons never challenged, every verifier check, the kit 4 cases end to end at unit level, determinism | ✅ (427 tests), plus Airwallex enum alignment and the decisions in §17.1 |
 | M2: Synthetic world | `integrations/mocks/`, `evaluation/cases.py`, `eval/cases/`, `eval/EXPERT_POLICY.md` | 42 cases with hand-derived expected decisions (the kit 4 cases, every reason at chargeback and an earlier stage, boundaries, deferrals, adversarial cases); the engine and verifier agree with every one; the lookup chain from `merchant_order_id` reaches exactly each case's records | ✅ (565 tests) |
-| M3: Orchestrator | `store/`, `orchestrator/`, `ingest/` (mock source), scripted investigator, `render/` | End-to-end state machine with no LLM; audit chain; idempotent, resumable handlers; watchdog | ⬜ |
+| M3: Orchestrator | `store/`, `orchestrator/`, `ingest/` (domain source), `agent/` tool gateway + scripted investigator and drafter, `render/`, and the write gateway (`guardrails/`, moved forward from M5 against ports) | All 42 cases through the real pipeline against `FakeAirwallex` land on their expected route (S5 excepted, §17 item 17); the kit rejection cycle; approvals; watchdog; crash-and-resume; timed-out write reconciliation; hash-chained audit verified | ✅ (925 tests) |
 | M4: Investigating agent | `agent/`, tool gateway | VoI-driven search, budgets, stop conditions, structured drafts, injection resistance | ⬜ |
-| M5: Airwallex sandbox | `integrations/airwallex/`, `guardrails/`, real `ingest/` | Re-fetch checklist, `request_id` ledger, dry run, simulation round-trips, closes the §9 TODOs | ⬜ |
+| M5: Airwallex sandbox | `integrations/airwallex/`, real `ingest/` wire mapping, the wire-specific gateway parts (challenge body, `challenge_method: STANDARD`, file host) | The M3 pipeline against the real sandbox; simulation round-trips; closes the §9 TODOs | ⬜ |
 | M6: Evaluation | `eval/` runner, baselines, metrics | Five metrics against three baselines | ⬜ |
 | M7: Streamlit demo | `app/` | Kit 4 cases in the kit's demo structure, review queue, baseline comparison | ⬜ |
 

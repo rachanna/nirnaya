@@ -37,6 +37,8 @@ nirnaya/
     airwallex/   # sandbox client (disputes, payment intents/attempts, files, simulation)
     mocks/       # synthetic order, carrier, login, helpdesk, policy store (labelled SYNTHETIC)
   guardrails/    # pre-write checklist, idempotency, dry-run
+  ingest/        # dispute ingestion and snapshots
+  render/        # deterministic evidence PDF within card-brand limits
   store/         # SQLite audit log + evidence hashing
   evaluation/    # case schema + loader (cases.py); baselines and metrics in M6
 eval/            # cases/*.json (42 SYNTHETIC cases) + EXPERT_POLICY.md (how expectations are derived)
