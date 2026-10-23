@@ -48,7 +48,8 @@ Each action is compared with its real alternative, and sunk costs are excluded. 
   (F_cb = chargeback fee, F_pre = resolution fee, R = the merchant's cost of one counted chargeback.)
 - **Unknown reason** (Mastercard Collaboration hides it): use a conservative prior and make no reason-specific claims. Nirnaya may accept such a case automatically but never challenges one automatically.
 - **Referral** overrides the maths for high amounts, marginal decisions, contradictory records, unresolved ownership, or stages not automated.
-- **Stages:** pre-chargeback and chargeback are automated. RFI, pre-arbitration and arbitration are recognised and referred or recorded.
+- **Stages:** RFI, pre-chargeback and chargeback are automated. At RFI only a challenge (an evidence response) is automated; accepting an RFI issues a full refund, so it always goes to a person. Pre-arbitration and arbitration are recognised and referred or recorded.
+- **Unanswered customer contact:** if the customer wrote to support before the dispute and got no reply, a person decides, whatever the maths says.
 
 Win probabilities are fixed priors, shown on screen, not predictions. Card-network monitoring exposure is reported as an estimate, because the dispute APIs do not expose the counts needed for an authoritative ratio.
 
@@ -104,10 +105,16 @@ Metrics, reported separately:
 Sandbox outcomes are integration tests only. Economic results are simulations on synthetic data, not real-world issuer or network results.
 
 ## 10. Demo
-- **A. Recover revenue.** A non-receipt chargeback starts with no delivery evidence, so the model says accept. Nirnaya sees that a delivery scan would change the decision, finds it in the carrier system, verifies it, and the decision flips to challenge.
-- **B. Resolve early.** A pre-chargeback with weak evidence: accepting now costs less than the expected chargeback path, so Nirnaya accepts and records why.
-- **C. Block a fabrication.** The draft says "delivered and signed for by J. Smith." The carrier record shows delivery but no signature, so the verifier blocks submission and refers the case with the exact unsupported claim.
+The demo follows the Airwallex hackathon kit 4 brief ("Dispute Response Agent", [guide](https://airwallexdev.com/agentic-banking-builder-guide.md)). Each case is shown as: the goal, the agent's initial plan, the new information, the revised decision, and the resulting dispute status. All amounts are USD on the demo policy. `tests/test_kit4_scenarios.py` asserts every number.
+
+- **1. Large fraud claim (1,500 USD, RFI, Visa 10.4): recover revenue.** At first only the payment attempt is known, and the decision is to refer, since an RFI accept would issue a refund. Value of information names prior undisputed orders as worth finding. The agent finds three earlier undisputed orders from the same device and IP, plus a signed delivery. The decision flips to challenge, the claims verify, and the evidence goes in.
+- **1b. The issuer rejects the evidence.** The sandbox escalation moves the case to chargeback as a new cycle. Nirnaya re-decides on the same verified evidence and challenges again.
+- **2. Small not-received claim (15 USD, chargeback, Visa 13.1): accept.** The carrier shows delivery but no signature. Fighting costs more than the amount at risk at any win probability, so Nirnaya accepts with the reason `LOW_VALUE_TRANSACTION`.
+- **2-C. Block a fabrication (same case).** An unguarded agent's draft says "delivered and signed for by J. Smith". The carrier record has no signature, so the verifier blocks the claim and shows exactly which claim failed and why.
+- **3. Credit not processed (120 USD, chargeback, Visa 13.6): escalate.** The customer emailed support twice before the dispute and got no reply. The maths alone would accept, but Nirnaya refers the case to a person.
 - **Close:** the baseline comparison across all cases.
+
+The earlier pre-chargeback demo (accept early because the resolution fee is cheaper) stays as an engine test and an offline demo only: in the Airwallex sandbox, pre-chargeback disputes are auto-accepted within the same second.
 
 ## 11. Builder and stack
 **Builder:** solo. An AI Architect from India with 15+ years building carrier-scale messaging systems and 3+ years building production LLM systems.
@@ -124,6 +131,8 @@ These refine section 5 and match `CLAUDE.md`. Where they differ from the text ab
 3. **Win prior `p`** is looked up by **(reason category, set of evidence types present)**, not by reason alone. This is what lets a newly found record (e.g. a delivery scan in demo A) change `p` and flip the decision.
 4. **Value of information:** for each evidence type not yet present, the engine recomputes the decision as if it were present. If the action changes, that evidence type is reported as worth searching for. The agent investigates only those.
 5. **Meaning of p and q** (decided 2026-10-23; the formulas are unchanged). `p` is the probability the merchant *ultimately* keeps the amount, end to end, so a loss after escalation is already inside `1 − p`. `q` is the probability the dispute is escalated to pre-arbitration *and lost there*, which is when the pre-arbitration fee is charged. After a chargeback response, Airwallex charges that fee only on a loss and usually accepts pre-arbitration for the merchant ([How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow)). The two events are disjoint, so a policy must satisfy `p + q ≤ 1` for every prior. Excluded: merchant handling at AMEX pre-arbitration (referred anyway), arbitration fees (Airwallex handles that stage), and the Visa fraud fee (a fee-model question, still open).
+
+6. **RFI and low-value accepts** (decided 2026-10-23, from the hackathon kit 4 brief). At RFI the engine challenges iff `G_cb − h_rfi > F_cb + R − F_rfi + m`. This is the pre-chargeback structure with RFI costs (`h_rfi`, `F_rfi`, both default 0 as assumptions). It conservatively assumes the RFI response never settles the case and the issuer escalates to a chargeback. An ACCEPT result at RFI is referred, because accepting issues a full refund. Any ACCEPT is sent with the Airwallex accept reason `LOW_VALUE_TRANSACTION` when even the highest prior the policy allows (`p = 1 − q`) would not make challenging pay; otherwise the policy's own accept reason is used.
 
 ### Open questions (resolve before or during Milestone 1)
 - Exact referral thresholds and the width of the "marginal" band are merchant config; demo defaults must be labelled assumptions.

@@ -50,8 +50,9 @@ These are the seven rules in `CLAUDE.md`, restated with **where each is enforced
 
 ### 1.2 In scope
 
-- Card disputes at the **pre-chargeback** and **chargeback** stages, decided automatically.
-- RFI, pre-arbitration and arbitration: recognised, then referred to a human or recorded.
+- Card disputes at the **RFI**, **pre-chargeback** and **chargeback** stages, decided automatically. At RFI only a challenge is automated; an RFI accept issues a full refund and goes to a person.
+- Pre-arbitration and arbitration: recognised, then referred to a human or recorded.
+- The product is the Airwallex hackathon **kit 4, Dispute Response Agent** ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)). Its three cases and rejection step are the demo (§5).
 - Single merchants and platforms with several connected merchants (§11.2).
 - The Airwallex **sandbox**, with mocked merchant systems.
 
@@ -262,9 +263,9 @@ stateDiagram-v2
 
 | State | Meaning | Handler does | Exits when |
 |---|---|---|---|
-| `INGESTED` | New dispute or new cycle | Resolve ownership (§11.2); snapshot the payment attempt as evidence; apply deferral rules | Always, in one step |
+| `INGESTED` | New dispute or new cycle | Resolve ownership (§11.2); snapshot the payment attempt as evidence; **run the helpdesk lookup** (code, not the agent) so `unanswered_customer_contacts()` always has its input; apply deferral rules | Always, in one step |
 | `DEFERRED` | Airwallex will act; Nirnaya records only | Nothing; it is re-evaluated when Airwallex reports a change | Status or stage changes |
-| `ASSESSED` | Initial decision on current evidence | `evidence_present()`, `contradictory_record_ids()`, `decide()` | Always |
+| `ASSESSED` | Initial decision on current evidence | `evidence_present()`, `contradictory_record_ids()`, `unanswered_customer_contacts()`, `decide()` | Always |
 | `INVESTIGATING` | Agent searching for VoI evidence | One agent turn per tick (§8) | VoI empty, budget spent, or deadline buffer |
 | `DECIDED` | Engine has decided this cycle | Persist the `Decision`; route by `action` | Always |
 | `DRAFTING` | Agent drafts structured claims | Draft → `Claim`s (§8.6) | Drafts stored, or drafting failed |
@@ -292,6 +293,7 @@ stateDiagram-v2
 | Pre-chargeback auto-accepted below the account's threshold ("under 60 USD or equivalent" on one page; "thresholds configured for your account" on another) | same, and [How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow) | `DEFERRED` when below the threshold in merchant config. `TODO(verify-airwallex-docs)`: whether the threshold can be read through the API |
 | Pre-arbitration: Airwallex reviews it and accepts or responds for you; only AMEX shows "Requires response" | How disputes work | Non-AMEX: `DEFERRED`. AMEX with `REQUIRES_RESPONSE`: the engine refers (`STAGE_NOT_AUTOMATED`) |
 | Arbitration: no merchant action | How disputes work | `DEFERRED` |
+| **Sandbox:** pre-chargeback disputes auto-accept within the same second | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) | Nirnaya sees them already `ACCEPTED` (`STATUS_NOT_ACTIONABLE`). The pre-chargeback logic is exercised by engine tests and offline demos only |
 
 The spec also mentions Visa CE3.0 auto-challenge. It is not described on the pages checked: `TODO(verify-airwallex-docs)`.
 
@@ -301,7 +303,7 @@ The spec also mentions Visa CE3.0 auto-challenge. It is not described on the pag
 |---|---|---|
 | Pre-chargeback | 65 hours after receipt, then auto-accepted | 12 hours |
 | Chargeback | 15 days after escalation, then auto-accepted | 2 days |
-| RFI | 15 days after receipt, then it expires | 2 days (referred anyway) |
+| RFI | 15 days after receipt, then it expires | 2 days |
 
 Source: [How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow).
 
@@ -311,7 +313,11 @@ On every tick, any case not in `AWAITING_OUTCOME`, `DEFERRED`, `CLOSED` or `SUBM
 
 ## 5. Key flows
 
-### 5.1 Demo A: recover revenue
+Each flow follows the kit's demo structure: **goal → initial plan → new information → revised decision → resulting status**. All numbers are on the demo policy, in USD, and asserted in `tests/test_kit4_scenarios.py`.
+
+### 5.1 Kit case 1: large fraud claim (1,500, RFI, Visa 10.4), recover revenue
+
+Initial plan: only the payment attempt is known (CVC match, no 3DS, AVS not checked). p = 0.10, G_cb = 80, margin −5, so the maths says ACCEPT, which at RFI is referred (`RFI_ACCEPT_NEEDS_APPROVAL`). VoI names `PRIOR_UNDISPUTED_ORDERS_MATCH` among the targets. New information: the order system shows 3 earlier undisputed orders from the same device and IP, and the carrier shows a signed delivery. Revised decision: p = 0.75, G_cb = 1,055, margin +970 → CHALLENGE.
 
 ```mermaid
 sequenceDiagram
@@ -326,34 +332,42 @@ sequenceDiagram
     participant WG as Write gateway
     participant AW as Airwallex
 
-    ORC->>ENG: decide(dispute, policy, evidence_present = {})
-    ENG-->>ORC: ACCEPT, voi = [DELIVERY_CONFIRMED]
-    ORC->>AGT: case facts + targets [DELIVERY_CONFIRMED]
+    ORC->>ENG: decide(dispute, policy, evidence_present = {CVC_MATCH})
+    ENG-->>ORC: REFER (RFI accept), voi includes PRIOR_UNDISPUTED_ORDERS_MATCH
+    ORC->>AGT: case facts + targets
+    AGT->>TG: get_order(merchant_order_id)
+    TG-->>ORC: EvidenceRecord: 3 prior undisputed orders, same device and IP
     AGT->>TG: get_carrier_tracking(tracking_number)
     TG->>CAR: lookup (merchant_id injected)
-    CAR-->>TG: status DELIVERED, delivered_at, ...
+    CAR-->>TG: DELIVERED, signed_by J. Smith
     TG-->>ORC: EvidenceRecord (hashed, stored)
-    ORC->>ENG: decide(..., evidence_present = {DELIVERY_CONFIRMED})
-    ENG-->>ORC: CHALLENGE, voi = []
+    ORC->>ENG: decide(..., evidence_present = {CVC_MATCH, PRIOR_UNDISPUTED_ORDERS_MATCH, DELIVERY_CONFIRMED, DELIVERY_SIGNATURE})
+    ENG-->>ORC: CHALLENGE (p 0.75, margin +970)
     ORC->>AGT: draft claims from stored records
     AGT-->>ORC: claim drafts (structured)
     ORC->>VER: verify(dispute, claims, records, expected_hashes)
-    VER-->>ORC: PASSED, established = {DELIVERY_CONFIRMED}
+    VER-->>ORC: PASSED, established = {PRIOR_UNDISPUTED_ORDERS_MATCH, DELIVERY_SIGNATURE}
     ORC->>RND: render(verified claims, card_brand)
     RND-->>ORC: evidence PDF
     ORC->>WG: submit CHALLENGE
     WG->>AW: retrieve dispute (re-fetch)
     WG->>ENG: decide(fresh dispute, evidence = established)
     ENG-->>WG: CHALLENGE (consistent, §6)
-    WG->>AW: upload file, then challenge (request_id)
+    WG->>AW: upload PDF, then challenge (REST, request_id, challenge_method STANDARD)
     AW-->>WG: CHALLENGED
 ```
 
-### 5.2 Demo B: resolve early
+### 5.2 Kit case 1b: the issuer rejects the evidence
 
-`ASSESSED`: a pre-chargeback fraud dispute. The payment-attempt snapshot gives AVS + CVC, so p = 0.30 and `G_cb` = 0. The margin is negative, so the decision is ACCEPT and VoI is empty (no single piece of evidence flips it). The case goes `DECIDED` → `PRE_WRITE_CHECK` → accept with `accept_reason` from policy. The `Decision.reasons` record the arithmetic.
+In the sandbox the case is created at RFI, challenged, and then moved on with the simulated escalate call ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)). It arrives back as `CHARGEBACK` / `REQUIRES_RESPONSE`, which is a **new cycle** of the same case (§4). The engine re-decides at chargeback on the same verified records: 0.75 × 1,500 − 20 − 50 − 10 = +1,045 → CHALLENGE again with the same verified package. Escalating from `CHARGEBACK` is not supported in the sandbox, so the demo ends there.
 
-### 5.3 Demo C: block a fabrication
+### 5.3 Kit case 2: small not-received claim (15, chargeback, Visa 13.1), accept
+
+The carrier shows DELIVERED with no signature: p = 0.60, margin −71 → ACCEPT. Even at the highest allowed prior (1 − q = 0.90) challenging would not pay, so the accept carries `LOW_VALUE_TRANSACTION`. The kit's point holds: the dispute fee exceeds the amount at risk.
+
+### 5.4 Kit case 2-C: block a fabrication (same case)
+
+The demo shows what an **unguarded** agent (the LLM-only baseline, §14) would have submitted on case 2: "Delivery signed for by: J. Smith". `verify()` blocks it with `FIELD_MISSING` on `signed_by`, and the page shows the exact claim and the reason. In Nirnaya's own pipeline the same block applies to any draft, including one made after an approver overrides the economics:
 
 ```mermaid
 sequenceDiagram
@@ -374,6 +388,14 @@ sequenceDiagram
     REF->>ORC: re-draft without the claim
     ORC->>VER: verify(...) again (approval never skips the verifier)
 ```
+
+### 5.5 Kit case 3: credit not processed (120, chargeback, Visa 13.6), escalate
+
+`CREDIT_NOT_PROCESSED` maps to UNKNOWN, and the maths alone would accept (unknown prior 0.10, margin −68). The helpdesk lookup at `INGESTED` finds two customer emails before the dispute with no merchant reply on either ticket. `unanswered_customer_contacts()` returns both, and the engine refers with `UNANSWERED_CUSTOMER_CONTACT`. A person decides whether a refund is owed.
+
+### 5.6 Pre-chargeback early accept (offline only)
+
+A pre-chargeback fraud dispute with only AVS + CVC (p = 0.30, `G_cb` = 0) is accepted because the resolution fee is cheaper than the chargeback path. This remains an engine test and an offline demo: in the sandbox, pre-chargeback disputes auto-accept within the same second (§4.3).
 
 ---
 
@@ -426,15 +448,19 @@ They take **ids, not objects**. The gateway reloads everything it needs from the
 | 5 | The dispute's account matches the case's merchant, and the merchant has delegated authority or a human approval exists for this cycle | `NO_AUTHORITY` |
 | 6 | `decide()` re-run on the fresh dispute (and, for a challenge, on `established`) returns the same action (§6) | `DECISION_CHANGED` / `DECISION_NOT_SUPPORTED_BY_VERIFIED_CLAIMS` |
 | 7 | Challenge only: the stored `VerificationResult.outcome` is `PASSED`; every cited record's stored hash equals its capture hash; evidence files are uploaded and their `file_id`s recorded | `NOT_VERIFIED` / `EVIDENCE_CHANGED` / `FILES_MISSING` |
-| 8 | Challenge only: AI Dispute Automation will not replace Nirnaya's evidence package. `TODO(verify-airwallex-docs)`: how to detect that it is enabled | `AIRWALLEX_AUTOMATION_ACTIVE` |
+| 8 | Challenge only: the request uses `challenge_method: STANDARD`, so Nirnaya's verified package is what is submitted. AI Dispute Automation is used only when explicitly requested ([Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md)); its `recommendation` is stored as a comparison input, never as the decision | `WRONG_CHALLENGE_METHOD` |
 | 9 | No ledger row exists for this `request_id` with status `SENT` or `CONFIRMED` | returns the earlier result (idempotent) |
 
 A **human approval** satisfies check 5 and overrides the engine's economic REFER. It never satisfies check 7: an approved challenge still needs a `PASSED` verification.
 
+Each approval is **bound to what the approver saw** ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)): the action, the amount and currency, the dispute id and merchant, and the hash of the evidence package (verified claims plus rendered files). The gateway re-checks all of them; if any has changed since the approval, it is void and the case is referred again.
+
 ### 7.3 Idempotency
 
-- `request_id = sha256(merchant_id | case_id | cycle | stage | action | decision_id)`, truncated to the length Airwallex accepts (`TODO(verify-airwallex-docs)`: format and length limits).
-- The accept request has a **required** `request_id` field ([Payment Disputes API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve)). Whether challenge has one: `TODO(verify-airwallex-docs)`.
+- `request_id` is a **UUID**, reused only to retry the same operation. Reusing it for a different operation within 7 days returns `duplicate_request_id` ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)).
+- Nirnaya derives it deterministically as a **UUIDv5** of (merchant, case, cycle, stage, action, decision id), so a retry after a crash sends the same id and needs no stored randomness.
+- Both accept and challenge require `request_id` ([API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve), [Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md)).
+- Never retry a write that timed out without first re-fetching the dispute to see whether it landed (§12).
 - The `writes` table has a **unique** constraint on `request_id`. The row is inserted as `PENDING` *before* the HTTP call and updated to `SENT`, `CONFIRMED` or `FAILED` after it. On restart, `PENDING`/`SENT` rows are reconciled by re-fetching the dispute rather than re-sending.
 
 ### 7.4 Dry run
@@ -468,13 +494,13 @@ Targets are **recomputed by code** after every tool result. The agent never adds
 
 | Tool | Serves evidence types | Lookup keys (from the dispute, not the LLM) |
 |---|---|---|
-| `get_order` | `ORDER_PLACED`, `DISTINCT_TRANSACTIONS`, `REFUND_ISSUED` | `merchant_order_id` (an Airwallex dispute field, per the webhook sample on [Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis)) |
+| `get_order` | `ORDER_PLACED`, `DISTINCT_TRANSACTIONS`, `REFUND_ISSUED`, `PRIOR_UNDISPUTED_ORDERS_MATCH` | `merchant_order_id` (an Airwallex dispute field, per the webhook sample on [Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis)) |
 | `get_carrier_tracking` | `DELIVERY_CONFIRMED`, `DELIVERY_SIGNATURE` | tracking number from the order record |
 | `get_login_history` | `ACCOUNT_LOGIN_MATCH`, `USAGE_AFTER_RENEWAL` | customer account from the order record |
-| `get_helpdesk_summary` | `NO_PRIOR_CUSTOMER_CONTACT` (and surfaces customer messages as counterevidence) | customer account |
+| `get_helpdesk_summary` | `NO_PRIOR_CUSTOMER_CONTACT` (and surfaces customer messages as counterevidence). Also run by code at `INGESTED` for every case, because `unanswered_customer_contacts()` needs it | customer account |
 | `get_policy_acceptance` | `CANCELLATION_TERMS_ACCEPTED` | customer account |
 
-`THREE_DS_AUTHENTICATED`, `AVS_MATCH` and `CVC_MATCH` come from the payment-attempt snapshot at ingestion, not from the agent.
+`THREE_DS_AUTHENTICATED`, `AVS_MATCH` and `CVC_MATCH` come from the payment-attempt snapshot at ingestion, not from the agent. They are final once ingested, so a VoI target with no tool (for example `AVS_MATCH` when AVS was not checked) is dropped from the agent's list.
 
 Every tool schema excludes `merchant_id` and `case_id`; the gateway injects them from the case. Each result is stored as an `EvidenceRecord` (via `EvidenceRecord.create`, so it is hashed at capture). The record returned to Claude is that stored record.
 
@@ -521,7 +547,10 @@ Model: `NIRNAYA_MODEL` (default `claude-sonnet-5-5`).
 | Item | Value | Source |
 |---|---|---|
 | Sandbox API base URL | `https://api.sandbox.airwallex.com` | [Airwallex Developer Lab](https://airwallexdev.com/) |
-| Login | `POST /api/v1/authentication/login` with client ID and API key → access token | Developer Lab. `TODO(verify-airwallex-docs)`: header names, token lifetime, refresh |
+| Login | `POST /api/v1/authentication/login` with headers `x-client-id` and `x-api-key`, no body → bearer token valid **30 minutes** | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
+| Rate limits (sandbox) | 20 requests/s overall, 10 per endpoint, 10 concurrent; back off on 429; no parallel bursts in the demo | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
+| Amounts | Major units (not cents), which matches `Money.amount` | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
+| Writes | REST only. The MCP challenge tool lacks required fields | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
 | Keys | Created in the sandbox web app: Account > Developer > API keys | Developer Lab |
 | Docs MCP (for builders) | `https://mcp.sandbox.airwallex.com/docs` | Developer Lab |
 
@@ -531,15 +560,28 @@ Model: `NIRNAYA_MODEL` (default `claude-sonnet-5-5`).
 |---|---|---|---|
 | List disputes | `GET /api/v1/pa/payment_disputes` (filters: `stage`, `status`, `reason_code`, `due_date`, `updated_at`) | read | [Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis) |
 | Retrieve dispute | `GET /api/v1/pa/payment_disputes/{dispute_id}` | read | same |
-| Challenge | `POST /api/v1/pa/payment_disputes/{dispute_id}/challenge` | **write** | same; body fields `TODO(verify-airwallex-docs)` |
-| Accept | path `TODO(verify-airwallex-docs)`; body has required `request_id` and a `reason` from `AcceptReason` | **write** | [API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve) |
-| Upload evidence file | `POST /api/v1/files/upload/{file_path}` → `file_id` | **write** | Handle disputes using our APIs |
-| Payment attempt / intent | `TODO(verify-airwallex-docs)` | read | n/a |
+| Challenge | `POST /api/v1/pa/payment_disputes/{dispute_id}/challenge`; allowed at `RFI` or `CHARGEBACK` with `REQUIRES_RESPONSE` | **write** | [Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md) |
+| Accept | `POST /api/v1/pa/payment_disputes/{dispute_id}/accept`; required `request_id`, `reason` from `AcceptReason` | **write** | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md); [API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve) |
+| Upload evidence file | `POST /files/upload` on `files.sandbox.airwallex.com` ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)), or `POST /api/v1/files/upload/{file_path}` (disputes guide) → `file_id`. **Conflict: `TODO(verify-airwallex-docs)`** | **write** | both |
+| Create test payments | `POST /api/v1/pa/payment_intents/create`, then `/{id}/confirm` (test card `4035501000000008`) | sim | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
+| Payment attempt / intent read | `TODO(verify-airwallex-docs)` | read | n/a |
+| Refunds | `GET /api/v1/pa/refunds` | read | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
 | Simulate create | `POST /api/v1/simulation/pa/payment_disputes/create` | sim | [Simulate payment disputes](https://www.airwallex.com/docs/developer-tools/sandbox-environment/payments/simulate-payment-disputes) |
 | Simulate resolve | `POST /api/v1/simulation/pa/payment_disputes/{id}/resolve` (`in_favor_of`: `MERCHANT` → WON or REVERSED; `CUSTOMER` → LOST) | sim | same |
 | Simulate escalate | `POST /api/v1/simulation/pa/payment_disputes/{id}/escalate` (declines evidence, moves to the next stage) | sim | same |
 
-The simulation client is constructible only when the base URL is the sandbox host.
+The simulation client is constructible only when the base URL is the sandbox host. In the sandbox, escalating from `CHARGEBACK` is not supported, so cases meant to be challenged and then rejected are created at `RFI` ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)).
+
+**Challenge request body** ([Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md)):
+
+| Field | Nirnaya fills it from |
+|---|---|
+| `request_id` (required) | UUIDv5 (§7.3) |
+| `challenge_method` | Always `STANDARD` (§7.2 check 8) |
+| `product_type` (required at `CHARGEBACK`: `PHYSICAL_GOODS`, `DIGITAL_PRODUCT_OR_SERVICE`, `OFFLINE_SERVICE`, `TRAVEL`, `RESERVE_OR_BOOKING`, `OTHERS`) | Merchant config or the order record |
+| `reason` (`CUSTOMER_WITHDRAWN`, `CUSTOMER_REFUNDED`, `PRODUCT_RECEIVED`, `PURCHASE_HISTORY`, `NOT_ENTITLED`, `SEPARATE_PRODUCT`, `AUTHENTIC_PRODUCT`, `OTHER_REASONS`) | Challenge-reason mapping (§9.5) |
+| `supporting_documents.documents[]` (`type`: `PRIMARY`, `ORDER`, `CUSTOMER`, `OTHER`; `file_ids`; `description`) | Rendered evidence files (§9.6); `description` is the rendered claim text |
+| `delivery_info`, `customer_info`, `duplicate_charge_info` and similar structured fields | **Only from verified claims.** Each structured value must equal the `normalised_value` of a `VERIFIED` claim, so nothing reaches Airwallex that the verifier did not clear |
 
 ### 9.3 Wire → domain mapping (`ingest/`)
 
@@ -568,9 +610,19 @@ The simulation client is constructible only when the base URL is the sandbox hos
 
 | `Decision.action` | Airwallex call | Notes |
 |---|---|---|
-| ACCEPT | accept, with `request_id` and `reason = Decision.accept_reason` (from `MerchantPolicy.accept_reason`, default `OTHERS`) | Accepting at RFI triggers a full refund (API reference); RFI is never auto-accepted |
-| CHALLENGE | upload the rendered files, then challenge with their `file_id`s | |
+| ACCEPT | accept, with `request_id` and `reason = Decision.accept_reason`: `LOW_VALUE_TRANSACTION` when even p = 1 − q would not pay, otherwise `MerchantPolicy.accept_reason` (default `OTHERS`) | Accepting at RFI triggers a full refund, so an RFI accept is referred (`RFI_ACCEPT_NEEDS_APPROVAL`) |
+| CHALLENGE | upload the rendered files, then challenge with their `file_id`s and the reason below | |
 | REFER | none | Referral record |
+
+Challenge-reason mapping, chosen at write time from `VerificationResult.established` (ASSUMPTION, implemented in M5):
+
+| Verified facts include | Airwallex challenge `reason` |
+|---|---|
+| `REFUND_ISSUED` | `CUSTOMER_REFUNDED` |
+| `DELIVERY_CONFIRMED` (non-receipt) | `PRODUCT_RECEIVED` |
+| `DISTINCT_TRANSACTIONS` (duplicate) | `SEPARATE_PRODUCT` |
+| `PRIOR_UNDISPUTED_ORDERS_MATCH` (fraud) | `PURCHASE_HISTORY` |
+| anything else | `OTHER_REASONS` |
 
 ### 9.6 Evidence files (`render/`)
 
@@ -580,7 +632,7 @@ Format and size limits by card brand, from [Handle disputes using our APIs](http
 
 | Brand | Formats | Limits |
 |---|---|---|
-| Visa | tiff, tif, pdf, jpg, jpeg (**no PNG**) | 15 MB total; PDF ≤ 2 MB, JPEG/TIFF ≤ 10 MB each |
+| Visa | tiff, tif, pdf, jpg, jpeg (**no PNG**; the [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) says use JPG or PDF for every brand) | 15 MB total; PDF ≤ 2 MB, JPEG/TIFF ≤ 10 MB each |
 | Mastercard | tiff, tif, pdf, jpg, jpeg, png | 14.5 MB total |
 | AMEX | see source | 900 MB total, 4 MB per file |
 | UnionPay, JCB, Discover/Diners | see source | `TODO(verify-airwallex-docs)`: copy exact limits |
@@ -781,8 +833,10 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 | Deadline buffer reached | Watchdog → `REFERRED` (urgent) |
 | Crash mid-write | Ledger row is `PENDING`/`SENT`; on restart, re-fetch and reconcile, never blind resend |
 | Duplicate submit | The unique `request_id` returns the earlier result |
+| Write timed out | Re-fetch the dispute; resend with the **same** `request_id` only if it did not land |
+| Rate limited (429) | Back off and retry later; the watchdog still guards the deadline |
 | File upload partly fails | No challenge call; retry the uploads; persistent failure → `REFERRED` |
-| AI Dispute Automation active | `AIRWALLEX_AUTOMATION_ACTIVE` → `REFERRED` (pending §17 item 3) |
+| A challenge request built with any method other than `STANDARD` | `WRONG_CHALLENGE_METHOD` → `REFERRED` (§7.2 check 8) |
 
 ---
 
@@ -809,7 +863,7 @@ flowchart LR
     S --> M[Metrics report]
 ```
 
-- **Cases** cover fraud, non-receipt, duplicate, subscription and unknown reasons at both stages. They include marginal cases, the three demo cases and adversarial ones (fabrications, contradictions, prompt injection in customer text).
+- **Cases** cover fraud, non-receipt, duplicate, subscription and unknown reasons at both stages. They include marginal cases, the kit 4 cases (1, 1b, 2, 2-C, 3), unanswered customer contact, and adversarial ones (fabrications, contradictions, prompt injection in customer text).
 - **Investigators:**
   - The *scripted* investigator (M3) calls the right tools deterministically and makes the pipeline testable without an LLM.
   - The *Claude* investigator (M4) is the real agent.
@@ -837,7 +891,7 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | Cases | Merchant filter, state, stage, `due_at` countdown, action | Open a case |
 | Case detail | Timeline; the decision maths and priors (shown as priors, not predictions); VoI; evidence records with hashes; claims and verification results; **counterevidence** | none |
 | Review queue | Referrals by urgency: reason, failed claims, counterevidence, time left | Approve accept · approve challenge (still verified) · handle manually |
-| Demo | Run scenarios A, B, C end to end against mocks or the sandbox | Run |
+| Demo | Run kit cases 1, 1b, 2, 2-C and 3 end to end against mocks or the sandbox, each shown as goal → initial plan → new information → revised decision → status | Run |
 | Evaluation | Baselines against Nirnaya on the five metrics | Run the eval |
 
 ---
@@ -860,14 +914,15 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | # | Decision | Resolution (2026-10-23) | Why |
 |---|---|---|---|
 | 1 | **Pre-arbitration economics** | Keep `p*A − h − q*F_pa` and `G_cb` unchanged. Define **p** as the probability of *ultimately* keeping A (escalation losses are inside 1 − p) and **q** as the probability of escalation to pre-arbitration *and losing there*. `MerchantPolicy` enforces `p + q ≤ 1` for every prior. | Airwallex usually accepts pre-arbitration for the merchant, and after a chargeback response charges the fee only on a loss ([How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow)), so `q*F_pa` is the expected fee. Adding a separate q×A loss would double-count it, and stage-by-stage priors cannot be supplied. Recorded in `docs/spec.md` appendix item 5. |
+| 3 | **AI Dispute Automation** | Always challenge with `challenge_method: STANDARD`; store Airwallex's `ai_dispute_automation.recommendation` as a comparison input. | The automated method runs only when requested ([Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md)), so Nirnaya's verified package is what gets submitted. |
+| 4 | **Challenge `request_id`** | Required on challenge and accept; a deterministic UUIDv5 per operation (§7.3). | [Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md); [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md). |
+| 13 | **Kit 4 alignment** | RFI challenges automated; RFI accepts referred; `LOW_VALUE_TRANSACTION` accept reason; unanswered customer contact refers; new evidence type `PRIOR_UNDISPUTED_ORDERS_MATCH`; the demo is the kit's cases (§5). | The hackathon brief and its sandbox behaviour ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)). Recorded in `docs/spec.md` §5, §10 and appendix item 6. |
 | 2 | **Reason mapping** | `UNRECOGNIZED_CHARGE` and `NOT_RECOGNIZED` → FRAUD; `CANCELLED_PRODUCT` stays SUBSCRIPTION; every other type stays UNKNOWN (`nirnaya/models/reasons.py`). | An unrecognised charge is a known reason whose defence is fraud evidence. As UNKNOWN, the verifier would block exactly those claims. SUBSCRIPTION's requirements also fit a cancelled one-off order, and splitting the two by `original_code` needs an unverified code format. |
 
 ### 17.2 Still open
 
 | # | Decision | Options | Impact | Resolve by |
 |---|---|---|---|---|
-| 3 | AI Dispute Automation: if enabled, the challenge endpoint picks evidence itself | detect and refer; or require it off for Nirnaya merchants | Whether Nirnaya's verified package is what gets submitted | M5 |
-| 4 | Does challenge take a `request_id`? | if not: idempotency through the ledger plus re-fetch only | Duplicate-write protection | M5 |
 | 5 | Connected-account scoping for platforms | per Airwallex docs | Tenant isolation at the API | M5 |
 | 6 | Webhook signature verification | per Airwallex docs | Whether webhooks can be enabled at all | M5 (if webhooks are used) |
 | 7 | Real fee values (F_pre, F_cb, F_pa, Visa fraud fee) | from Airwallex pricing | All economics | Before any real merchant |
@@ -876,6 +931,9 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | 10 | Deadline-buffer and agent-budget defaults | §4.4, §8.5 | Automation coverage versus safety | M4 |
 | 11 | Polling interval and backoff | e.g. 60 s | API load versus latency | M5 |
 | 12 | Auto-accept threshold source | merchant config, or read from Airwallex if exposed | Deferral correctness | M5 |
+| 14 | Evidence upload host and path: `files.sandbox.airwallex.com` `POST /files/upload` (kit guide) or `/api/v1/files/upload/{file_path}` (disputes guide) | check with the Docs MCP | Whether uploads work at all | M5 |
+| 15 | Is there a fee for accepting at RFI (`fee_rfi_accept`, default 0)? | per Airwallex pricing | RFI economics | Before any real merchant |
+| 16 | Which `reason.type` does the sandbox assign to Visa codes 10.4, 13.1 and 13.6? | observe on simulated disputes | Whether the demo cases map to FRAUD, NON_RECEIPT and UNKNOWN as expected | M5 |
 
 ---
 
@@ -883,12 +941,12 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 
 | Milestone | Builds | Proves | Status |
 |---|---|---|---|
-| M1: Deterministic core | `models/`, `evidence/`, `engine/`, `verifier/`, `config/demo.py` | Formulas and boundaries, unknown reasons never challenged, every verifier check, demos A/B/C at unit level, determinism | ✅ (370 tests), plus alignment with documented Airwallex enums and the p/q and reason-mapping decisions (§17.1) |
-| M2: Synthetic world | `integrations/mocks/`, `eval/cases/` | ~30 cases with expected decisions, demo cases as fixtures, adversarial cases | ⬜ |
+| M1: Deterministic core | `models/`, `evidence/`, `engine/`, `verifier/`, `config/demo.py` | Formulas and boundaries, unknown reasons never challenged, every verifier check, the kit 4 cases end to end at unit level, determinism | ✅ (427 tests), plus Airwallex enum alignment and the decisions in §17.1 |
+| M2: Synthetic world | `integrations/mocks/`, `eval/cases/` | ~30 cases with expected decisions, the kit 4 cases as fixtures, adversarial cases | ⬜ |
 | M3: Orchestrator | `store/`, `orchestrator/`, `ingest/` (mock source), scripted investigator, `render/` | End-to-end state machine with no LLM; audit chain; idempotent, resumable handlers; watchdog | ⬜ |
 | M4: Investigating agent | `agent/`, tool gateway | VoI-driven search, budgets, stop conditions, structured drafts, injection resistance | ⬜ |
 | M5: Airwallex sandbox | `integrations/airwallex/`, `guardrails/`, real `ingest/` | Re-fetch checklist, `request_id` ledger, dry run, simulation round-trips, closes the §9 TODOs | ⬜ |
 | M6: Evaluation | `eval/` runner, baselines, metrics | Five metrics against three baselines | ⬜ |
-| M7: Streamlit demo | `app/` | Scenarios A/B/C, review queue, baseline comparison | ⬜ |
+| M7: Streamlit demo | `app/` | Kit 4 cases in the kit's demo structure, review queue, baseline comparison | ⬜ |
 
 Each milestone is finished and tested before the next starts (`CLAUDE.md`).

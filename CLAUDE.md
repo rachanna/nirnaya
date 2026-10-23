@@ -52,8 +52,11 @@ All parameters are per-merchant config. Sunk costs are excluded.
 - **Pre-chargeback stage:** challenge iff `G_cb - h_pre > F_cb + R - F_pre + m`, where `G_cb = max(0, p*A - h - q*F_pa)` is the expected chargeback-stage gain; else accept now. (`h_pre` = handling cost of the pre-chargeback challenge; defaults to 0.)
 - `p` is a fixed prior looked up by **(reason category, evidence present)** — this is what lets new evidence flip a decision. Priors are displayed, never presented as predictions.
 - `p` = probability of *ultimately* keeping A (escalation losses are inside `1 − p`); `q` = probability of escalation to pre-arbitration *and* losing there (when `F_pa` is charged). Disjoint events: every policy enforces `p + q ≤ 1`. See `docs/spec.md` appendix item 5.
+- **RFI stage:** challenge iff `G_cb - h_rfi > F_cb + R - F_rfi + m` (assumes the RFI response never settles it). An RFI *accept* issues a full refund, so it is always referred.
 - **Unknown reason:** conservative prior, no reason-specific claims, may auto-accept, never auto-challenge.
-- **Referral overrides the maths:** amount above threshold, margin within a configured band, contradictory records, unresolved ownership, non-automated stage (RFI, pre-arb, arbitration).
+- **Referral overrides the maths:** amount above threshold, margin within a configured band, contradictory records, unresolved ownership, a customer contact before the dispute with no reply, non-automated stage (pre-arb, arbitration).
+- **Accept reason:** `LOW_VALUE_TRANSACTION` when even `p = 1 - q` would not pay; otherwise the policy's `accept_reason`.
+- **Hackathon:** Nirnaya is the Airwallex Developer Lab kit 4 "Dispute Response Agent". The demo cases are the kit's (`docs/spec.md` §10, `tests/test_kit4_scenarios.py`). In the sandbox, pre-chargeback disputes auto-accept instantly.
 - **Value of information:** for each missing evidence type, report whether obtaining it would change the decision. The agent only searches for evidence that would.
 
 ## Verifier blocking checks
