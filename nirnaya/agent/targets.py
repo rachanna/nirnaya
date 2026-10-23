@@ -30,10 +30,15 @@ TOOL_FOR: dict[EvidenceType, Tool | None] = {
 def investigation_targets(
     decision: Decision, dispute: Dispute, present: frozenset[EvidenceType]
 ) -> list[EvidenceType]:
-    """Evidence worth searching for: whatever would flip the maths (VoI), plus, when the maths
-    favours a challenge, whatever the reason's evidence requirements still lack, so that the
-    challenge can be verified. Only types some tool can find."""
-    wanted = {v.evidence_type for v in decision.voi}
+    """Evidence worth searching for: every set VoI says would flip the maths, plus, when the
+    maths favours a challenge, whatever the reason's evidence requirements still lack, so that
+    the challenge can be verified. Only types some tool can find. A flipping set containing a
+    type no tool can find (a payment-attempt fact, final once ingested) is dropped whole: the
+    agent never fetches half of a set it cannot complete."""
+    wanted: set[EvidenceType] = set()
+    for v in decision.voi:
+        if all(TOOL_FOR[t] is not None for t in v.evidence):
+            wanted |= v.evidence
     if decision.math_action is Action.CHALLENGE:
         for group in REQUIRED_EVIDENCE[dispute.reason_category]:
             if not group & present:

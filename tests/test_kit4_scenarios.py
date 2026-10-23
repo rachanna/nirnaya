@@ -115,7 +115,7 @@ def test_case1_before_search_refers_and_points_at_the_missing_evidence():
     assert (d.p, d.g_cb, d.margin) == (D("0.10"), D("80.0000"), D("-5.0000"))
     assert d.math_action is Action.ACCEPT
     assert d.referral_reasons == (ReferralReason.RFI_ACCEPT_NEEDS_APPROVAL,)
-    assert E.PRIOR_UNDISPUTED_ORDERS_MATCH in [v.evidence_type for v in d.voi]
+    assert {E.PRIOR_UNDISPUTED_ORDERS_MATCH} in [set(v.evidence) for v in d.voi]
 
 
 def test_case1_after_search_challenges_with_a_verified_package():

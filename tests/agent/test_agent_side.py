@@ -209,3 +209,24 @@ def test_scripted_drafts_never_fail_verification(case):
 def test_no_reason_specific_drafts_under_unknown(case):
     claims = ScriptedDrafter().draft(case.dispute, case.evidence_records())
     assert not {c.establishes for c in claims} & set(REASON_SPECIFIC)
+
+
+def test_a_joint_set_is_targeted_whole():
+    dispute = make_dispute(
+        reason=DisputeReason(type="CANCELLED_PRODUCT"), stage="RFI", amount=usd("300.00")
+    )
+    d = decide(dispute, DEMO_POLICY, frozenset(), ownership_resolved=True)
+    targets = investigation_targets(d, dispute, frozenset())
+    assert {E.CANCELLATION_TERMS_ACCEPTED, E.USAGE_AFTER_RENEWAL} <= set(targets)
+
+
+def test_a_set_that_needs_a_payment_attempt_fact_is_dropped_whole():
+    # Fraud pre-chargeback: {AVS, CVC} flips, but neither can be fetched by a tool.
+    dispute = make_dispute(
+        reason=DisputeReason(type="FRAUDULENT"), stage="PRE_CHARGEBACK", amount=usd("1000.00")
+    )
+    d = decide(dispute, DEMO_POLICY, frozenset(), ownership_resolved=True)
+    assert {E.AVS_MATCH, E.CVC_MATCH} in [set(v.evidence) for v in d.voi]
+    targets = investigation_targets(d, dispute, frozenset())
+    assert not {E.AVS_MATCH, E.CVC_MATCH} & set(targets)
+    assert E.PRIOR_UNDISPUTED_ORDERS_MATCH in targets

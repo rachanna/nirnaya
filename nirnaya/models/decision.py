@@ -4,7 +4,7 @@ from typing import Any, Self
 from pydantic import model_validator
 
 from nirnaya.models.base import Dec, DomainModel, EvidenceSet, NonBlankStr
-from nirnaya.models.enums import AcceptReason, Action, EvidenceType, ReasonCategory, Stage
+from nirnaya.models.enums import AcceptReason, Action, ReasonCategory, Stage
 
 
 class ReferralReason(StrEnum):
@@ -21,9 +21,12 @@ class ReferralReason(StrEnum):
 
 
 class VoIEntry(DomainModel):
-    """A missing evidence type that, if found, would flip the maths action."""
+    """Missing evidence that, if all of it were found, would flip the maths action.
 
-    evidence_type: EvidenceType
+    A minimal set: no smaller part of it flips the action on its own. Usually one type.
+    """
+
+    evidence: EvidenceSet
     p_if_present: Dec
     margin_if_present: Dec
     math_action_if_present: Action

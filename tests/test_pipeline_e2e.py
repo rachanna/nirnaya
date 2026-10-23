@@ -52,21 +52,7 @@ def route_of(h: Harness, case: EvalCase) -> Route:
     raise AssertionError(f"{cid} stopped in {state}")
 
 
-# Value of information tests one evidence type at a time (spec appendix 4), so evidence that
-# only flips the decision jointly is never searched for. S5 needs terms AND usage together;
-# the expected route assumes full investigation. Strict: this fails loudly once fixed.
-SEARCH_LIMIT = {"S5"}
-JOINT = pytest.mark.xfail(strict=True, reason="needs evidence that only flips jointly (S5)")
-
-
-def route_params():
-    return [
-        pytest.param(c, id=c.id, marks=JOINT if c.id in SEARCH_LIMIT else ())
-        for c in CASES.values()
-    ]
-
-
-@pytest.mark.parametrize("case", route_params())
+@pytest.mark.parametrize("case", list(CASES.values()), ids=lambda c: c.id)
 def test_every_case_lands_on_its_expected_route(case):
     h, _ = run(case)
     assert route_of(h, case) is case.expected.route
@@ -82,7 +68,7 @@ def test_dry_run_never_writes_to_airwallex(case):
 def test_engine_decision_on_record_matches_the_expected_engine_action():
     for case in CASES.values():
         exp = case.expected.engine
-        if exp is None or case.expected.route is Route.DEFER or case.id in SEARCH_LIMIT:
+        if exp is None or case.expected.route is Route.DEFER:
             continue
         h, _ = run(case)
         _, decision = h.store.latest_decision(case.dispute.merchant_id, case.dispute.id, 1)

@@ -33,7 +33,7 @@ def test_demo_a_delivery_scan_flips_accept_to_challenge():
 
     before = decide_from_records(dispute, [])
     assert before.action is Action.ACCEPT
-    assert [v.evidence_type for v in before.voi] == [EvidenceType.DELIVERY_CONFIRMED]
+    assert [set(v.evidence) for v in before.voi] == [{EvidenceType.DELIVERY_CONFIRMED}]
 
     # The agent searches only for what VoI reported, and finds the carrier scan.
     after = decide_from_records(dispute, [carrier_record()])
