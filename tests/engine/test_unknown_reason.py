@@ -1,3 +1,4 @@
+from decimal import ROUND_DOWN
 from decimal import Decimal as D
 
 from hypothesis import given, settings
@@ -62,7 +63,7 @@ prob = st.decimals(min_value=0, max_value=1, places=3)
 @settings(max_examples=300, deadline=None)
 @given(
     p=prob,
-    q=prob,
+    q_share=prob,
     amount=st.decimals(min_value=D("0.01"), max_value=100000, places=2),
     f_pre=money,
     f_cb=money,
@@ -78,8 +79,25 @@ prob = st.decimals(min_value=0, max_value=1, places=3)
     ownership=st.booleans(),
 )
 def test_unknown_reason_never_auto_challenges(
-    p, q, amount, f_pre, f_cb, f_pa, h, h_pre, r, m, band, threshold, stage, evidence, ownership
+    p,
+    q_share,
+    amount,
+    f_pre,
+    f_cb,
+    f_pa,
+    h,
+    h_pre,
+    r,
+    m,
+    band,
+    threshold,
+    stage,
+    evidence,
+    ownership,
 ):
+    # q is drawn as a share of the room left by the largest p, so p + q <= 1 always holds.
+    largest_p = max([p, *(e.p for e in DEMO_POLICY.priors)])
+    q = ((1 - largest_p) * q_share).quantize(D("0.001"), rounding=ROUND_DOWN)
     policy = make_policy(
         unknown_reason_prior=p,
         escalation_probability=q,

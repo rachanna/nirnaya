@@ -26,9 +26,32 @@ def test_probability_out_of_range_is_rejected(p):
         PriorEntry(reason=ReasonCategory.FRAUD, p=D(p))
 
 
-@pytest.mark.parametrize("p", ["0", "1"])
-def test_probability_bounds_are_inclusive(p):
-    make_policy(escalation_probability=D(p))
+def test_probability_bounds_are_inclusive():
+    zero_priors = tuple(e.model_copy(update={"p": D(0)}) for e in DEMO_POLICY.priors)
+    make_policy(escalation_probability=D("1"), unknown_reason_prior=D("0"), priors=zero_priors)
+    make_policy(escalation_probability=D("0"), unknown_reason_prior=D("1"))
+
+
+# --- p + q <= 1: keeping A and losing at pre-arbitration are disjoint events --------------
+
+
+def test_prior_plus_q_above_one_is_rejected():
+    # The demo's highest prior is 0.85 (duplicate with a refund).
+    with pytest.raises(ValidationError, match="disjoint"):
+        make_policy(escalation_probability=D("0.16"))
+
+
+def test_prior_plus_q_equal_to_one_is_accepted():
+    make_policy(escalation_probability=D("0.15"))
+
+
+def test_unknown_prior_plus_q_above_one_is_rejected():
+    with pytest.raises(ValidationError, match="unknown_reason_prior"):
+        make_policy(unknown_reason_prior=D("0.95"), escalation_probability=D("0.06"))
+
+
+def test_unknown_prior_plus_q_equal_to_one_is_accepted():
+    make_policy(unknown_reason_prior=D("0.85"), escalation_probability=D("0.15"))
 
 
 def test_float_probability_is_rejected():

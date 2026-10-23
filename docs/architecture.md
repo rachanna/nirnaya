@@ -384,8 +384,14 @@ sequenceDiagram
 **The rule.** At `PRE_WRITE_CHECK` for a CHALLENGE, the write gateway re-runs:
 
 ```python
-decide(fresh_dispute, policy, verification.established,
-       ownership_resolved=..., contradictory_record_ids=..., fx=...)
+decide(
+    fresh_dispute,
+    policy,
+    verification.established,
+    ownership_resolved=...,
+    contradictory_record_ids=...,
+    fx=...,
+)
 ```
 
 The challenge proceeds only if that returns `Action.CHALLENGE`. Otherwise the case is `REFERRED` with the reason `DECISION_NOT_SUPPORTED_BY_VERIFIED_CLAIMS`.
@@ -849,10 +855,17 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 
 ## 17. Open decisions
 
+### 17.1 Resolved
+
+| # | Decision | Resolution (2026-10-23) | Why |
+|---|---|---|---|
+| 1 | **Pre-arbitration economics** | Keep `p*A − h − q*F_pa` and `G_cb` unchanged. Define **p** as the probability of *ultimately* keeping A (escalation losses are inside 1 − p) and **q** as the probability of escalation to pre-arbitration *and losing there*. `MerchantPolicy` enforces `p + q ≤ 1` for every prior. | Airwallex usually accepts pre-arbitration for the merchant, and after a chargeback response charges the fee only on a loss ([How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow)), so `q*F_pa` is the expected fee. Adding a separate q×A loss would double-count it, and stage-by-stage priors cannot be supplied. Recorded in `docs/spec.md` appendix item 5. |
+| 2 | **Reason mapping** | `UNRECOGNIZED_CHARGE` and `NOT_RECOGNIZED` → FRAUD; `CANCELLED_PRODUCT` stays SUBSCRIPTION; every other type stays UNKNOWN (`nirnaya/models/reasons.py`). | An unrecognised charge is a known reason whose defence is fraud evidence. As UNKNOWN, the verifier would block exactly those claims. SUBSCRIPTION's requirements also fit a cancelled one-off order, and splitting the two by `original_code` needs an unverified code format. |
+
+### 17.2 Still open
+
 | # | Decision | Options | Impact | Resolve by |
 |---|---|---|---|---|
-| 1 | **Pre-arbitration economics.** Airwallex reviews pre-arbitrations and may accept them for the merchant; the pre-arbitration fee after a chargeback response is charged only on a loss ([How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow)). The current formula `p*A − h − q*F_pa` charges `q*F_pa` regardless of outcome and assumes a win keeps A. | (a) keep it as is; (b) model escalation as losing A with probability q (and the fee only on a loss); (c) make q the probability of losing *after* winning the chargeback | Changes engine maths and every eval expectation | Before M6 (plan mode) |
-| 2 | Reason mapping: `CANCELLED_PRODUCT` → SUBSCRIPTION; `UNRECOGNIZED_CHARGE` and `NOT_RECOGNIZED` → UNKNOWN | keep, or remap (`nirnaya/models/reasons.py`) | Which disputes can ever be auto-challenged | M2 (eval cases) |
 | 3 | AI Dispute Automation: if enabled, the challenge endpoint picks evidence itself | detect and refer; or require it off for Nirnaya merchants | Whether Nirnaya's verified package is what gets submitted | M5 |
 | 4 | Does challenge take a `request_id`? | if not: idempotency through the ledger plus re-fetch only | Duplicate-write protection | M5 |
 | 5 | Connected-account scoping for platforms | per Airwallex docs | Tenant isolation at the API | M5 |
@@ -870,7 +883,7 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 
 | Milestone | Builds | Proves | Status |
 |---|---|---|---|
-| M1: Deterministic core | `models/`, `evidence/`, `engine/`, `verifier/`, `config/demo.py` | Formulas and boundaries, unknown reasons never challenged, every verifier check, demos A/B/C at unit level, determinism | ✅ (364 tests), plus alignment with documented Airwallex enums |
+| M1: Deterministic core | `models/`, `evidence/`, `engine/`, `verifier/`, `config/demo.py` | Formulas and boundaries, unknown reasons never challenged, every verifier check, demos A/B/C at unit level, determinism | ✅ (370 tests), plus alignment with documented Airwallex enums and the p/q and reason-mapping decisions (§17.1) |
 | M2: Synthetic world | `integrations/mocks/`, `eval/cases/` | ~30 cases with expected decisions, demo cases as fixtures, adversarial cases | ⬜ |
 | M3: Orchestrator | `store/`, `orchestrator/`, `ingest/` (mock source), scripted investigator, `render/` | End-to-end state machine with no LLM; audit chain; idempotent, resumable handlers; watchdog | ⬜ |
 | M4: Investigating agent | `agent/`, tool gateway | VoI-driven search, budgets, stop conditions, structured drafts, injection resistance | ⬜ |

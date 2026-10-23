@@ -17,8 +17,10 @@ R = ReasonCategory
         ("DUPLICATE_CHARGE", R.DUPLICATE),
         ("CANCELLED_PRODUCT", R.SUBSCRIPTION),
         ("UNKNOWN", R.UNKNOWN),
-        ("UNRECOGNIZED_CHARGE", R.UNKNOWN),
-        ("NOT_RECOGNIZED", R.UNKNOWN),
+        ("UNRECOGNIZED_CHARGE", R.FRAUD),
+        ("NOT_RECOGNIZED", R.FRAUD),
+        ("CREDIT_NOT_PROCESSED", R.UNKNOWN),
+        ("MISREPRESENTATION", R.UNKNOWN),
         ("PRODUCT_UNACCEPTABLE", R.UNKNOWN),
     ],
 )
@@ -47,3 +49,21 @@ def test_dispute_category_is_derived_from_reason_type():
 def test_category_cannot_be_set_independently():
     with pytest.raises(ValueError):
         make_dispute().model_validate({**make_dispute().model_dump(), "reason_category": "FRAUD"})
+
+
+def test_unrecognised_charge_can_cite_fraud_evidence():
+    # As UNKNOWN, a 3DS claim would be blocked as reason-specific; as FRAUD it verifies.
+    from nirnaya.models import EvidenceType, SourceSystem
+    from nirnaya.verifier import VerificationOutcome, verify
+    from tests.factories import make_claim, make_record
+
+    dispute = make_dispute(reason=DisputeReason(type="UNRECOGNIZED_CHARGE"))
+    record = make_record(SourceSystem.PAYMENT_ATTEMPT, {"three_ds": "AUTHENTICATED"}, id="pa-1")
+    claim = make_claim(
+        source_record_id="pa-1",
+        source_field="three_ds",
+        establishes=EvidenceType.THREE_DS_AUTHENTICATED,
+        extracted_value="AUTHENTICATED",
+        normalised_value={"kind": "ENUM", "text": "AUTHENTICATED"},
+    )
+    assert verify(dispute, [claim], [record]).outcome is VerificationOutcome.PASSED

@@ -39,7 +39,12 @@ class MerchantPolicy(DomainModel):
     handling_cost_pre: NonNegativeDec = Decimal(0)  # h_pre
     counted_chargeback_cost: NonNegativeDec  # R
     min_gain: NonNegativeDec  # m
-    escalation_probability: Probability  # q
+    # q: probability the dispute is escalated to pre-arbitration AND lost there, the event on
+    # which F_pa is charged (after a chargeback response Airwallex charges it only on a loss).
+    escalation_probability: Probability
+    # p (in priors and unknown_reason_prior): probability the merchant ultimately keeps A,
+    # end to end, so a loss after escalation is already inside 1 - p. Keeping A and losing at
+    # pre-arbitration are disjoint events, hence p + q <= 1 is enforced below.
     priors: tuple[PriorEntry, ...]
     unknown_reason_prior: Probability
     referral_amount_threshold: NonNegativeDec
@@ -69,4 +74,18 @@ class MerchantPolicy(DomainModel):
         missing = sorted(KNOWN_REASONS - with_base)
         if missing:
             raise ValueError(f"no base prior (empty evidence set) for {missing}")
+        return self
+
+    @model_validator(mode="after")
+    def _p_and_q_disjoint(self) -> Self:
+        q = self.escalation_probability
+        if self.unknown_reason_prior + q > 1:
+            raise ValueError(f"unknown_reason_prior + escalation_probability exceeds 1 (q={q})")
+        for e in self.priors:
+            if e.p + q > 1:
+                names = sorted(e.evidence) or "no evidence"
+                raise ValueError(
+                    f"prior p={e.p} for {e.reason} with {names} plus escalation_probability "
+                    f"q={q} exceeds 1: keeping A and losing at pre-arbitration are disjoint"
+                )
         return self
