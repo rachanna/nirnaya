@@ -92,6 +92,10 @@ class StoreError(RuntimeError):
     pass
 
 
+class RecordChanged(StoreError):
+    """A record id is already stored with different content: the source changed since capture."""
+
+
 def _iso(at: datetime) -> str:
     return at.isoformat()
 
@@ -373,18 +377,21 @@ class Store:
             content = {"captured_at", "sha256"}
             if kept.model_dump(exclude=content) == record.model_dump(exclude=content):
                 return False
-            raise StoreError(f"record {record.id!r} changed after capture")
-        self.conn.execute(
-            "INSERT INTO evidence_records VALUES (?, ?, ?, ?, ?, ?)",
-            (
-                merchant_id,
-                record.case_id,
-                record.id,
-                record.model_dump_json(),
-                record.sha256,
-                _iso(record.captured_at),
-            ),
-        )
+            raise RecordChanged(f"record {record.id!r} changed after capture")
+        try:
+            self.conn.execute(
+                "INSERT INTO evidence_records VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    merchant_id,
+                    record.case_id,
+                    record.id,
+                    record.model_dump_json(),
+                    record.sha256,
+                    _iso(record.captured_at),
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise StoreError(f"record id {record.id!r} is taken by another merchant") from exc
         return True
 
     def put_evidence_or_revise(
@@ -400,9 +407,8 @@ class Store:
             try:
                 self.put_evidence(merchant_id, record)
                 return record
-            except StoreError:
-                if record.merchant_id != merchant_id:
-                    raise
+            except RecordChanged:
+                pass
             # The version id is a digest of the content alone, so a later capture of the same
             # changed content maps to the same version.
             content = record.model_dump(mode="json", exclude={"id", "sha256", "captured_at"})
@@ -630,7 +636,8 @@ class Store:
             " JOIN cases c ON c.merchant_id = r.merchant_id AND c.case_id = r.case_id"
             " JOIN cycles y ON y.merchant_id = c.merchant_id AND y.case_id = c.case_id"
             " AND y.cycle = c.cycle"
-            " WHERE r.merchant_id = ? AND r.resolution IS NULL AND r.urgent = 0"
+            " WHERE r.merchant_id = ? AND r.cycle = c.cycle"
+            " AND r.resolution IS NULL AND r.urgent = 0"
             " AND c.state = 'REFERRED' ORDER BY c.due_at, r.referral_id",
             (merchant_id,),
         )
@@ -707,6 +714,16 @@ class Store:
         )
         if cur.rowcount != 1:
             raise StoreError(f"no open referral {referral_id!r}")
+
+    def close_earlier_cycle_referrals(
+        self, merchant_id: str, case_id: str, cycle: int, at: datetime
+    ) -> int:
+        """A new cycle began: referrals still open from earlier cycles no longer apply."""
+        return self.conn.execute(
+            "UPDATE referrals SET resolution = 'SUPERSEDED_BY_NEW_CYCLE', resolved_at = ?"
+            " WHERE merchant_id = ? AND case_id = ? AND cycle < ? AND resolution IS NULL",
+            (_iso(at), merchant_id, case_id, cycle),
+        ).rowcount
 
     def supersede_referrals(self, merchant_id: str, case_id: str, cycle: int, at: datetime) -> int:
         """The dispute changed: close any open referral and void every approval of the cycle."""

@@ -18,6 +18,7 @@ def decide(
     contradictory_record_ids: Iterable[str] = (),
     unanswered_contact_ids: Iterable[str] = (),
     fx: FxTable | None = None,
+    contradictions: Iterable[tuple[str, str, str]] = (),
 ) -> Decision:
     """The engine's decision, with the evidence worth searching for attached.
 
@@ -33,6 +34,7 @@ def decide(
         contradictory_record_ids=conflicts,
         unanswered_contact_ids=unanswered,
         fx=fx,
+        contradictions=contradictions,
     )
     voi = value_of_information(
         dispute,

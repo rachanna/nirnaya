@@ -34,7 +34,7 @@ from nirnaya.models.enums import (
 )
 from nirnaya.models.evidence import EvidenceRecord, raw_text
 from nirnaya.models.money import FxTable, MissingFxRateError, Money, convert
-from nirnaya.verifier.normalise import parse_instant
+from nirnaya.models.timestamps import parse_instant
 
 S = SourceSystem
 

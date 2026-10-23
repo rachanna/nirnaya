@@ -106,6 +106,7 @@ def _record(
             policy_version=policy_version,
             at=now,
         )
+        closed = store.close_earlier_cycle_referrals(merchant_id, dispute.id, cycle, now)
         store.update_case(
             merchant_id,
             dispute.id,
@@ -119,7 +120,7 @@ def _record(
             merchant_id,
             dispute.id,
             "NEW_CYCLE",
-            {**snapshot, "cycle": cycle, "from_state": current},
+            {**snapshot, "cycle": cycle, "from_state": current, "referrals_closed": closed},
             now,
         )
         return

@@ -126,8 +126,13 @@ def evaluate(
     contradictory_record_ids: Iterable[str] = (),
     unanswered_contact_ids: Iterable[str] = (),
     fx: FxTable | None = None,
+    contradictions: Iterable[tuple[str, str, str]] = (),
 ) -> Decision:
-    """Decide ACCEPT / CHALLENGE / REFER for one dispute, without value of information."""
+    """Decide ACCEPT / CHALLENGE / REFER for one dispute, without value of information.
+
+    `contradictions` (record id, fact, description) are recorded in the inputs so a referral can
+    say why; the decision itself depends only on `contradictory_record_ids`.
+    """
     if policy.merchant_id != dispute.merchant_id:
         raise TenantMismatchError(
             f"policy for {policy.merchant_id!r} used on dispute of {dispute.merchant_id!r}"
@@ -239,6 +244,10 @@ def evaluate(
         "evidence_present": sorted(evidence),
         "ownership_resolved": ownership_resolved,
         "contradictory_record_ids": conflicts,
+        "contradictions": [
+            {"record_id": r, "contradicts": str(f), "description": d}
+            for r, f, d in sorted(set(contradictions))
+        ],
         "unanswered_contact_ids": unanswered,
         "p": _s(p),
         "prior_key": None if prior_key is None else sorted(prior_key),

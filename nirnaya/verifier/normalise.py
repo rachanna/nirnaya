@@ -2,14 +2,13 @@
 
 import re
 import unicodedata
-from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from nirnaya.models.evidence import FieldValue
 from nirnaya.models.money import Money
+from nirnaya.models.timestamps import parse_date_only as parse_date_only
 from nirnaya.models.timestamps import parse_instant as parse_instant
 
-_DATE_ONLY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _NON_WORD = re.compile(r"[^\w]+")
 
 
@@ -21,13 +20,6 @@ def parse_money(value: FieldValue, currency: FieldValue) -> Money:
     except InvalidOperation as exc:
         raise ValueError(f"record amount {value!r} is not a number") from exc
     return Money(amount=amount, currency=currency)
-
-
-def parse_date_only(value: FieldValue) -> date | None:
-    """A bare YYYY-MM-DD record value, or None if the value is not date-only."""
-    if isinstance(value, str) and _DATE_ONLY.match(value):
-        return date.fromisoformat(value)
-    return None
 
 
 def name_tokens(value: str) -> tuple[str, ...]:

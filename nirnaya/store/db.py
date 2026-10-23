@@ -24,8 +24,11 @@ def _set_version(conn: sqlite3.Connection) -> None:
 
     Each step runs in its own write-locked transaction and re-reads the version inside it, so a
     crash leaves the database at a consistent version and a concurrent opener waits, then sees
-    the version the first one wrote.
+    the version the first one wrote. An up-to-date database is only read, never locked.
     """
+    row = conn.execute("SELECT version FROM schema_version").fetchone()
+    if row is not None and row["version"] == SCHEMA_VERSION:
+        return
     while True:
         conn.execute("BEGIN IMMEDIATE")
         try:

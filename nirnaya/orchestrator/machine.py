@@ -18,7 +18,6 @@ from nirnaya.agent.tools import MerchantSystems, Tool, ToolGateway
 from nirnaya.engine import decide
 from nirnaya.evidence.derive import (
     contradictions,
-    contradictory_record_ids,
     evidence_present,
     unanswered_customer_contacts,
 )
@@ -243,14 +242,16 @@ class Orchestrator:
         cycle = self.store.cycle(case.merchant_id, case.case_id, case.cycle)
         policy = self.store.policy(case.merchant_id, cycle.policy_version)
         records = self.store.evidence(case.merchant_id, case.case_id)
+        found = contradictions(records, dispute)
         return decide(
             dispute,
             policy,
             evidence_present(records, dispute),
             ownership_resolved=bool(cycle.ownership_resolved),
-            contradictory_record_ids=contradictory_record_ids(records, dispute),
+            contradictory_record_ids=sorted({c.record_id for c in found}),
             unanswered_contact_ids=unanswered_customer_contacts(records, dispute),
             fx=self.fx,
+            contradictions=[(c.record_id, c.contradicts, c.description) for c in found],
         )
 
     def _pending_calls(
@@ -406,18 +407,11 @@ class Orchestrator:
         if decision.action is Action.CHALLENGE:
             return _Step(S.DRAFTING, {"action": Action.CHALLENGE})
         reasons = [r.value for r in decision.referral_reasons]
-        records = self.store.evidence(case.merchant_id, case.case_id)
+        # Everything comes from the decision itself, so the referral matches what was decided.
         detail = {
             "reasons": reasons,
             "contradictory_record_ids": list(decision.inputs.get("contradictory_record_ids", [])),
-            "contradictions": [
-                {
-                    "record_id": c.record_id,
-                    "contradicts": c.contradicts,
-                    "description": c.description,
-                }
-                for c in contradictions(records, self._dispute(case))
-            ],
+            "contradictions": list(decision.inputs.get("contradictions", [])),
             "unanswered_contact_ids": list(decision.inputs.get("unanswered_contact_ids", [])),
         }
         return _Step(S.REFERRED, {"reasons": reasons}, referral=reasons, detail=detail)
@@ -523,14 +517,21 @@ class Orchestrator:
         result = self.gateway.submit(case.merchant_id, case.case_id, case.cycle, action, now=now)
         if result.ok:
             notes = self._submitted_notes(case, action)
+            approval = self.store.latest_approval(case.merchant_id, case.case_id, case.cycle)
+            approver = None if approval is None else (approval.approval or {}).get("approver")
 
             def record_notes() -> None:
-                # Late evidence went out under delegated authority: a person can review it after.
+                # The challenge cites late evidence; whoever authorised it, a person can review it.
                 self.store.audit(
                     case.merchant_id,
                     case.case_id,
                     "SUBMITTED_WITH_NOTES",
-                    {"request_id": result.request_id, "notes": notes},
+                    {
+                        "request_id": result.request_id,
+                        "authority": "DELEGATED" if approval is None else "APPROVED",
+                        "approver": approver,
+                        "notes": notes,
+                    },
                     now,
                 )
 

@@ -17,6 +17,7 @@ from nirnaya.models import (
     ValidationStatus,
 )
 from nirnaya.models.timestamps import parse_instant
+from nirnaya.orchestrator.states import CaseState
 from nirnaya.store import Store, connect
 from nirnaya.store import db as store_db
 from nirnaya.verifier import VerificationOutcome, verify
@@ -332,3 +333,229 @@ def test_10_the_shared_parser_is_the_verifiers():
     assert normalise.parse_instant is parse_instant
     with pytest.raises(ValueError):
         parse_instant("2026-02-08")
+
+
+# =================================================================================================
+# Second review (commits 8b5402e, eb34cfa)
+# =================================================================================================
+
+
+# --- R2#1: an out-of-range timestamp is unreadable, never a crash ------------------------------
+
+FAR_PAST = "0001-01-01T00:00:00+05:00"  # converting to UTC overflows
+
+
+def test_r2_1_parse_instant_turns_overflow_into_value_error():
+    with pytest.raises(ValueError):
+        parse_instant(FAR_PAST)
+
+
+def test_r2_1_derive_and_verify_treat_an_overflowing_timestamp_as_unreadable():
+    records = [order_record(), carrier_record(delivered_at=FAR_PAST)]
+    result = run([make_claim()], records)
+    assert result.outcome is VerificationOutcome.REFER
+    assert "unreadable" in result.counterevidence[0].description
+    assert derive.contradictory_record_ids(records, make_dispute()) == ("carrier-1",)
+
+
+# --- R2#2: a new cycle closes the old cycle's referral; escalation sees only the current one ---
+
+
+def escalated_u4():
+    h = Harness()
+    case = CASES["U4"]  # RFI, referred (an RFI accept needs approval)
+    h.stage(case)
+    o = orch(h)
+    now = h.now(case)
+    o.run_until_idle(now)
+    old = h.store.open_referral_for(M, "U4")
+    assert old is not None and old.cycle == 1
+    h.aw.simulate_escalate("U4", due_at=now + timedelta(days=20))
+    o.run_until_idle(now + timedelta(hours=1))
+    return h, old, now
+
+
+def test_r2_2_a_new_cycle_supersedes_the_previous_cycles_open_referral():
+    h, old, _ = escalated_u4()
+    row = h.store.conn.execute(
+        "SELECT resolution FROM referrals WHERE referral_id = ?", (old.referral_id,)
+    ).fetchone()
+    assert row["resolution"] == "SUPERSEDED_BY_NEW_CYCLE"
+    current = h.store.open_referral_for(M, "U4")
+    assert current is None or current.cycle == 2
+
+
+def test_r2_2_escalation_ignores_referrals_of_earlier_cycles():
+    h, old, now = escalated_u4()
+    # Force the stale cycle-1 referral open again on a case now referred in cycle 2.
+    with h.store.transaction():
+        h.store.conn.execute(
+            "UPDATE referrals SET resolution = NULL, resolved_at = NULL WHERE referral_id = ?",
+            (old.referral_id,),
+        )
+        h.store.update_case(M, "U4", state=CaseState.REFERRED, at=now)
+    assert old.referral_id not in {r.referral_id for r in h.store.escalatable_referrals(M)}
+
+
+# --- R2#3: each record is anchored to its own order --------------------------------------------
+
+
+def linked_case(carrier_tracking):
+    dispute = make_dispute(merchant_order_id="ORD-NEW")
+    records = [
+        order_record(
+            "order-new", order_id="ORD-NEW", placed_at="2026-02-25T00:00:00Z",
+            tracking_number="T-NEW",
+        ),
+        order_record(
+            "order-old", order_id="ORD-OLD", placed_at="2026-02-01T00:00:00Z",
+            tracking_number="T-OLD",
+        ),
+        carrier_record(tracking_number=carrier_tracking, delivered_at="2026-02-05T00:00:00Z"),
+    ]  # fmt: skip
+    return run([make_claim()], records, dispute)
+
+
+def test_r2_3_a_delivery_for_an_earlier_order_on_file_is_anchored_to_that_order():
+    assert linked_case("T-OLD").outcome is VerificationOutcome.PASSED
+
+
+def test_r2_3_an_unlinkable_delivery_falls_back_to_the_disputed_order():
+    assert linked_case("T-UNKNOWN").outcome is VerificationOutcome.REFER
+
+
+def test_r2_3_a_delivery_linked_to_the_disputed_order_is_checked_against_it():
+    assert linked_case("T-NEW").outcome is VerificationOutcome.REFER
+
+
+# --- R2#4: the note event states the authority behind the write --------------------------------
+
+
+def test_r2_4_an_approved_challenge_with_late_evidence_records_the_approver():
+    from nirnaya.models import Action
+    from nirnaya.orchestrator.referrals import approve
+
+    h = Harness(delegated=False)
+    case = CASES["N1"]
+    h.stage(case)
+    o = orch(h, systems=world_with({"N1-carrier": {"delivered_at": "2026-03-01T12:30:00Z"}}))
+    now = h.now(case)
+    o.run_until_idle(now)
+    assert h.store.case(M, "N1").state == CaseState.REFERRED  # no delegated authority
+    approve(h.store, M, "N1", Action.CHALLENGE, approver="ops@example.test", now=now)
+    o.run_until_idle(now)
+    (event,) = [e for e in h.store.audit_events(M, "N1") if e["event"] == "SUBMITTED_WITH_NOTES"]
+    assert event["body"]["authority"] == "APPROVED"
+    assert event["body"]["approver"] == "ops@example.test"
+
+
+def test_r2_4_a_delegated_challenge_says_so():
+    h = Harness(delegated=True)
+    case = CASES["N1"]
+    h.stage(case)
+    o = orch(h, systems=world_with({"N1-carrier": {"delivered_at": "2026-03-01T12:30:00Z"}}))
+    o.run_until_idle(h.now(case))
+    (event,) = [e for e in h.store.audit_events(M, "N1") if e["event"] == "SUBMITTED_WITH_NOTES"]
+    assert event["body"]["authority"] == "DELEGATED" and event["body"]["approver"] is None
+
+
+# --- R2#5: a record id taken by another merchant is a StoreError, never revised -----------------
+
+
+def two_tenant_store():
+    from nirnaya.config.demo import DEMO_POLICY
+
+    store = Store(connect())
+    for policy in (DEMO_POLICY, DEMO_POLICY.model_copy(update={"merchant_id": "merchant-other"})):
+        store.register_merchant(
+            policy.merchant_id,
+            airwallex_account_id=f"acct-{policy.merchant_id}",
+            policy=policy,
+            delegated_authority=True,
+        )
+    return store
+
+
+def test_r2_5_a_cross_tenant_record_id_collision_is_a_store_error():
+    from nirnaya.store.repository import StoreError
+
+    store = two_tenant_store()
+    mine = carrier_record()
+    theirs = make_record(
+        SourceSystem.CARRIER, dict(mine.fields), id=mine.id, merchant_id="merchant-other"
+    )
+    at = datetime(2026, 3, 2, tzinfo=UTC)
+    with store.transaction():
+        store.put_evidence(mine.merchant_id, mine)
+    with pytest.raises(StoreError, match="another merchant"):
+        store.put_evidence("merchant-other", theirs)
+    with pytest.raises(StoreError, match="another merchant"):
+        store.put_evidence_or_revise("merchant-other", theirs, at)
+    assert store.evidence("merchant-other", mine.case_id) == []
+
+
+# --- R2#6: the referral's descriptions are the decision's ---------------------------------------
+
+
+def test_r2_6_contradictions_are_recorded_inputs_that_never_change_the_action():
+    from nirnaya.engine.core import evaluate
+    from tests.factories import make_policy
+
+    kwargs = dict(ownership_resolved=True, contradictory_record_ids=["carrier-1"])
+    plain = evaluate(make_dispute(), make_policy(), frozenset(), **kwargs)
+    described = evaluate(
+        make_dispute(),
+        make_policy(),
+        frozenset(),
+        contradictions=[("carrier-1", "DELIVERY_CONFIRMED", "delivery scan predates the order")],
+        **kwargs,
+    )
+    assert described.action is plain.action
+    assert described.inputs["contradictions"] == [
+        {
+            "record_id": "carrier-1",
+            "contradicts": "DELIVERY_CONFIRMED",
+            "description": "delivery scan predates the order",
+        }
+    ]
+
+
+def test_r2_6_the_referral_detail_is_the_decisions_record():
+    h = Harness()
+    case = CASES["N1"]
+    h.stage(case)
+    o = orch(h, systems=world_with({"N1-carrier": {"delivered_at": "2026-02-08T10:00:00Z"}}))
+    o.run_until_idle(h.now(case))
+    _, decision = h.store.latest_decision(M, "N1", 1)
+    detail = h.store.open_referral_for(M, "N1").detail
+    assert detail["contradictions"] == decision.inputs["contradictions"]
+    assert detail["contradictions"][0]["record_id"] == "N1-carrier"
+
+
+# --- R2#9: one date-only rule -------------------------------------------------------------------
+
+
+def test_r2_9_the_date_only_rule_is_shared():
+    from nirnaya.models import timestamps
+    from nirnaya.verifier import normalise
+
+    assert normalise.parse_date_only is timestamps.parse_date_only
+
+
+# --- R2#10: an up-to-date database is opened without a write lock -------------------------------
+
+
+def test_r2_10_connect_does_not_wait_for_a_writer_when_the_schema_is_current(tmp_path):
+    import time
+
+    path = tmp_path / "busy.db"
+    writer = connect(path)
+    writer.execute("BEGIN IMMEDIATE")
+    try:
+        started = time.monotonic()
+        reader = connect(path)
+        assert time.monotonic() - started < 1.0
+        reader.close()
+    finally:
+        writer.execute("ROLLBACK")
+        writer.close()

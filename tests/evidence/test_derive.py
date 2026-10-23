@@ -1,9 +1,8 @@
 from nirnaya.evidence.derive import (
     case_records,
     contradictory_record_ids,
+    cross_check,
     evidence_present,
-    find_contradictions,
-    late_evidence_notes,
     unanswered_customer_contacts,
 )
 from nirnaya.models import (
@@ -90,8 +89,8 @@ def test_customer_allegation_is_not_a_record_conflict():
     records = [carrier_record(), allegation]
     assert contradictory_record_ids(records, make_dispute()) == ()
     # It is still found as counterevidence for the verifier to surface.
-    found = find_contradictions(E.DELIVERY_CONFIRMED, records, make_dispute())
-    assert [r.id for r, _ in found] == ["ticket-1"]
+    found = cross_check(records, make_dispute()).contradictions
+    assert [c.record_id for c in found if c.contradicts is E.DELIVERY_CONFIRMED] == ["ticket-1"]
 
 
 def test_contradiction_of_absent_evidence_is_not_a_conflict():
@@ -195,8 +194,9 @@ def test_a_delivery_scan_before_the_order_makes_the_records_contradictory():
     records = [_order(), carrier_record(delivered_at="2026-02-08T10:00:00Z")]
     dispute = make_dispute()
     assert contradictory_record_ids(records, dispute) == ("carrier-1",)
-    ((record, rule),) = find_contradictions(E.DELIVERY_CONFIRMED, records, dispute)
-    assert record.id == "carrier-1" and "predates the order" in rule.description
+    found = cross_check(records, dispute).contradictions
+    (clash,) = [c for c in found if c.contradicts is E.DELIVERY_CONFIRMED]
+    assert clash.record_id == "carrier-1" and "predates the order" in clash.description
 
 
 def test_an_order_placed_after_the_dispute_opened_is_contradictory():
@@ -213,12 +213,12 @@ def test_temporal_rules_ignore_records_that_establish_nothing():
 def test_consistent_dates_are_not_contradictory():
     records = [_order(), carrier_record()]
     assert contradictory_record_ids(records, make_dispute()) == ()
-    assert late_evidence_notes(records, make_dispute()) == ()
+    assert cross_check(records, make_dispute()).late_notes == ()
 
 
 def test_late_evidence_is_noted_not_contradicted():
     records = [_order(), carrier_record(delivered_at="2026-03-01T20:00:00Z")]
     dispute = make_dispute()
     assert contradictory_record_ids(records, dispute) == ()
-    ((record, description),) = late_evidence_notes(records, dispute)
+    ((record, description),) = cross_check(records, dispute).late_notes
     assert record.id == "carrier-1" and "after the dispute opened" in description

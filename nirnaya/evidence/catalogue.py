@@ -261,21 +261,26 @@ CONTRADICTION_RULES: tuple[ContradictionRule, ...] = (
 )  # fmt: skip
 
 
-def contradiction_rules_for(record: EvidenceRecord, fact: EvidenceType) -> list[ContradictionRule]:
+def contradiction_rules_matching(record: EvidenceRecord) -> list[ContradictionRule]:
+    """Every contradiction rule that holds for this record (the one place rules are matched)."""
     return [
         rule
         for rule in CONTRADICTION_RULES
-        if rule.contradicts is fact
-        and rule.source_system is record.source_system
-        and rule.when(record.fields)
+        if rule.source_system is record.source_system and rule.when(record.fields)
     ]
+
+
+def contradiction_rules_for(record: EvidenceRecord, fact: EvidenceType) -> list[ContradictionRule]:
+    return [rule for rule in contradiction_rules_matching(record) if rule.contradicts is fact]
 
 
 class Anchor(StrEnum):
     """What a dated field is compared with."""
 
-    ORDER_PLACED_EARLIEST = "ORDER_PLACED_EARLIEST"  # earliest placed_at of the case's orders
-    ORDER_PLACED_LATEST = "ORDER_PLACED_LATEST"  # latest placed_at of the case's orders
+    # placed_at of the record's own order (see TemporalRule): earliest and latest, which differ
+    # only when that order has revised versions or the order is not identifiable.
+    ORDER_PLACED_EARLIEST = "ORDER_PLACED_EARLIEST"
+    ORDER_PLACED_LATEST = "ORDER_PLACED_LATEST"
     DISPUTE_OPENED = "DISPUTE_OPENED"
     CAPTURED = "CAPTURED"  # the record's own captured_at
 
@@ -284,9 +289,12 @@ class Anchor(StrEnum):
 class TemporalRule:
     """A record that establishes one of `facts` must date `field` within its anchors.
 
-    Order anchors are lenient (lower bounds use the earliest order, upper bounds the latest), so
-    only a date impossible against every order on file is a clash. Without an order record the
-    order-anchored bounds are skipped. A clash means the merchant's records disagree.
+    Order anchors come from the record's own order, chosen in this order:
+    1. the orders sharing the record's `order_link` field (e.g. the carrier's tracking number);
+    2. otherwise the disputed order (`order_id` equal to the dispute's `merchant_order_id`);
+    3. otherwise every order on file, leniently (earliest for lower bounds, latest for upper).
+    Only trusted, intact orders count; with none, order-anchored bounds are skipped. A clash
+    means the merchant's records disagree.
     """
 
     facts: frozenset[EvidenceType]
@@ -297,6 +305,8 @@ class TemporalRule:
     not_after: tuple[Anchor, ...] = ()
     # Dated after the dispute opened: still evidence, but the approver is told.
     note_if_late: bool = False
+    # A field the record shares with its order, linking it to that order (None: the disputed one).
+    order_link: str | None = None
 
 
 _ORDER_FACTS = frozenset(
@@ -307,6 +317,7 @@ TEMPORAL_RULES: tuple[TemporalRule, ...] = (
     TemporalRule(
         frozenset({E.DELIVERY_CONFIRMED, E.DELIVERY_SIGNATURE}), S.CARRIER, "delivered_at",
         "delivery scan", (Anchor.ORDER_PLACED_EARLIEST,), (Anchor.CAPTURED,), note_if_late=True,
+        order_link="tracking_number",
     ),
     TemporalRule(
         frozenset({E.USAGE_AFTER_RENEWAL}), S.LOGIN, "active_after_renewal_at",
