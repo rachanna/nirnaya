@@ -1,6 +1,6 @@
 # Nirnaya — Dispute Decision Agent for Airwallex
 
-Nirnaya decides which card disputes are worth fighting, finds evidence Airwallex cannot see, and refuses to submit any claim it cannot prove. The full design spec is `docs/spec.md`; read it before any non-trivial change.
+Nirnaya decides which card disputes are worth fighting, finds evidence Airwallex cannot see, and refuses to submit any claim it cannot prove. The full design spec is `docs/spec.md`; read it before any non-trivial change. The architecture (components, case state machine, guardrails, storage, Airwallex mapping, open decisions) is `docs/architecture.md`; build against it.
 
 ## Non-negotiable architecture rules
 

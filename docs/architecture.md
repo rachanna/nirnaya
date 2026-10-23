@@ -1,0 +1,881 @@
+# Nirnaya: Architecture
+
+**Audience:** the people and agents building Nirnaya (Milestones 2–7).
+**Read with:** [`docs/spec.md`](spec.md) (what and why) and [`CLAUDE.md`](../CLAUDE.md) (rules and conventions).
+**Status legend:** ✅ built and tested · 🔶 partly built · ⬜ planned.
+**Airwallex facts** cite the page they come from, checked 2026-10-23. Anything not confirmed is marked `TODO(verify-airwallex-docs)` and must not be implemented from memory.
+
+---
+
+## Contents
+
+1. [Purpose, scope and invariants](#1-purpose-scope-and-invariants)
+2. [System context](#2-system-context)
+3. [Components](#3-components)
+4. [Case lifecycle state machine](#4-case-lifecycle-state-machine)
+5. [Key flows](#5-key-flows)
+6. [Decision and verification consistency](#6-decision-and-verification-consistency)
+7. [Write gateway and guardrails](#7-write-gateway-and-guardrails)
+8. [Investigating agent](#8-investigating-agent)
+9. [Airwallex integration](#9-airwallex-integration)
+10. [Data model and storage](#10-data-model-and-storage)
+11. [Tenant isolation and security](#11-tenant-isolation-and-security)
+12. [Failure modes](#12-failure-modes)
+13. [Observability and audit](#13-observability-and-audit)
+14. [Evaluation](#14-evaluation)
+15. [User interface](#15-user-interface)
+16. [Deployment and configuration](#16-deployment-and-configuration)
+17. [Open decisions](#17-open-decisions)
+18. [Build map](#18-build-map)
+
+---
+
+## 1. Purpose, scope and invariants
+
+Nirnaya decides which card disputes a merchant should fight, gathers the evidence that would change that decision, and refuses to submit any claim it cannot prove. It runs one investigating agent inside a deterministic Python state machine. The agent gathers and drafts; code decides, verifies and writes.
+
+### 1.1 Invariants
+
+These are the seven rules in `CLAUDE.md`, restated with **where each is enforced**. A change that weakens any of them needs explicit sign-off.
+
+| # | Invariant | Enforced in | Proven by |
+|---|---|---|---|
+| I1 | The LLM authorises nothing. Only the engine decides; only the verifier clears a submission. | `nirnaya/engine/decide.py` `decide()`; `nirnaya/verifier/verify.py` `verify()`; ⬜ the write gateway refuses any write without both (§7) | ✅ engine and verifier tests; ⬜ `tests/guardrails/` |
+| I2 | The engine and verifier are deterministic: no LLM, no randomness, no network, no clock. | Ruff `banned-api` on `nirnaya/{models,evidence,engine,verifier}`; `tests/test_determinism.py` (AST scan, identical output across `PYTHONHASHSEED`) | ✅ |
+| I3 | Every claim is bound to evidence. | `Claim.source_record_id` / `source_field` are required non-blank fields (`nirnaya/models/claim.py`) | ✅ `tests/models/test_claim.py` |
+| I4 | Customer and support text is untrusted data. | Customer-authored records establish nothing (`nirnaya/evidence/catalogue.py` `record_establishes`); ⬜ the agent prompt passes tool results only as delimited data (§8.4) | ✅ catalogue tests; ⬜ agent tests |
+| I5 | Writes are guarded: re-fetch, re-check, unique `request_id`, `DRY_RUN=true` by default. | ⬜ `nirnaya/guardrails/` write gateway (§7) | ⬜ |
+| I6 | Tenant isolation by `merchant_id`. | `TenantMismatchError` in `nirnaya/engine/core.py`; `case_records()` in `nirnaya/evidence/derive.py`; verifier scope checks; ⬜ the repository layer (§10.3) | ✅ partly; ⬜ store tests |
+| I7 | Never invent Airwallex API details. | Enums carry documented values (`nirnaya/models/enums.py`); `TODO(verify-airwallex-docs)` markers | review |
+
+### 1.2 In scope
+
+- Card disputes at the **pre-chargeback** and **chargeback** stages, decided automatically.
+- RFI, pre-arbitration and arbitration: recognised, then referred to a human or recorded.
+- Single merchants and platforms with several connected merchants (§11.2).
+- The Airwallex **sandbox**, with mocked merchant systems.
+
+### 1.3 Out of scope
+
+- Real order, carrier, login or helpdesk integrations. They are SYNTHETIC mocks with a stable interface (§3.2), so real adapters can replace them later.
+- Production deployment, high availability and horizontal scaling (§16).
+- Predicting issuer or network outcomes. Win probabilities are fixed priors and are shown as such.
+
+---
+
+## 2. System context
+
+```mermaid
+flowchart LR
+    subgraph People
+        OP[Merchant / platform operator]
+        AP[Human approver]
+    end
+
+    subgraph Nirnaya
+        N[Nirnaya process<br/>state machine, engine, verifier,<br/>agent, write gateway, store]
+        UI[Streamlit UI]
+    end
+
+    subgraph Airwallex["Airwallex (sandbox)"]
+        PD[Payment Disputes API]
+        PA[Payment Attempts / Intents]
+        FI[Files API]
+        SIM[Simulation API]
+        WH[Webhooks]
+    end
+
+    subgraph Merchant["Merchant systems (SYNTHETIC mocks)"]
+        ORD[Order system]
+        CAR[Carrier tracking]
+        LOG[Login history]
+        HD[Helpdesk]
+        POL[Policy store]
+    end
+
+    LLM[Claude API]
+
+    OP --> UI
+    AP --> UI
+    UI <--> N
+    N -->|list, retrieve, accept, challenge| PD
+    N -->|retrieve| PA
+    N -->|upload evidence| FI
+    N -->|create, resolve, escalate test disputes| SIM
+    WH -.->|payment_dispute.* events| N
+    N -->|typed tool calls, read only| ORD & CAR & LOG & HD & POL
+    N <-->|tool use, structured output| LLM
+```
+
+Trust boundaries:
+
+- **Airwallex → Nirnaya:** webhook payloads only *trigger* work. Every write is preceded by a fresh `retrieve` (§7).
+- **Merchant systems → Nirnaya:** every response is snapshotted as a hashed `EvidenceRecord` by code before anything else sees it.
+- **Nirnaya → Claude:** Claude receives case facts and records as data. Its output is a proposal: tool calls and structured claim drafts. It has no write path.
+- **Nirnaya → Airwallex writes:** exactly one module, the write gateway, can call write endpoints.
+
+---
+
+## 3. Components
+
+### 3.1 Component diagram
+
+```mermaid
+flowchart TB
+    subgraph Inbound
+        ING[Ingestion<br/>ingest/]
+    end
+
+    subgraph Core["Deterministic core ✅"]
+        ENG[Decision engine<br/>engine/]
+        EVC[Evidence catalogue<br/>evidence/]
+        VER[Verifier<br/>verifier/]
+        MOD[Domain models<br/>models/]
+    end
+
+    subgraph Orchestration
+        ORC[Orchestrator<br/>state machine + scheduler]
+        REF[Review queue]
+    end
+
+    subgraph AgentSide["Agent side"]
+        AGT[Investigating agent<br/>agent/]
+        TG[Tool gateway<br/>agent/tools.py]
+    end
+
+    subgraph Outbound
+        RND[Evidence renderer<br/>render/]
+        WG[Write gateway<br/>guardrails/]
+    end
+
+    subgraph Integrations
+        AWR[Airwallex read client]
+        AWW[Airwallex write client]
+        MCK[Merchant system mocks]
+    end
+
+    STORE[(SQLite store<br/>+ audit log<br/>store/)]
+    UI[Streamlit UI<br/>app/]
+    EVAL[Eval harness<br/>eval/]
+
+    ING --> AWR
+    ING --> STORE
+    ORC --> ENG
+    ORC --> VER
+    ORC --> AGT
+    ORC --> RND
+    ORC --> WG
+    ORC <--> STORE
+    ENG --> EVC
+    VER --> EVC
+    AGT --> TG
+    TG --> MCK
+    TG --> STORE
+    WG --> AWR
+    WG --> AWW
+    WG --> ENG
+    WG --> STORE
+    REF --> ORC
+    UI --> STORE
+    UI --> REF
+    EVAL --> ORC
+    EVAL --> STORE
+```
+
+### 3.2 Component responsibilities
+
+| Component | Package | Status | Responsibility | Authority | Depends on |
+|---|---|---|---|---|---|
+| Domain models | `nirnaya/models/` | ✅ | Pydantic types: `Dispute`, `PaymentAttempt`, `EvidenceRecord`, `Claim`, `MerchantPolicy`, `Decision`, `Money`, `FxTable`, `DisputeReason` | none | none |
+| Evidence catalogue | `nirnaya/evidence/` | ✅ | `FIELD_RULES`, `REQUIRED_EVIDENCE`, `CONTRADICTION_RULES`, `REASON_SPECIFIC`, `render_claim_text`; `evidence_present()`, `contradictory_record_ids()` | data | models |
+| Decision engine | `nirnaya/engine/` | ✅ | `decide()` → `Decision` with `voi`; `value_of_information()` | **sole decider** | models, evidence |
+| Verifier | `nirnaya/verifier/` | ✅ | `verify()` → `VerificationResult` | **sole clearer** | models, evidence |
+| Ingestion | `nirnaya/ingest/` *(new package)* | ⬜ | Poll and reconcile disputes; optional webhook receiver; snapshot disputes and payment attempts; map wire → domain | none | Airwallex read client, store |
+| Case store | `nirnaya/store/` | ⬜ | SQLite schema, repositories scoped by `merchant_id`, hash-chained audit log | none | models |
+| Orchestrator | `nirnaya/orchestrator/` | ⬜ | Persistent case state machine, scheduler tick, deadline watchdog, command handling | routes only | everything inbound and outbound |
+| Review queue | `nirnaya/orchestrator/referrals.py` | ⬜ | Referral records, approver commands | human | store |
+| Investigating agent | `nirnaya/agent/` | ⬜ | Claude loop: plan from VoI, call tools, stop, draft claims | none | Anthropic SDK, tool gateway |
+| Tool gateway | `nirnaya/agent/tools.py` | ⬜ | Validate tool arguments, inject `merchant_id`, call mocks, wrap results as hashed `EvidenceRecord`s, persist them | none | mocks, store |
+| Evidence renderer | `nirnaya/render/` *(new package)* | ⬜ | Verified claims → evidence files that meet card-brand format and size limits | none | models |
+| Write gateway | `nirnaya/guardrails/` | ⬜ | Pre-write checklist, deterministic `request_id`, write ledger, dry-run; the only caller of write endpoints | **enforces** | engine, Airwallex clients, store |
+| Airwallex clients | `nirnaya/integrations/airwallex/` | ⬜ | Auth, typed read client, separate write client, simulation helpers | none | httpx |
+| Merchant mocks | `nirnaya/integrations/mocks/` | ⬜ | SYNTHETIC order, carrier, login, helpdesk and policy systems behind `Protocol` interfaces | none | none |
+| Demo config | `nirnaya/config/demo.py` | ✅ | `DEMO_POLICY`, `DEMO_FX` (labelled ASSUMPTION) | data | models |
+| Eval harness | `eval/` | ⬜ | Case fixtures, runner, baselines, metrics | none | orchestrator, store |
+| UI | `app/` | ⬜ | Streamlit views and approver actions | none | store, review queue |
+
+`ingest/` and `render/` are additions to the layout in `CLAUDE.md`. They keep wire-format handling and file generation out of the orchestrator.
+
+### 3.3 Dependency rules
+
+- `models`, `evidence`, `engine` and `verifier` import nothing outside themselves and the standard library plus Pydantic. This is enforced by ruff and the AST test.
+- Only `guardrails/` may construct the Airwallex **write** client. ⬜ An AST test (`tests/test_architecture.py`) will assert that no other package imports it.
+- `app/` imports only `store` read models and orchestrator *commands*. It never calls `decide`, `verify` or a client directly.
+- The agent never receives a client or the store. It receives the tool gateway, which exposes typed read-only tools.
+
+---
+
+## 4. Case lifecycle state machine
+
+A **case** is one dispute for one merchant. When Airwallex escalates the dispute (a new stage), the same case starts a new **cycle**. Decisions, drafts and writes belong to a cycle, so evidence gathered earlier is reused but a decision is never carried across stages.
+
+### 4.1 States
+
+```mermaid
+stateDiagram-v2
+    [*] --> INGESTED
+    INGESTED --> DEFERRED: Airwallex acts itself (§4.3)
+    INGESTED --> ASSESSED: otherwise
+
+    ASSESSED --> INVESTIGATING: VoI non-empty and budget and time allow
+    ASSESSED --> DECIDED: VoI empty, or no time
+
+    INVESTIGATING --> INVESTIGATING: tool result, re-run decide
+    INVESTIGATING --> DECIDED: VoI empty, budget spent, or deadline buffer
+
+    DECIDED --> PRE_WRITE_CHECK: ACCEPT
+    DECIDED --> DRAFTING: CHALLENGE
+    DECIDED --> REFERRED: REFER
+
+    DRAFTING --> VERIFYING
+    DRAFTING --> REFERRED: draft failed
+    VERIFYING --> RENDERING: PASSED
+    VERIFYING --> REFERRED: BLOCKED or REFER
+    RENDERING --> PRE_WRITE_CHECK
+    RENDERING --> REFERRED: file limits not met
+
+    PRE_WRITE_CHECK --> SUBMITTING: all checks pass
+    PRE_WRITE_CHECK --> REFERRED: any check fails
+    SUBMITTING --> AWAITING_OUTCOME: write acknowledged (or recorded in dry run)
+    SUBMITTING --> REFERRED: write rejected
+
+    REFERRED --> PRE_WRITE_CHECK: approver approves ACCEPT
+    REFERRED --> DRAFTING: approver approves CHALLENGE
+    REFERRED --> CLOSED: approver handles outside Nirnaya
+
+    AWAITING_OUTCOME --> INGESTED: stage changed (new cycle)
+    AWAITING_OUTCOME --> CLOSED: WON, LOST, ACCEPTED, REVERSED, EXPIRED
+    DEFERRED --> INGESTED: stage or status changed
+    DEFERRED --> CLOSED: terminal status
+    CLOSED --> [*]
+```
+
+| State | Meaning | Handler does | Exits when |
+|---|---|---|---|
+| `INGESTED` | New dispute or new cycle | Resolve ownership (§11.2); snapshot the payment attempt as evidence; apply deferral rules | Always, in one step |
+| `DEFERRED` | Airwallex will act; Nirnaya records only | Nothing; it is re-evaluated when Airwallex reports a change | Status or stage changes |
+| `ASSESSED` | Initial decision on current evidence | `evidence_present()`, `contradictory_record_ids()`, `decide()` | Always |
+| `INVESTIGATING` | Agent searching for VoI evidence | One agent turn per tick (§8) | VoI empty, budget spent, or deadline buffer |
+| `DECIDED` | Engine has decided this cycle | Persist the `Decision`; route by `action` | Always |
+| `DRAFTING` | Agent drafts structured claims | Draft → `Claim`s (§8.6) | Drafts stored, or drafting failed |
+| `VERIFYING` | Verifier runs | `verify()` with stored records and captured hashes | Always |
+| `RENDERING` | Evidence files built | `render/` (§9.6) | Files within limits, or not |
+| `PRE_WRITE_CHECK` | Guardrails | §7 checklist | Pass or fail |
+| `SUBMITTING` | Write in flight | Write gateway call, ledger update | Acknowledged or rejected |
+| `AWAITING_OUTCOME` | Submitted; waiting on issuer or scheme | Nothing; ingestion updates status | Terminal status or stage change |
+| `REFERRED` | Human needed | Referral record with reason, evidence trace and time left | Approver command |
+| `CLOSED` | Terminal | Nothing | |
+
+### 4.2 Execution model
+
+- **One step per case per tick.** The scheduler loads runnable cases, earliest `due_at` first, and runs one handler for each. Each handler is a pure function `(case, store snapshot, now) → (new state, effects)`, applied in **one SQLite transaction** together with an audit event.
+- **Idempotent and resumable.** Re-running a handler after a crash produces the same effects. Writes are protected by the `request_id` ledger (§7.3), so `SUBMITTING` can be retried safely.
+- **Leases.** `cases.lease_until` stops two workers advancing the same case. The demo runs one worker, but the column keeps the invariant explicit.
+- **Clock injection.** The orchestrator owns `now` and passes it to the guardrails and the watchdog. The engine and verifier never see a clock (I2).
+
+### 4.3 Deferral rules (Airwallex acts on its own)
+
+| Rule | Source | Handling |
+|---|---|---|
+| Full refund already posted: Airwallex auto-defends at every stage except arbitration | [Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis) | `DEFERRED` when `refunded == amount` |
+| Partial refund: no automatic action | same | Normal path; the verifier nets refunds (`AmountBasis.NET_OF_REFUNDS`) |
+| Pre-chargeback auto-accepted below the account's threshold ("under 60 USD or equivalent" on one page; "thresholds configured for your account" on another) | same, and [How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow) | `DEFERRED` when below the threshold in merchant config. `TODO(verify-airwallex-docs)`: whether the threshold can be read through the API |
+| Pre-arbitration: Airwallex reviews it and accepts or responds for you; only AMEX shows "Requires response" | How disputes work | Non-AMEX: `DEFERRED`. AMEX with `REQUIRES_RESPONSE`: the engine refers (`STAGE_NOT_AUTOMATED`) |
+| Arbitration: no merchant action | How disputes work | `DEFERRED` |
+
+The spec also mentions Visa CE3.0 auto-challenge. It is not described on the pages checked: `TODO(verify-airwallex-docs)`.
+
+### 4.4 Deadline watchdog
+
+| Stage | Airwallex deadline | Default buffer (ASSUMPTION, policy config) |
+|---|---|---|
+| Pre-chargeback | 65 hours after receipt, then auto-accepted | 12 hours |
+| Chargeback | 15 days after escalation, then auto-accepted | 2 days |
+| RFI | 15 days after receipt, then it expires | 2 days (referred anyway) |
+
+Source: [How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow).
+
+On every tick, any case not in `AWAITING_OUTCOME`, `DEFERRED`, `CLOSED` or `SUBMITTING` with `now ≥ due_at − buffer` moves to `REFERRED` with `urgent=true`. The agent's own stop condition uses a larger buffer, so the watchdog is a backstop rather than the normal exit.
+
+---
+
+## 5. Key flows
+
+### 5.1 Demo A: recover revenue
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant ORC as Orchestrator
+    participant ENG as Engine
+    participant AGT as Agent (Claude)
+    participant TG as Tool gateway
+    participant CAR as Carrier mock
+    participant VER as Verifier
+    participant RND as Renderer
+    participant WG as Write gateway
+    participant AW as Airwallex
+
+    ORC->>ENG: decide(dispute, policy, evidence_present = {})
+    ENG-->>ORC: ACCEPT, voi = [DELIVERY_CONFIRMED]
+    ORC->>AGT: case facts + targets [DELIVERY_CONFIRMED]
+    AGT->>TG: get_carrier_tracking(tracking_number)
+    TG->>CAR: lookup (merchant_id injected)
+    CAR-->>TG: status DELIVERED, delivered_at, ...
+    TG-->>ORC: EvidenceRecord (hashed, stored)
+    ORC->>ENG: decide(..., evidence_present = {DELIVERY_CONFIRMED})
+    ENG-->>ORC: CHALLENGE, voi = []
+    ORC->>AGT: draft claims from stored records
+    AGT-->>ORC: claim drafts (structured)
+    ORC->>VER: verify(dispute, claims, records, expected_hashes)
+    VER-->>ORC: PASSED, established = {DELIVERY_CONFIRMED}
+    ORC->>RND: render(verified claims, card_brand)
+    RND-->>ORC: evidence PDF
+    ORC->>WG: submit CHALLENGE
+    WG->>AW: retrieve dispute (re-fetch)
+    WG->>ENG: decide(fresh dispute, evidence = established)
+    ENG-->>WG: CHALLENGE (consistent, §6)
+    WG->>AW: upload file, then challenge (request_id)
+    AW-->>WG: CHALLENGED
+```
+
+### 5.2 Demo B: resolve early
+
+`ASSESSED`: a pre-chargeback fraud dispute. The payment-attempt snapshot gives AVS + CVC, so p = 0.30 and `G_cb` = 0. The margin is negative, so the decision is ACCEPT and VoI is empty (no single piece of evidence flips it). The case goes `DECIDED` → `PRE_WRITE_CHECK` → accept with `accept_reason` from policy. The `Decision.reasons` record the arithmetic.
+
+### 5.3 Demo C: block a fabrication
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant ORC as Orchestrator
+    participant AGT as Agent (Claude)
+    participant VER as Verifier
+    participant REF as Review queue
+    participant AP as Approver
+
+    ORC->>AGT: draft claims (decision: CHALLENGE)
+    AGT-->>ORC: DELIVERY_CONFIRMED (status) + DELIVERY_SIGNATURE "J. Smith"
+    ORC->>VER: verify(...)
+    VER-->>ORC: BLOCKED: claim-signed FIELD_MISSING (signed_by)
+    ORC->>REF: referral(reason = verification blocked, failed claims, counterevidence, time left)
+    REF->>AP: shows the exact claim text and why it failed
+    AP->>REF: approve CHALLENGE without the signature claim
+    REF->>ORC: re-draft without the claim
+    ORC->>VER: verify(...) again (approval never skips the verifier)
+```
+
+---
+
+## 6. Decision and verification consistency
+
+**The gap.** `decide()` runs on evidence derived from *records* (`evidence_present()`). The submission proves only what its *verified claims* establish (`VerificationResult.established`). These can differ if the draft omits or botches a fact. A challenge could then go out at a win prior the submission does not support.
+
+**The rule.** At `PRE_WRITE_CHECK` for a CHALLENGE, the write gateway re-runs:
+
+```python
+decide(fresh_dispute, policy, verification.established,
+       ownership_resolved=..., contradictory_record_ids=..., fx=...)
+```
+
+The challenge proceeds only if that returns `Action.CHALLENGE`. Otherwise the case is `REFERRED` with the reason `DECISION_NOT_SUPPORTED_BY_VERIFIED_CLAIMS`.
+
+The re-run also catches anything that changed on the Airwallex side since the decision: amount, stage or status (the re-fetched dispute is the input).
+
+For an ACCEPT there is nothing to prove, but the gateway still re-runs `decide()` on the re-fetched dispute, so a stage or status change stops the write.
+
+---
+
+## 7. Write gateway and guardrails
+
+### 7.1 The only write path
+
+`nirnaya/guardrails/gateway.py` ⬜ exposes:
+
+```python
+submit_accept(case_id, cycle, *, now) -> WriteResult
+submit_challenge(case_id, cycle, *, now) -> WriteResult
+```
+
+They take **ids, not objects**. The gateway reloads everything it needs from the store, so a caller cannot pass a doctored decision.
+
+### 7.2 Pre-write checklist (all must pass; the first failure refers the case)
+
+| # | Check | Fails as |
+|---|---|---|
+| 1 | Re-fetch the dispute from Airwallex (`retrieve`) | `REFETCH_FAILED` |
+| 2 | `status is ACTIONABLE_STATUS` (`REQUIRES_RESPONSE`) | `STATUS_CHANGED` |
+| 3 | `stage`, `amount`, `currency` unchanged since the decision | `DISPUTE_CHANGED` |
+| 4 | `now < due_at − buffer(stage)` | `TOO_CLOSE_TO_DEADLINE` |
+| 5 | The dispute's account matches the case's merchant, and the merchant has delegated authority or a human approval exists for this cycle | `NO_AUTHORITY` |
+| 6 | `decide()` re-run on the fresh dispute (and, for a challenge, on `established`) returns the same action (§6) | `DECISION_CHANGED` / `DECISION_NOT_SUPPORTED_BY_VERIFIED_CLAIMS` |
+| 7 | Challenge only: the stored `VerificationResult.outcome` is `PASSED`; every cited record's stored hash equals its capture hash; evidence files are uploaded and their `file_id`s recorded | `NOT_VERIFIED` / `EVIDENCE_CHANGED` / `FILES_MISSING` |
+| 8 | Challenge only: AI Dispute Automation will not replace Nirnaya's evidence package. `TODO(verify-airwallex-docs)`: how to detect that it is enabled | `AIRWALLEX_AUTOMATION_ACTIVE` |
+| 9 | No ledger row exists for this `request_id` with status `SENT` or `CONFIRMED` | returns the earlier result (idempotent) |
+
+A **human approval** satisfies check 5 and overrides the engine's economic REFER. It never satisfies check 7: an approved challenge still needs a `PASSED` verification.
+
+### 7.3 Idempotency
+
+- `request_id = sha256(merchant_id | case_id | cycle | stage | action | decision_id)`, truncated to the length Airwallex accepts (`TODO(verify-airwallex-docs)`: format and length limits).
+- The accept request has a **required** `request_id` field ([Payment Disputes API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve)). Whether challenge has one: `TODO(verify-airwallex-docs)`.
+- The `writes` table has a **unique** constraint on `request_id`. The row is inserted as `PENDING` *before* the HTTP call and updated to `SENT`, `CONFIRMED` or `FAILED` after it. On restart, `PENDING`/`SENT` rows are reconciled by re-fetching the dispute rather than re-sending.
+
+### 7.4 Dry run
+
+`DRY_RUN=true` is the default. The gateway runs every check and builds the exact request, then stores it in the ledger as `DRY_RUN` instead of sending it. The case moves to `AWAITING_OUTCOME` with `dry_run=true`. In the sandbox, the simulation API can then resolve the dispute (§9.4).
+
+---
+
+## 8. Investigating agent
+
+### 8.1 Role
+
+The agent turns a VoI target list ("find `DELIVERY_CONFIRMED`") into tool calls, decides when nothing more is worth fetching, and drafts structured claims from stored records. It cannot decide, verify, write, choose a merchant, or see another case.
+
+### 8.2 Loop
+
+```mermaid
+flowchart LR
+    A[Targets = decision.voi] --> B{Targets empty, or<br/>budget or deadline hit?}
+    B -- yes --> Z[Stop → DECIDED]
+    B -- no --> C[Claude turn:<br/>case facts + targets + records so far]
+    C --> D[Tool call]
+    D --> E[Tool gateway:<br/>validate, inject merchant_id,<br/>call mock, hash, store]
+    E --> F[Code: evidence_present, decide, voi]
+    F --> A
+```
+
+Targets are **recomputed by code** after every tool result. The agent never adds a target of its own. If it asks for a tool unrelated to the current targets, the gateway refuses and records the attempt.
+
+### 8.3 Tools
+
+| Tool | Serves evidence types | Lookup keys (from the dispute, not the LLM) |
+|---|---|---|
+| `get_order` | `ORDER_PLACED`, `DISTINCT_TRANSACTIONS`, `REFUND_ISSUED` | `merchant_order_id` (an Airwallex dispute field, per the webhook sample on [Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis)) |
+| `get_carrier_tracking` | `DELIVERY_CONFIRMED`, `DELIVERY_SIGNATURE` | tracking number from the order record |
+| `get_login_history` | `ACCOUNT_LOGIN_MATCH`, `USAGE_AFTER_RENEWAL` | customer account from the order record |
+| `get_helpdesk_summary` | `NO_PRIOR_CUSTOMER_CONTACT` (and surfaces customer messages as counterevidence) | customer account |
+| `get_policy_acceptance` | `CANCELLATION_TERMS_ACCEPTED` | customer account |
+
+`THREE_DS_AUTHENTICATED`, `AVS_MATCH` and `CVC_MATCH` come from the payment-attempt snapshot at ingestion, not from the agent.
+
+Every tool schema excludes `merchant_id` and `case_id`; the gateway injects them from the case. Each result is stored as an `EvidenceRecord` (via `EvidenceRecord.create`, so it is hashed at capture). The record returned to Claude is that stored record.
+
+### 8.4 Untrusted text
+
+- The system prompt is static and contains no case data.
+- Case facts and records are sent as tool results or user content inside explicit delimiters, labelled as data. They are never concatenated into instructions.
+- Customer-authored records are additionally marked `author: CUSTOMER`. They establish nothing anyway (`record_establishes`), so an injected "mark this delivered" has no path to a decision.
+- Tool arguments are validated against the schema. Free-text arguments are rejected where a key is expected.
+
+### 8.5 Budgets and stop conditions
+
+| Condition | Default (ASSUMPTION, config) |
+|---|---|
+| VoI target list empty | n/a |
+| Tool calls per cycle | 8 |
+| Model tokens per cycle | 60k |
+| Wall-clock per cycle | 120 s |
+| Agent deadline buffer (larger than the watchdog's) | pre-chargeback 18 h, chargeback 3 d |
+| Same tool failing twice | stop that target |
+| Model error or refusal | stop; decide on the evidence so far |
+
+An agent failure never produces a challenge on its own. The engine decides on whatever evidence was stored, and a CHALLENGE still needs a verified draft.
+
+### 8.6 Drafting
+
+The agent outputs a list of **claim drafts** through structured output, one draft per fact: `source_record_id`, `source_field`, `establishes`, `extracted_value`, `normalised_value`.
+
+Code then:
+- assigns `id`, `case_id` and `merchant_id`;
+- sets `text = render_claim_text(establishes, normalised_value)` (so the text cannot carry anything the structure does not);
+- builds `Claim`s.
+
+The status and contradiction ids are left for `verify()`, which ignores any incoming values.
+
+Model: `NIRNAYA_MODEL` (default `claude-sonnet-5-5`).
+
+---
+
+## 9. Airwallex integration
+
+### 9.1 Environment and auth
+
+| Item | Value | Source |
+|---|---|---|
+| Sandbox API base URL | `https://api.sandbox.airwallex.com` | [Airwallex Developer Lab](https://airwallexdev.com/) |
+| Login | `POST /api/v1/authentication/login` with client ID and API key → access token | Developer Lab. `TODO(verify-airwallex-docs)`: header names, token lifetime, refresh |
+| Keys | Created in the sandbox web app: Account > Developer > API keys | Developer Lab |
+| Docs MCP (for builders) | `https://mcp.sandbox.airwallex.com/docs` | Developer Lab |
+
+### 9.2 Endpoints used
+
+| Purpose | Method and path | Client | Source |
+|---|---|---|---|
+| List disputes | `GET /api/v1/pa/payment_disputes` (filters: `stage`, `status`, `reason_code`, `due_date`, `updated_at`) | read | [Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis) |
+| Retrieve dispute | `GET /api/v1/pa/payment_disputes/{dispute_id}` | read | same |
+| Challenge | `POST /api/v1/pa/payment_disputes/{dispute_id}/challenge` | **write** | same; body fields `TODO(verify-airwallex-docs)` |
+| Accept | path `TODO(verify-airwallex-docs)`; body has required `request_id` and a `reason` from `AcceptReason` | **write** | [API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve) |
+| Upload evidence file | `POST /api/v1/files/upload/{file_path}` → `file_id` | **write** | Handle disputes using our APIs |
+| Payment attempt / intent | `TODO(verify-airwallex-docs)` | read | n/a |
+| Simulate create | `POST /api/v1/simulation/pa/payment_disputes/create` | sim | [Simulate payment disputes](https://www.airwallex.com/docs/developer-tools/sandbox-environment/payments/simulate-payment-disputes) |
+| Simulate resolve | `POST /api/v1/simulation/pa/payment_disputes/{id}/resolve` (`in_favor_of`: `MERCHANT` → WON or REVERSED; `CUSTOMER` → LOST) | sim | same |
+| Simulate escalate | `POST /api/v1/simulation/pa/payment_disputes/{id}/escalate` (declines evidence, moves to the next stage) | sim | same |
+
+The simulation client is constructible only when the base URL is the sandbox host.
+
+### 9.3 Wire → domain mapping (`ingest/`)
+
+| Airwallex field | Domain | Notes |
+|---|---|---|
+| `id` | `Dispute.id` | |
+| account (webhook envelope `account_id`) | `Dispute.merchant_id` via the merchant registry | §11.2 |
+| `payment_intent_id`, `payment_attempt_id` | same names | |
+| `stage`, `status` | `Stage`, `DisputeStatus` | Documented values. An unknown value fails ingestion for that dispute and is surfaced; it is never guessed |
+| `reason.{type, original_code, description}` | `DisputeReason` | `category_for()` maps `type` → `ReasonCategory`; unmapped → UNKNOWN |
+| `card_brand` | `CardBrand` | |
+| `amount`, `currency` | `Dispute.amount: Money` | Precision is checked against ISO-4217 minor units |
+| `due_at` | `Dispute.due_at` | UTC |
+| `created_at` | `Dispute.opened_at` | `TODO(verify-airwallex-docs)`: confirm this is when the dispute was received |
+| refunds on the payment | `Dispute.refunded_amount` | `TODO(verify-airwallex-docs)`: where partial refunds are exposed |
+| `merchant_order_id` | case lookup key for the agent's tools | |
+| `accept_details`, `challenge_details` | stored in the snapshot | Outcome tracking |
+
+### 9.4 Ingestion: polling first, webhooks second
+
+- **Reconciliation poll (primary).** Each tick lists disputes `updated_at` after the stored cursor, per merchant. This catches everything, including missed webhooks.
+- **Webhooks (optional, M5+).** The events are `payment_dispute.requires_response`, `.challenged`, `.accepted`, `.won`, `.lost`, `.reversed`, `.expired`, `.pending_closure` and `.pending_decision` ([Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis)). A webhook only marks a dispute for immediate reconciliation; its payload is never used to decide or write.
+- `TODO(verify-airwallex-docs)`: webhook signature verification before any webhook endpoint is exposed.
+
+### 9.5 Mapping decisions to Airwallex actions
+
+| `Decision.action` | Airwallex call | Notes |
+|---|---|---|
+| ACCEPT | accept, with `request_id` and `reason = Decision.accept_reason` (from `MerchantPolicy.accept_reason`, default `OTHERS`) | Accepting at RFI triggers a full refund (API reference); RFI is never auto-accepted |
+| CHALLENGE | upload the rendered files, then challenge with their `file_id`s | |
+| REFER | none | Referral record |
+
+### 9.6 Evidence files (`render/`)
+
+Verified claims are rendered into a single evidence document per cycle, split if size limits require. Each claim appears with its source excerpt: record id, source system, field, value, `captured_at` and `sha256`.
+
+Format and size limits by card brand, from [Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis):
+
+| Brand | Formats | Limits |
+|---|---|---|
+| Visa | tiff, tif, pdf, jpg, jpeg (**no PNG**) | 15 MB total; PDF ≤ 2 MB, JPEG/TIFF ≤ 10 MB each |
+| Mastercard | tiff, tif, pdf, jpg, jpeg, png | 14.5 MB total |
+| AMEX | see source | 900 MB total, 4 MB per file |
+| UnionPay, JCB, Discover/Diners | see source | `TODO(verify-airwallex-docs)`: copy exact limits |
+
+The renderer is deterministic: the same claims give byte-identical output, and its hash is stored. Material counterevidence goes to the approver view (§15). It is never contradicted by the submission, and it is not removed from the store.
+
+---
+
+## 10. Data model and storage
+
+### 10.1 Entities
+
+```mermaid
+erDiagram
+    MERCHANTS ||--o{ POLICIES : has
+    MERCHANTS ||--o{ CASES : owns
+    CASES ||--o{ DISPUTE_SNAPSHOTS : "fetched as"
+    CASES ||--o{ CYCLES : "has per stage"
+    CYCLES ||--o{ EVIDENCE_RECORDS : gathers
+    CYCLES ||--o{ DECISIONS : produces
+    CYCLES ||--o{ CLAIMS : drafts
+    CYCLES ||--o{ VERIFICATIONS : checks
+    CYCLES ||--o{ AGENT_RUNS : runs
+    CYCLES ||--o{ REFERRALS : raises
+    CYCLES ||--o{ WRITES : sends
+    CASES ||--o{ AUDIT_EVENTS : logs
+
+    MERCHANTS {
+        text merchant_id PK
+        text airwallex_account_id
+        bool delegated_authority
+    }
+    POLICIES {
+        text merchant_id FK
+        text version PK
+        json policy
+        text sha256
+    }
+    CASES {
+        text case_id PK
+        text merchant_id FK
+        text state
+        int cycle
+        timestamp due_at
+        timestamp lease_until
+    }
+    DISPUTE_SNAPSHOTS {
+        text id PK
+        text merchant_id
+        text case_id
+        json payload
+        text sha256
+        timestamp fetched_at
+    }
+    CYCLES {
+        text case_id FK
+        int cycle PK
+        text stage
+        text policy_version
+    }
+    EVIDENCE_RECORDS {
+        text record_id PK
+        text merchant_id
+        text case_id
+        json record
+        text sha256
+        timestamp captured_at
+    }
+    DECISIONS {
+        text decision_id PK
+        text merchant_id
+        text case_id
+        int cycle
+        json decision
+        text action
+    }
+    CLAIMS {
+        text claim_id PK
+        text merchant_id
+        text case_id
+        int cycle
+        json claim
+    }
+    VERIFICATIONS {
+        text id PK
+        text merchant_id
+        text case_id
+        int cycle
+        json result
+        text outcome
+    }
+    AGENT_RUNS {
+        text id PK
+        text merchant_id
+        text case_id
+        int cycle
+        json transcript
+        int tool_calls
+        int tokens
+    }
+    REFERRALS {
+        text id PK
+        text merchant_id
+        text case_id
+        int cycle
+        json reasons
+        bool urgent
+        text resolution
+        text approver
+    }
+    WRITES {
+        text request_id PK
+        text merchant_id
+        text case_id
+        int cycle
+        text action
+        json request
+        text status
+        bool dry_run
+    }
+    AUDIT_EVENTS {
+        int seq PK
+        text merchant_id
+        text case_id
+        text event
+        json body
+        text prev_hash
+        text hash
+    }
+```
+
+### 10.2 Storage rules
+
+- **SQLite via the standard-library `sqlite3`.** WAL mode. One file per environment.
+- **Domain objects are stored as their Pydantic JSON** (`model_dump_json()`), with indexed columns alongside for queries. Reading back uses `model_validate_json()`, so stored data is re-validated.
+- **Evidence records are immutable.** A changed source creates a new record id; it never updates the old one. `sha256` is the capture hash used as `expected_hashes` in `verify()`.
+- **The audit log is append-only and hash-chained:** `hash = sha256(prev_hash ‖ canonical(event))`. ⬜ A verification command walks the chain.
+- **Money is stored as a string Decimal plus a currency, and times as ISO-8601 UTC.** No floats anywhere.
+
+### 10.3 Repository layer
+
+Every repository method takes `merchant_id` as a required first argument and adds it to every `WHERE` clause. There is no "get by id" without a merchant. ⬜ A test seeds two merchants and asserts that no repository call returns the other merchant's rows.
+
+---
+
+## 11. Tenant isolation and security
+
+### 11.1 Isolation, layer by layer
+
+| Layer | Mechanism | Status |
+|---|---|---|
+| Store | Repositories scoped by `merchant_id` (§10.3) | ⬜ |
+| Tool gateway | Injects `merchant_id`; the LLM cannot supply it | ⬜ |
+| Evidence derivation | `case_records()` drops records from other cases or merchants | ✅ |
+| Engine | `TenantMismatchError` if the policy's merchant differs from the dispute's | ✅ |
+| Verifier | `CASE_MERCHANT_MISMATCH` blocks the claim, and nothing from the foreign record is echoed | ✅ |
+| Write gateway | The account check (§7.2 #5) | ⬜ |
+
+### 11.2 Platforms and ownership
+
+A platform manages disputes for connected merchants. `ownership_resolved` (an engine input) is true only when:
+1. the dispute's Airwallex account maps to exactly one registered merchant;
+2. the payment intent and attempt retrieve successfully under that same account;
+3. the merchant's liability for the payment model is configured.
+
+Anything else gives `OWNERSHIP_UNRESOLVED` and a referral. `TODO(verify-airwallex-docs)`: how API calls are scoped to a connected account.
+
+### 11.3 Secrets and privilege
+
+- Secrets come only from env or `.env` (gitignored); `.env.example` lists the names.
+- The read and write clients are separate objects, and only `guardrails/` constructs the write client (§3.3).
+- `TODO(verify-airwallex-docs)`: whether Airwallex supports scoped or restricted keys. If it does, use a read-only key outside the gateway.
+
+### 11.4 Prompt injection
+
+See §8.4. In short: no customer text in instructions, customer records establish nothing, tool arguments are schema-validated, and the agent has no write tools.
+
+---
+
+## 12. Failure modes
+
+Every failure fails closed: refer, defer, or do nothing. None leads to a write.
+
+| Failure | Behaviour |
+|---|---|
+| Airwallex unreachable during polling | Retry with backoff; the watchdog still runs on stored `due_at` |
+| Airwallex unreachable at re-fetch | `REFETCH_FAILED` → `REFERRED` |
+| Webhook missed | The reconciliation poll picks it up |
+| Unknown stage or status value | That dispute fails ingestion, an alert goes to the UI, and no decision is made |
+| Unknown `reason.type` | `ReasonCategory.UNKNOWN`: never auto-challenged |
+| Missing FX rate | Engine `MISSING_FX_RATE` referral; verifier `AMOUNT_MISMATCH` |
+| Mock or merchant system error | That tool target is stopped; decide on the evidence so far |
+| LLM error, refusal or timeout | Stop the agent; decide on stored evidence; a CHALLENGE without a verified draft → `REFERRED` |
+| LLM proposes an unlisted tool or arguments | Refused and audited |
+| Evidence hash mismatch | Verifier `HASH_MISMATCH` → BLOCKED |
+| Draft fails verification | `REFERRED` with the exact failed claims |
+| Decision not supported by verified claims | `REFERRED` (§6) |
+| Deadline buffer reached | Watchdog → `REFERRED` (urgent) |
+| Crash mid-write | Ledger row is `PENDING`/`SENT`; on restart, re-fetch and reconcile, never blind resend |
+| Duplicate submit | The unique `request_id` returns the earlier result |
+| File upload partly fails | No challenge call; retry the uploads; persistent failure → `REFERRED` |
+| AI Dispute Automation active | `AIRWALLEX_AUTOMATION_ACTIVE` → `REFERRED` (pending §17 item 3) |
+
+---
+
+## 13. Observability and audit
+
+- **Case timeline:** every state transition, decision, tool call, verification, referral and write is an audit event. The UI renders a case as this timeline.
+- **Decision trace:** `Decision.inputs` (the full parameter snapshot) and `Decision.reasons` (the arithmetic in words) are stored verbatim.
+- **Agent runs:** the transcript, tool calls, tokens and cost per cycle (`agent_runs`).
+- **Logs:** structured JSON lines with `merchant_id`, `case_id`, `cycle` and `state` on every line. No secrets, and no customer free text at INFO level.
+- **Integrity:** the hash-chained audit log plus record hashes allow an offline proof that evidence and decisions were not altered after the fact.
+
+---
+
+## 14. Evaluation
+
+```mermaid
+flowchart LR
+    F[eval/cases/*.json<br/>~30 SYNTHETIC cases<br/>+ expected decisions] --> R[Runner]
+    R -->|mock integrations,<br/>simulated clock| P[Full pipeline<br/>scripted or Claude investigator]
+    R --> B1[Baseline: fight all]
+    R --> B2[Baseline: accept all]
+    R --> B3[Baseline: LLM only]
+    P & B1 & B2 & B3 --> S[(Eval store)]
+    S --> M[Metrics report]
+```
+
+- **Cases** cover fraud, non-receipt, duplicate, subscription and unknown reasons at both stages. They include marginal cases, the three demo cases and adversarial ones (fabrications, contradictions, prompt injection in customer text).
+- **Investigators:**
+  - The *scripted* investigator (M3) calls the right tools deterministically and makes the pipeline testable without an LLM.
+  - The *Claude* investigator (M4) is the real agent.
+- **Baselines:**
+  - **Fight all:** challenge every automated-stage dispute.
+  - **Accept all:** accept everything.
+  - **LLM only:** Claude decides and drafts with the same tools, with no engine or verifier. Its drafts are then passed through `verify()` offline to *count* unsupported claims, without blocking them.
+- **Metrics**, reported separately (spec §9):
+  1. Expected net dispute loss against the baselines, and agreement with the expert decisions.
+  2. Unsupported claims submitted (target 0) and fabrications caught.
+  3. Merchant-policy violations (target 0).
+  4. Lifecycle correctness: the right action per stage, deadlines met, no duplicate writes.
+  5. Share of cases automated versus referred.
+
+Sandbox runs are integration tests. Economic results are simulations on synthetic data.
+
+---
+
+## 15. User interface
+
+Streamlit (`app/`) is thin: it reads from the store and acts only through orchestrator commands.
+
+| Page | Shows | Actions |
+|---|---|---|
+| Cases | Merchant filter, state, stage, `due_at` countdown, action | Open a case |
+| Case detail | Timeline; the decision maths and priors (shown as priors, not predictions); VoI; evidence records with hashes; claims and verification results; **counterevidence** | none |
+| Review queue | Referrals by urgency: reason, failed claims, counterevidence, time left | Approve accept · approve challenge (still verified) · handle manually |
+| Demo | Run scenarios A, B, C end to end against mocks or the sandbox | Run |
+| Evaluation | Baselines against Nirnaya on the five metrics | Run the eval |
+
+---
+
+## 16. Deployment and configuration
+
+- **Demo topology:** one Python process running the scheduler loop and a Streamlit server sharing one SQLite file. Optionally a small webhook receiver (§9.4).
+- **Configuration:**
+  - Env: `ANTHROPIC_API_KEY`, `NIRNAYA_MODEL`, `DRY_RUN` (default `true`), and the Airwallex credentials and base URL (`.env.example`).
+  - Per-merchant `MerchantPolicy` (versioned in `policies`).
+  - Deadline buffers and agent budgets (ASSUMPTION defaults in §4.4 and §8.5).
+- **Safety defaults:** `DRY_RUN=true`, sandbox base URL, simulation enabled only on the sandbox host.
+
+---
+
+## 17. Open decisions
+
+| # | Decision | Options | Impact | Resolve by |
+|---|---|---|---|---|
+| 1 | **Pre-arbitration economics.** Airwallex reviews pre-arbitrations and may accept them for the merchant; the pre-arbitration fee after a chargeback response is charged only on a loss ([How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow)). The current formula `p*A − h − q*F_pa` charges `q*F_pa` regardless of outcome and assumes a win keeps A. | (a) keep it as is; (b) model escalation as losing A with probability q (and the fee only on a loss); (c) make q the probability of losing *after* winning the chargeback | Changes engine maths and every eval expectation | Before M6 (plan mode) |
+| 2 | Reason mapping: `CANCELLED_PRODUCT` → SUBSCRIPTION; `UNRECOGNIZED_CHARGE` and `NOT_RECOGNIZED` → UNKNOWN | keep, or remap (`nirnaya/models/reasons.py`) | Which disputes can ever be auto-challenged | M2 (eval cases) |
+| 3 | AI Dispute Automation: if enabled, the challenge endpoint picks evidence itself | detect and refer; or require it off for Nirnaya merchants | Whether Nirnaya's verified package is what gets submitted | M5 |
+| 4 | Does challenge take a `request_id`? | if not: idempotency through the ledger plus re-fetch only | Duplicate-write protection | M5 |
+| 5 | Connected-account scoping for platforms | per Airwallex docs | Tenant isolation at the API | M5 |
+| 6 | Webhook signature verification | per Airwallex docs | Whether webhooks can be enabled at all | M5 (if webhooks are used) |
+| 7 | Real fee values (F_pre, F_cb, F_pa, Visa fraud fee) | from Airwallex pricing | All economics | Before any real merchant |
+| 8 | Is the reason hidden for Mastercard Collaboration? | per docs; `reason.type = UNKNOWN` exists | Frequency of UNKNOWN cases | M5 |
+| 9 | Evidence rendering library | reportlab, or HTML → PDF | Determinism and size of files | M5 |
+| 10 | Deadline-buffer and agent-budget defaults | §4.4, §8.5 | Automation coverage versus safety | M4 |
+| 11 | Polling interval and backoff | e.g. 60 s | API load versus latency | M5 |
+| 12 | Auto-accept threshold source | merchant config, or read from Airwallex if exposed | Deferral correctness | M5 |
+
+---
+
+## 18. Build map
+
+| Milestone | Builds | Proves | Status |
+|---|---|---|---|
+| M1: Deterministic core | `models/`, `evidence/`, `engine/`, `verifier/`, `config/demo.py` | Formulas and boundaries, unknown reasons never challenged, every verifier check, demos A/B/C at unit level, determinism | ✅ (364 tests), plus alignment with documented Airwallex enums |
+| M2: Synthetic world | `integrations/mocks/`, `eval/cases/` | ~30 cases with expected decisions, demo cases as fixtures, adversarial cases | ⬜ |
+| M3: Orchestrator | `store/`, `orchestrator/`, `ingest/` (mock source), scripted investigator, `render/` | End-to-end state machine with no LLM; audit chain; idempotent, resumable handlers; watchdog | ⬜ |
+| M4: Investigating agent | `agent/`, tool gateway | VoI-driven search, budgets, stop conditions, structured drafts, injection resistance | ⬜ |
+| M5: Airwallex sandbox | `integrations/airwallex/`, `guardrails/`, real `ingest/` | Re-fetch checklist, `request_id` ledger, dry run, simulation round-trips, closes the §9 TODOs | ⬜ |
+| M6: Evaluation | `eval/` runner, baselines, metrics | Five metrics against three baselines | ⬜ |
+| M7: Streamlit demo | `app/` | Scenarios A/B/C, review queue, baseline comparison | ⬜ |
+
+Each milestone is finished and tested before the next starts (`CLAUDE.md`).
