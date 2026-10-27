@@ -1,0 +1,1607 @@
+{
+  "provider": "openai",
+  "model": "gpt-5-mini",
+  "run_at": "2026-10-27T17:57:38.409231+00:00",
+  "cases": {
+    "A1": {
+      "action": "ACCEPT",
+      "rationale": "There is no proof of delivery or signature in the records\u2014carrier shows the shipment as IN_TRANSIT only\u2014so our evidence to win a chargeback challenge is weak. The customer message contains instructions to falsify delivery and cannot be treated as valid proof. Economic comparison: refunding now costs $200. Challenging would incur handling costs ($20) and, if we lose because delivery isn't confirmed, would also incur the $25 chargeback fee and the $200 liability (totaling ~$245), so accepting is the least-cost, least-risk option. Escalation risks the $500 pre-arbitration fee. Recommend accepting and issuing the refund.",
+      "claims": [],
+      "input_tokens": 1023,
+      "output_tokens": 1186
+    },
+    "A2": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier tracking shows the shipment was delivered to the named customer and the order details match the charged amount. Challenging is justified because we have delivered-at timestamp, recipient name matching the customer, and identical tracking number on the order and carrier records. Cost of contesting (handling $20) is small relative to preserving $200 if we win.",
+      "claims": [
+        {
+          "source_record_id": "A2-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "A2-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "A2-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-A2",
+          "value_kind": "IDENTIFIER",
+          "text": "Matches carrier tracking number"
+        },
+        {
+          "source_record_id": "A2-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "A2-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "amount": "200.00",
+          "currency": "USD",
+          "value_kind": "MONEY",
+          "basis": "GROSS"
+        }
+      ],
+      "input_tokens": 853,
+      "output_tokens": 2188
+    },
+    "A3": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier shows the package was delivered to recipient name matching the customer and the tracking number matches the order record. Order was placed and shipped. Evidence supports that the product was delivered, so we should challenge the 'product not received' chargeback.",
+      "claims": [
+        {
+          "source_record_id": "A3-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "A3-order",
+          "source_field": "fulfilment_status",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "SHIPPED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "A3-order",
+          "source_field": "tracking_number",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "TRK-A3",
+          "value_kind": "IDENTIFIER"
+        },
+        {
+          "source_record_id": "A3-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "A3-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "A3-carrier",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-A3",
+          "value_kind": "IDENTIFIER",
+          "text": "Carrier tracking matches order tracking"
+        }
+      ],
+      "input_tokens": 853,
+      "output_tokens": 1562
+    },
+    "A5": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier tracking shows the package was delivered to the cardholder name and the tracking number matches the order, so we should challenge and submit delivery evidence. The cost to challenge (handling $20) is small relative to the disputed amount and evidence is strong (delivered status, delivery timestamp, recipient name, and matching tracking number).",
+      "claims": [
+        {
+          "source_record_id": "A5-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "A5-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "A5-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "A5-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-A5",
+          "value_kind": "IDENTIFIER"
+        },
+        {
+          "source_record_id": "A5-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME"
+        }
+      ],
+      "input_tokens": 853,
+      "output_tokens": 1996
+    },
+    "D1": {
+      "action": "CHALLENGE",
+      "rationale": "Merchant records show a single order for $300 placed by the cardholder and shipped with tracking, and the merchant flags this as a distinct purchase (i.e., not a duplicate). Cost of challenging ($20 handling) is small relative to the dispute amount, and we have documented evidence to rebut a duplicate-charge claim.",
+      "claims": [
+        {
+          "source_record_id": "D1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "is_distinct_purchase",
+          "establishes": "DISTINCT_TRANSACTIONS",
+          "extracted_value": "true",
+          "value_kind": "ENUM",
+          "text": "Merchant marks purchase as distinct (not a duplicate)."
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-D1",
+          "value_kind": "IDENTIFIER",
+          "text": "Order has tracking number indicating shipment."
+        }
+      ],
+      "input_tokens": 780,
+      "output_tokens": 1031
+    },
+    "D2": {
+      "action": "CHALLENGE",
+      "rationale": "Merchant has one confirmed order matching the disputed amount that was shipped with tracking. The records show a single order placed for $300 and fulfillment with tracking number TRK-D2, which supports disputing a duplicate-charge claim. The cost to challenge (handling $20) is small relative to the disputed amount and we have on-record shipment evidence to support contesting the chargeback.",
+      "claims": [
+        {
+          "source_record_id": "D2-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "D2-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "D2-order",
+          "source_field": "fulfilment_status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "SHIPPED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "D2-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-D2",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 772,
+      "output_tokens": 1650
+    },
+    "D4": {
+      "action": "CHALLENGE",
+      "rationale": "Order for the disputed amount was placed and fulfilled; tracking shows delivery and merchant marks the purchase as distinct \u2014 sufficient evidence to contest a duplicate-charge claim. Contesting is economical (handling cost $20) versus accepting ($300 refund + $15 pre-chargeback fee).",
+      "claims": [
+        {
+          "source_record_id": "D4-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-D4",
+          "value_kind": "IDENTIFIER",
+          "text": "Shipped with tracking number TRK-D4"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "is_distinct_purchase",
+          "establishes": "DISTINCT_TRANSACTIONS",
+          "extracted_value": "true",
+          "value_kind": "ENUM",
+          "text": "Merchant marked purchase as distinct"
+        }
+      ],
+      "input_tokens": 781,
+      "output_tokens": 1327
+    },
+    "F1": {
+      "action": "CHALLENGE",
+      "rationale": "Payment shows strong authentication (3DS) and AVS/CVC matched, and an order was placed and fulfilled; cost to challenge is small relative to the disputed amount, so we should contest the fraudulent claim with evidence.",
+      "claims": [
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "avs",
+          "establishes": "AVS_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "F1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "date": "2026-02-10T17:00:00+08:00",
+          "tz": "+08:00"
+        },
+        {
+          "source_record_id": "F1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "400.00",
+          "value_kind": "MONEY",
+          "amount": "400.00",
+          "currency": "USD"
+        }
+      ],
+      "input_tokens": 891,
+      "output_tokens": 2616
+    },
+    "F10": {
+      "action": "CHALLENGE",
+      "rationale": "Challenge: there is a placed order and a matching payment attempt, and the order record shows multiple prior undisputed orders from the same device/IP \u2014 we can submit the order/payment timestamps and the prior-orders signal as evidence. Although 3DS/AVS/CVC were not performed (weakness), the handling cost ($20) is small relative to losing the full amount; asserting these records is economically justified and we will supply tracking/shipping info on RFI if available.",
+      "claims": [
+        {
+          "source_record_id": "F10-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00",
+          "tz": "+08:00"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F10",
+          "source_field": "created_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T09:00:00+00:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T09:00:00+00:00",
+          "tz": "+00:00"
+        },
+        {
+          "source_record_id": "F10-order",
+          "source_field": "prior_undisputed_orders_matching_device_ip",
+          "establishes": "PRIOR_UNDISPUTED_ORDERS_MATCH",
+          "extracted_value": "3",
+          "value_kind": "IDENTIFIER",
+          "text": "3 prior undisputed orders matched on device/IP"
+        }
+      ],
+      "input_tokens": 907,
+      "output_tokens": 4308
+    },
+    "F3": {
+      "action": "CHALLENGE",
+      "rationale": "Payment shows AVS and CVC matched and the merchant has a placed order with shipment and tracking for the disputed amount \u2014 sufficient evidence to contest this fraud claim. The challenge handling cost is small relative to the disputed amount, and the records support cardholder authorization and order fulfilment.",
+      "claims": [
+        {
+          "source_record_id": "payment_attempt:att-F3",
+          "source_field": "avs",
+          "establishes": "AVS_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F3",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "F3-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "F3-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-F3",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 891,
+      "output_tokens": 1785
+    },
+    "F4": {
+      "action": "CHALLENGE",
+      "rationale": "AVS and CVC matched and there is an on-file order that matches the charged amount and was shipped (tracking number present). The evidence supports contesting a card-not-present fraud claim; the cost to challenge is modest compared with likely recovery. 3DS was not performed, but AVS/CVC matches and an order placed and shipped reduce the issuer\u2019s ability to prove fraud. Proceed to challenge and submit the attached records (order and payment attempt) as evidence.",
+      "claims": [
+        {
+          "source_record_id": "F4-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "F4-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "266.00",
+          "value_kind": "MONEY",
+          "amount": "266.00",
+          "currency": "USD"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F4",
+          "source_field": "avs",
+          "establishes": "AVS_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM",
+          "text": "AVS returned MATCH"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F4",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM",
+          "text": "CVC returned MATCH"
+        }
+      ],
+      "input_tokens": 891,
+      "output_tokens": 2292
+    },
+    "F5": {
+      "action": "ACCEPT",
+      "rationale": "Records show weak evidence to successfully defend a fraudulent claim: payment attempt has AVS=NO_MATCH, CVC=NO_MATCH, and 3DS=NOT_PERFORMED (high fraud indicators). The order was shipped (tracking number present) but there is no proof of delivery or signed receipt in the records. Given the high likelihood of losing a challenge on a $1,000 claim and the additional handling and chargeback costs, refunding now minimizes expected loss and avoids higher fees and risk.",
+      "claims": [],
+      "input_tokens": 897,
+      "output_tokens": 1026
+    },
+    "F6": {
+      "action": "CHALLENGE",
+      "rationale": "The cardholder claims fraud for $1,000 but the transaction was 3DS-authenticated and corresponds to a placed order that was fulfilled (tracking number provided). Given the strong liability-shift evidence from 3DS and the shipped order record, contesting the dispute is cost-effective (challenge handling cost $20 vs likely win avoiding $1,000 loss and $25 chargeback fee).",
+      "claims": [
+        {
+          "source_record_id": "payment_attempt:att-F6",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM",
+          "text": "3DS authentication status shows AUTHENTICATED"
+        },
+        {
+          "source_record_id": "F6-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00",
+          "tz": "+08:00"
+        },
+        {
+          "source_record_id": "F6-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-F6",
+          "value_kind": "IDENTIFIER",
+          "text": "Order has tracking number indicating shipment"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F6",
+          "source_field": "amount",
+          "establishes": "DISTINCT_TRANSACTIONS",
+          "amount": "1000.00",
+          "currency": "USD",
+          "value_kind": "MONEY",
+          "basis": "GROSS"
+        }
+      ],
+      "input_tokens": 899,
+      "output_tokens": 1938
+    },
+    "F7": {
+      "action": "CHALLENGE",
+      "rationale": "Challenge the chargeback. The payment was authenticated via 3-D Secure (liability likely shifted to issuer), the merchant has an order matching the payment amount and timestamps, and the item was shipped with a tracking number. The amount ($3,000) justifies contesting the fraud claim despite the modest per-challenge handling cost. Provide 3DS auth, matching order/payment details, and shipping/tracking as evidence.",
+      "claims": [
+        {
+          "source_record_id": "payment_attempt:att-F7",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM",
+          "text": "3-D Secure authentication status"
+        },
+        {
+          "source_record_id": "F7-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "3000.00",
+          "value_kind": "MONEY"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F7",
+          "source_field": "amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "3000.00",
+          "value_kind": "MONEY"
+        },
+        {
+          "source_record_id": "F7-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F7",
+          "source_field": "created_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T09:00:00+00:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "F7-order",
+          "source_field": "tracking_number",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "TRK-F7",
+          "value_kind": "IDENTIFIER",
+          "text": "Order has a tracking number and was shipped"
+        }
+      ],
+      "input_tokens": 898,
+      "output_tokens": 2318
+    },
+    "F8": {
+      "action": "ACCEPT",
+      "rationale": "Customer reported account compromise (merchant record) and the payment attempt shows no strong authentication (3DS not performed; AVS and CVC not checked), so our evidence to successfully dispute a fraud claim is weak. Fighting risks the $400 charge plus costs (handling $20 and potential chargeback fees); refunding minimizes expected loss and customer friction.",
+      "claims": [],
+      "input_tokens": 965,
+      "output_tokens": 1571
+    },
+    "F9": {
+      "action": "CHALLENGE",
+      "rationale": "Evidence shows the cardholder completed a 3DS-authenticated payment for an order matching the disputed amount and the merchant shipped the order (tracking number). The likelihood of winning the dispute is high and the cost to contest (handling $20) is small compared with the $500 loss if we accept. Challenge and submit the following supporting records: order placed/amount, 3DS authentication, and tracking information showing shipment.",
+      "claims": [
+        {
+          "source_record_id": "F9-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "F9-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "500.00",
+          "value_kind": "MONEY",
+          "amount": "500.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F9",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM",
+          "text": "3DS authentication status shows AUTHENTICATED"
+        },
+        {
+          "source_record_id": "F9-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-F9",
+          "value_kind": "IDENTIFIER",
+          "text": "Order fulfilled and shipped; tracking number provided"
+        }
+      ],
+      "input_tokens": 894,
+      "output_tokens": 2390
+    },
+    "K1": {
+      "action": "CHALLENGE",
+      "rationale": "Challenge the dispute. Evidence supports that the cardholder received and accepted the order: the order and payment match the disputed amount, delivery was confirmed with a signature that matches the customer name, and the payment CVC matched. There are also multiple prior undisputed orders from the same device/IP indicating account ownership. Although 3DS was not performed and AVS was not checked, the confirmed signed delivery and account history make defending the charge economically reasonable (handling cost $20 vs potential $1,500 loss).",
+      "claims": [
+        {
+          "source_record_id": "K1-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "Carrier status indicates delivery."
+        },
+        {
+          "source_record_id": "K1-carrier",
+          "source_field": "signed_by",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "Package was signed by the cardholder name on the order."
+        },
+        {
+          "source_record_id": "K1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "K1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "amount": "1500.00",
+          "currency": "USD",
+          "value_kind": "MONEY"
+        },
+        {
+          "source_record_id": "payment_attempt:att-K1",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "K1-order",
+          "source_field": "prior_undisputed_orders_matching_device_ip",
+          "establishes": "PRIOR_UNDISPUTED_ORDERS_MATCH",
+          "extracted_value": "3",
+          "value_kind": "IDENTIFIER"
+        },
+        {
+          "source_record_id": "payment_attempt:att-K1",
+          "source_field": "amount",
+          "establishes": "ORDER_PLACED",
+          "amount": "1500.00",
+          "currency": "USD",
+          "value_kind": "MONEY"
+        }
+      ],
+      "input_tokens": 1002,
+      "output_tokens": 2942
+    },
+    "K1B": {
+      "action": "CHALLENGE",
+      "rationale": "Evidence shows the cardholder received and signed for the shipment and payment attempt had CVC match; merchant has prior undisputed orders from same device/IP. Cost to challenge (handling $20) is small compared with the $1,500 at risk, so we should contest the fraud charge with delivery and payment evidence.",
+      "claims": [
+        {
+          "source_record_id": "K1B-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "K1B-carrier",
+          "source_field": "signed_by",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "Carrier record shows package signed by J. Smith"
+        },
+        {
+          "source_record_id": "K1B-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "payment_attempt:att-K1B",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "K1B-order",
+          "source_field": "prior_undisputed_orders_matching_device_ip",
+          "establishes": "PRIOR_UNDISPUTED_ORDERS_MATCH",
+          "extracted_value": "3",
+          "value_kind": "IDENTIFIER",
+          "text": "Three prior undisputed orders from same device/IP"
+        }
+      ],
+      "input_tokens": 1017,
+      "output_tokens": 1819
+    },
+    "K2": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier tracking shows the package was delivered to the cardholder (recipient name matches order). Tracking number on the order matches the carrier record and delivery is timestamped. The merchant should challenge and submit delivery evidence (signature/confirmation). The handling cost (~$20) is economical compared with conceding the $15 loss and a chargeback. ",
+      "claims": [
+        {
+          "source_record_id": "K2-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "status: DELIVERED"
+        },
+        {
+          "source_record_id": "K2-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "K2-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "K2-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "K2-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "K2-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-K2",
+          "value_kind": "IDENTIFIER",
+          "text": "tracking number matches carrier record"
+        }
+      ],
+      "input_tokens": 853,
+      "output_tokens": 1877
+    },
+    "K2C": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier tracking shows the package was delivered to the cardholder name and the order tracking matches our order \u2014 sufficient evidence to contest a 'product not received' chargeback. Challenging has a low handling cost ($20) compared with likely losses if we do not contest. Provide delivery evidence to issuer.",
+      "claims": [
+        {
+          "source_record_id": "K2C-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "Carrier status shows DELIVERED"
+        },
+        {
+          "source_record_id": "K2C-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "text": "Carrier delivered timestamp"
+        },
+        {
+          "source_record_id": "K2C-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "Package delivered to recipient matching cardholder name"
+        },
+        {
+          "source_record_id": "K2C-carrier",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-K2C",
+          "value_kind": "IDENTIFIER",
+          "text": "Carrier tracking number for delivery"
+        },
+        {
+          "source_record_id": "K2C-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-K2C",
+          "value_kind": "IDENTIFIER",
+          "text": "Order tracking number matches carrier tracking"
+        },
+        {
+          "source_record_id": "K2C-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "text": "Order placed timestamp"
+        }
+      ],
+      "input_tokens": 862,
+      "output_tokens": 1875
+    },
+    "K3": {
+      "action": "ACCEPT",
+      "rationale": "Records show the order was shipped but there is no record of a refund or return confirmation. The customer contacted support twice reporting they returned the item and asked about their refund. We lack evidence to refute the cardholder\u2019s claim (no refund receipt, no delivery/return confirmation, no refund issued). Fighting the chargeback would incur handling costs and risk losing $120 plus fees. Refund to the customer minimizes costs and resolves the dispute.",
+      "claims": [],
+      "input_tokens": 959,
+      "output_tokens": 949
+    },
+    "N1": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier tracking and delivery records show the package with tracking TRK-N1 was delivered to the cardholder name (J. Smith), and the merchant order shows a matching order placed for $200.00. No refund is recorded. Evidence strongly supports that the product was delivered to the customer, so we should challenge the chargeback and submit this evidence. (Estimated handling cost: $20.)",
+      "claims": [
+        {
+          "source_record_id": "N1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "200.00",
+          "value_kind": "MONEY",
+          "amount": "200.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-N1",
+          "value_kind": "IDENTIFIER"
+        },
+        {
+          "source_record_id": "N1-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "Carrier status is DELIVERED"
+        },
+        {
+          "source_record_id": "N1-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "N1-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "Delivery recorded to recipient J. Smith (matches customer name)"
+        }
+      ],
+      "input_tokens": 853,
+      "output_tokens": 2066
+    },
+    "N2": {
+      "action": "ACCEPT",
+      "rationale": "Dispute is 'product not received' but merchant's records do not show delivery confirmation. Carrier record shows status IN_TRANSIT (no delivered timestamp or signature) so we cannot prove the customer received the package. Given weak evidence and the cost/risk of losing a challenge (losing would cost the full $200 plus a $25 chargeback fee and handling costs), refunding now minimizes expected cost and resolves the dispute quickly.",
+      "claims": [],
+      "input_tokens": 830,
+      "output_tokens": 820
+    },
+    "N3": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier records show the package was delivered and signed for by the cardholder named on the order; tracking number on the order matches carrier tracking. The merchant shipped the order for the full disputed amount. Evidence supports challenging the 'product not received' claim; the cost to present evidence (handling $20) is small compared with the $600 loss if we concede. Challenge and submit delivery + signature evidence.",
+      "claims": [
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00",
+          "tz": "-05:00"
+        },
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-N3",
+          "value_kind": "IDENTIFIER"
+        },
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "signed_by",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "N3-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "600.00",
+          "value_kind": "MONEY",
+          "amount": "600.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "N3-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00",
+          "tz": "+08:00"
+        }
+      ],
+      "input_tokens": 862,
+      "output_tokens": 1845
+    },
+    "N4": {
+      "action": "CHALLENGE",
+      "rationale": "We will challenge. The merchant has order and carrier evidence showing the item was shipped to and delivered to the cardholder name and the tracking number on the order matches the carrier delivery record. Fighting cost is low (handling $20) relative to the $200 dispute, and the delivered record includes a timestamp and recipient name matching the order, so probability of prevailing is reasonable. Note: there is a separate carrier record showing RETURNED_TO_SENDER for the same tracking number which could complicate arbitration; however the delivery record with recipient name and timestamp is primary evidence to dispute the cardholder\u2019s \u201cproduct not received\u201d claim.",
+      "claims": [
+        {
+          "source_record_id": "N4-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "tz": "+08:00"
+        },
+        {
+          "source_record_id": "N4-order",
+          "source_field": "tracking_number",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "TRK-N4",
+          "value_kind": "IDENTIFIER"
+        },
+        {
+          "source_record_id": "N4-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "N4-carrier-a",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "N4-carrier-a",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "tz": "-05:00"
+        },
+        {
+          "source_record_id": "N4-carrier-a",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        }
+      ],
+      "input_tokens": 921,
+      "output_tokens": 2662
+    },
+    "N5": {
+      "action": "CHALLENGE",
+      "rationale": "Challenging is appropriate: carrier record shows the parcel was delivered to a recipient named like the cardholder, tracking numbers match the merchant order, and the order amount and placement are recorded. The merchant should contest the 'product not received' dispute with delivery evidence. Costs to challenge (handling $20) are small compared with refund ($300) plus potential fees.",
+      "claims": [
+        {
+          "source_record_id": "N5-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "Carrier status indicates delivery."
+        },
+        {
+          "source_record_id": "N5-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N5-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "Carrier delivery recorded recipient name matching the order customer name."
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-N5",
+          "value_kind": "IDENTIFIER",
+          "text": "Order tracking number matches carrier tracking number."
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD"
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        }
+      ],
+      "input_tokens": 854,
+      "output_tokens": 2523
+    },
+    "N6": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier shows the order was delivered to the named customer and tracking matches the order. Evidence: delivery status DELIVERED and delivered_at timestamp for tracking TRK-N6, recipient name matches order customer name J. Smith. The merchant should challenge \u2014 the cost to prepare evidence/handling ($20) is small relative to the $120 dispute and the carrier delivery record makes winning likely.",
+      "claims": [
+        {
+          "source_record_id": "N6-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N6-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "N6-order",
+          "source_field": "tracking_number",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "TRK-N6",
+          "value_kind": "IDENTIFIER"
+        },
+        {
+          "source_record_id": "N6-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "N6-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N6-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "N6-carrier",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-N6",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 854,
+      "output_tokens": 2358
+    },
+    "N7": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier records show the package was delivered to the named customer and the carrier tracking number matches the order. Evidence (delivery status, delivered timestamp, and recipient name matching the customer) should refute a 'product not received' dispute; the expected cost (handling $20) is small compared with the dispute amount ($141). Challenge and submit delivery evidence.",
+      "claims": [
+        {
+          "source_record_id": "N7-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "Carrier status is DELIVERED"
+        },
+        {
+          "source_record_id": "N7-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00",
+          "tz": "-05:00"
+        },
+        {
+          "source_record_id": "N7-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "Delivery recorded to recipient J. Smith"
+        },
+        {
+          "source_record_id": "N7-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-N7",
+          "value_kind": "IDENTIFIER",
+          "text": "Order tracking number matches carrier tracking number"
+        },
+        {
+          "source_record_id": "N7-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00",
+          "tz": "+08:00"
+        }
+      ],
+      "input_tokens": 853,
+      "output_tokens": 1997
+    },
+    "N8": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier records show the order was delivered to the customer (matching name and tracking number) after the order was placed; merchant responded to the customer and no refund was issued. Challenge the chargeback with delivery evidence.",
+      "claims": [
+        {
+          "source_record_id": "N8-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "Carrier status shows parcel delivered."
+        },
+        {
+          "source_record_id": "N8-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00",
+          "tz": "-05:00",
+          "text": "Carrier delivery timestamp."
+        },
+        {
+          "source_record_id": "N8-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "Carrier indicates recipient name matching the order customer."
+        },
+        {
+          "source_record_id": "N8-order",
+          "source_field": "tracking_number",
+          "establishes": "DISTINCT_TRANSACTIONS",
+          "extracted_value": "TRK-N8",
+          "value_kind": "IDENTIFIER",
+          "text": "Tracking number on order matches carrier tracking number."
+        },
+        {
+          "source_record_id": "N8-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00",
+          "tz": "+08:00",
+          "text": "Order placement timestamp."
+        }
+      ],
+      "input_tokens": 1036,
+      "output_tokens": 1859
+    },
+    "N9": {
+      "action": "CHALLENGE",
+      "rationale": "Records show the order was placed and shipped for the full disputed amount and the carrier confirms delivery to the cardholder name with a matching tracking number. Fighting the chargeback is economical: handling cost to submit evidence is $20 and the likely outcome favors the merchant given clear delivery proof (carrier delivered status, delivery timestamp, recipient name matching customer, and matching tracking number).",
+      "claims": [
+        {
+          "source_record_id": "N9-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "amount": "300.00",
+          "currency": "USD",
+          "value_kind": "MONEY",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "fulfilment_status",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "SHIPPED",
+          "value_kind": "ENUM",
+          "text": "Order marked as SHIPPED"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-N9",
+          "value_kind": "IDENTIFIER",
+          "text": "Order tracking number"
+        },
+        {
+          "source_record_id": "N9-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "Carrier status shows DELIVERED"
+        },
+        {
+          "source_record_id": "N9-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00",
+          "tz": "-05:00"
+        },
+        {
+          "source_record_id": "N9-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "Delivered to recipient matching customer name"
+        },
+        {
+          "source_record_id": "N9-carrier",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-N9",
+          "value_kind": "IDENTIFIER",
+          "text": "Carrier tracking number matching order"
+        }
+      ],
+      "input_tokens": 851,
+      "output_tokens": 2258
+    },
+    "S1": {
+      "action": "CHALLENGE",
+      "rationale": "We have merchant records showing the customer placed the order for $300, accepted the cancellation terms before ordering, and the order was shipped (tracking number present). There's also a record of account activity after renewal, which further undermines a cancellation/return claim. The cost to challenge ($20 handling) is small compared with losing ($300 + fees). We will contest the chargeback with this evidence.",
+      "claims": [
+        {
+          "source_record_id": "S1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "date": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "S1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "S1-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "date": "2025-11-03T10:00:00Z"
+        },
+        {
+          "source_record_id": "S1-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-S1",
+          "value_kind": "IDENTIFIER",
+          "text": "TRK-S1"
+        },
+        {
+          "source_record_id": "S1-login",
+          "source_field": "active_after_renewal_at",
+          "establishes": "USAGE_AFTER_RENEWAL",
+          "extracted_value": "2026-02-20T08:00:00Z",
+          "value_kind": "DATETIME",
+          "date": "2026-02-20T08:00:00Z"
+        }
+      ],
+      "input_tokens": 908,
+      "output_tokens": 1698
+    },
+    "S2": {
+      "action": "CHALLENGE",
+      "rationale": "Challenge the dispute. The merchant has evidence the cardholder accepted the cancellation terms before purchase and that the order was placed for $300 and fulfilled (shipped). Given the documented policy acceptance and fulfilment, contesting the chargeback is economically reasonable despite the $20 handling cost.",
+      "claims": [
+        {
+          "source_record_id": "S2-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "text": "Customer accepted the merchant's cancellation terms before placing the order."
+        },
+        {
+          "source_record_id": "S2-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "text": "Order was placed on this date/time."
+        },
+        {
+          "source_record_id": "S2-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "text": "Order total matches the disputed amount."
+        },
+        {
+          "source_record_id": "S2-order",
+          "source_field": "fulfilment_status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "SHIPPED",
+          "value_kind": "ENUM",
+          "text": "Order fulfilment status is SHIPPED and tracking_number TRK-S2 is present, showing the merchant fulfilled the order."
+        }
+      ],
+      "input_tokens": 845,
+      "output_tokens": 3343
+    },
+    "S3": {
+      "action": "CHALLENGE",
+      "rationale": "We have merchant records showing the order was placed and fulfilled (tracking number present), the customer had previously accepted the merchant\u2019s cancellation terms, and there were no prior contacts before the dispute. The expected cost to challenge (handling $20) is small relative to the disputed amount ($300). Challenge and submit evidence.",
+      "claims": [
+        {
+          "source_record_id": "S3-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "S3-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "S3-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-S3",
+          "value_kind": "IDENTIFIER",
+          "text": "tracking number recorded on order"
+        },
+        {
+          "source_record_id": "S3-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2025-11-03T10:00:00Z"
+        },
+        {
+          "source_record_id": "S3-helpdesk-summary",
+          "source_field": "contacts_before_dispute",
+          "establishes": "NO_PRIOR_CUSTOMER_CONTACT",
+          "extracted_value": "0",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 900,
+      "output_tokens": 2551
+    },
+    "S4": {
+      "action": "CHALLENGE",
+      "rationale": "We have merchant records showing the $300 order was placed and fulfilled (shipped with tracking), the customer previously accepted the merchant's cancellation terms, and there is no record of a prior cancellation contact before the dispute. Given strong delivery/fulfillment evidence and the low expected cost to contest (handling $20) versus a $300 loss if we accept, we should challenge the chargeback with evidence.",
+      "claims": [
+        {
+          "source_record_id": "S4-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "S4-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "amount": "300.00",
+          "currency": "USD",
+          "value_kind": "MONEY",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "S4-order",
+          "source_field": "fulfilment_status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "SHIPPED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "S4-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-S4",
+          "value_kind": "IDENTIFIER"
+        },
+        {
+          "source_record_id": "S4-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "S4-helpdesk-summary",
+          "source_field": "contacts_before_dispute",
+          "establishes": "NO_PRIOR_CUSTOMER_CONTACT",
+          "extracted_value": "0",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 995,
+      "output_tokens": 3196
+    },
+    "S5": {
+      "action": "CHALLENGE",
+      "rationale": "Evidence shows the customer placed the order, accepted the merchant cancellation terms well before purchase, and the item was shipped (tracking number present). The account remained active after the renewal date. Because we have documentary evidence and the contest is economical (handling $20 vs losing $300), we should challenge the dispute and submit the order, tracking, and policy timestamps as evidence.",
+      "claims": [
+        {
+          "source_record_id": "S5-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "S5-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-S5",
+          "value_kind": "IDENTIFIER",
+          "text": "Shipment tracking number on order record"
+        },
+        {
+          "source_record_id": "S5-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "S5-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2025-11-03T10:00:00Z"
+        },
+        {
+          "source_record_id": "S5-login",
+          "source_field": "active_after_renewal_at",
+          "establishes": "USAGE_AFTER_RENEWAL",
+          "extracted_value": "2026-02-20T08:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2026-02-20T08:00:00Z"
+        }
+      ],
+      "input_tokens": 906,
+      "output_tokens": 2142
+    },
+    "U1": {
+      "action": "CHALLENGE",
+      "rationale": "Carrier record shows the package was delivered to the named customer and tracking matches the order. The evidence supports contesting this charge; cost to challenge (handling $20) is small relative to the $200 dispute. Challenge with proof of delivery and order details.",
+      "claims": [
+        {
+          "source_record_id": "U1-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "Carrier status shows DELIVERED"
+        },
+        {
+          "source_record_id": "U1-carrier",
+          "source_field": "recipient_name",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "Carrier delivered to recipient name 'J. Smith' matching the order customer name"
+        },
+        {
+          "source_record_id": "U1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "text": "Order was placed on this date/time"
+        },
+        {
+          "source_record_id": "U1-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-U1",
+          "value_kind": "IDENTIFIER",
+          "text": "Order tracking number TRK-U1 matches carrier tracking number"
+        }
+      ],
+      "input_tokens": 848,
+      "output_tokens": 2282
+    },
+    "U2": {
+      "action": "ACCEPT",
+      "rationale": "Record lacks proof of delivery or customer acceptance. The order record shows the purchase and that the merchant shipped the item (tracking number present), but there is no delivery confirmation or signature to rebut a cardholder dispute. Given the transaction size ($1,500) and modest savings from contesting (after handling and potential loss), economically it's safer to refund and avoid further fees and risk of losing in dispute resolution.",
+      "claims": [],
+      "input_tokens": 765,
+      "output_tokens": 1199
+    },
+    "U3": {
+      "action": "ACCEPT",
+      "rationale": "The merchant should refund. Evidence is limited to an order record showing the item was placed and shipped, with no proof of delivery, signature, return, or evidence the product was acceptable. The dispute is for \u201cproduct unacceptable\u201d (quality), which is difficult to win without product inspection/return proof. Fighting risks handling fees ($20) and potentially losing the $50 plus chargeback fees \u2014 not economical for this small amount. Refund to resolve the chargeback and avoid further fees and costs.",
+      "claims": [],
+      "input_tokens": 769,
+      "output_tokens": 1344
+    },
+    "U4": {
+      "action": "CHALLENGE",
+      "rationale": "The merchant has an order matching the disputed amount that was placed and shipped with a tracking number. We should challenge the dispute and provide order + shipment evidence to contest the UNKNOWN claim rather than accept the loss. The handling cost of a challenge ($20) is small compared with refunding $200, and the records show ORDER_PLACED and that the order was SHIPPED (tracking number TRK-U4).",
+      "claims": [
+        {
+          "source_record_id": "U4-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-U4",
+          "value_kind": "IDENTIFIER"
+        },
+        {
+          "source_record_id": "U4-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "U4-order",
+          "source_field": "tracking_number",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "TRK-U4",
+          "value_kind": "IDENTIFIER",
+          "text": "Tracking number associated with the shipment"
+        },
+        {
+          "source_record_id": "U4-order",
+          "source_field": "fulfilment_status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "SHIPPED",
+          "value_kind": "ENUM",
+          "text": "Order status set to SHIPPED"
+        }
+      ],
+      "input_tokens": 761,
+      "output_tokens": 2175
+    }
+  }
+}

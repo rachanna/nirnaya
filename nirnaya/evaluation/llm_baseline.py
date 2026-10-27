@@ -178,6 +178,20 @@ class Cache:
         return cls(data["provider"], data["model"], data["run_at"], data["cases"])
 
 
+def complete_item(item: Any) -> Any:  # noqa: ANN401
+    """Fill a value field the model left out from its own extracted_value, so the baseline is
+    judged on what it claimed, not on a schema formality (the schema marks these optional)."""
+    if not isinstance(item, dict) or not isinstance(item.get("extracted_value"), str):
+        return item
+    filled = dict(item)
+    kind = item.get("value_kind")
+    if kind in {"NAME", "IDENTIFIER", "ENUM"} and not item.get("text"):
+        filled["text"] = item["extracted_value"]
+    if kind == "DATETIME" and not item.get("at"):
+        filled["at"] = item["extracted_value"]
+    return filled
+
+
 def llm_only(case: EvalCase, cache: Cache) -> CaseResult:
     """The cached answer as a policy result; its claims are built and scored, never trusted."""
     if not actionable(case.dispute):
@@ -187,7 +201,7 @@ def llm_only(case: EvalCase, cache: Cache) -> CaseResult:
     if act is not Act.CHALLENGE:
         return CaseResult(case.id, act)
     ids = {r.id for r in case.evidence_records()}
-    items = answer.get("claims") or []
+    items = [complete_item(i) for i in answer.get("claims") or []]
     claims, dropped = build_claims(case.dispute, items, ids)
     # A claim that cannot even be built is an unsupported statement that would have been sent.
     unsupported = score_claims(case, claims) + len(dropped)

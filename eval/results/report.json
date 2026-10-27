@@ -1,7 +1,11 @@
 {
   "caveat": "Expected values under the expert policy's assumed priors and fees on SYNTHETIC cases (eval/EXPERT_POLICY.md); not real issuer or network outcomes.",
   "cases": 42,
-  "llm_only": null,
+  "llm_only": {
+    "provider": "openai",
+    "model": "gpt-5-mini",
+    "run_at": "2026-10-27T17:57:38.409231+00:00"
+  },
   "policies": {
     "nirnaya": {
       "name": "Nirnaya",
@@ -157,6 +161,64 @@
         "referred": 0,
         "automated_share": "1.000"
       }
+    },
+    "llm_only": {
+      "name": "LLM only",
+      "financial": {
+        "expected_loss": "11687.60",
+        "by_part": {
+          "amount_lost": "8827.60",
+          "handling": "620.00",
+          "fees": "1790.00",
+          "counted_chargeback": "450.00",
+          "review": "0.00"
+        },
+        "priced_cases": 39,
+        "agreement": 22,
+        "cases": 42,
+        "vs_nirnaya": "270.20"
+      },
+      "integrity": {
+        "challenges": 32,
+        "claims_submitted": 155,
+        "unsupported_submitted": 84,
+        "challenges_without_evidence": 0,
+        "fabrications_caught": 0
+      },
+      "compliance": {
+        "violations": 12,
+        "by_kind": {
+          "acted despite OWNERSHIP_UNRESOLVED": 1,
+          "acted despite RFI_ACCEPT_NEEDS_APPROVAL": 2,
+          "acted despite MARGINAL": 2,
+          "acted despite AMOUNT_ABOVE_THRESHOLD": 1,
+          "acted despite CONTRADICTORY_RECORDS": 2,
+          "acted despite UNANSWERED_CUSTOMER_CONTACT": 2,
+          "challenged an unknown reason": 2,
+          "acted despite UNKNOWN_REASON_CHALLENGE": 1
+        },
+        "cases": [
+          "A5",
+          "F10",
+          "F4",
+          "F7",
+          "F8",
+          "K3",
+          "N4",
+          "N7",
+          "S4",
+          "U1",
+          "U2",
+          "U4"
+        ]
+      },
+      "lifecycle": null,
+      "coverage": {
+        "actionable": 39,
+        "automated": 39,
+        "referred": 0,
+        "automated_share": "1.000"
+      }
     }
   },
   "rows": [
@@ -178,6 +240,11 @@
         "unsupported": 1
       },
       "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      },
+      "llm_only": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
@@ -204,6 +271,11 @@
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 4
       }
     },
     {
@@ -227,6 +299,11 @@
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 4
       }
     },
     {
@@ -250,6 +327,11 @@
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 2
       }
     },
     {
@@ -273,6 +355,11 @@
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "175.00",
+        "unsupported": 2
       }
     },
     {
@@ -296,6 +383,11 @@
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "340.00",
+        "unsupported": 2
       }
     },
     {
@@ -316,6 +408,11 @@
         "unsupported": 0
       },
       "accept_all": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      },
+      "llm_only": {
         "action": "NONE",
         "cost": null,
         "unsupported": 0
@@ -342,6 +439,11 @@
         "action": "ACCEPT",
         "cost": "315.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 2
       }
     },
     {
@@ -364,6 +466,11 @@
       "accept_all": {
         "action": "ACCEPT",
         "cost": "400.00",
+        "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
         "unsupported": 0
       }
     },
@@ -388,6 +495,11 @@
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "225.00",
+        "unsupported": 2
       }
     },
     {
@@ -411,6 +523,11 @@
         "action": "ACCEPT",
         "cost": "250.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "245.00",
+        "unsupported": 1
       }
     },
     {
@@ -434,6 +551,11 @@
         "action": "ACCEPT",
         "cost": "266.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "256.20",
+        "unsupported": 2
       }
     },
     {
@@ -454,6 +576,11 @@
         "unsupported": 0
       },
       "accept_all": {
+        "action": "ACCEPT",
+        "cost": "1015.00",
+        "unsupported": 0
+      },
+      "llm_only": {
         "action": "ACCEPT",
         "cost": "1015.00",
         "unsupported": 0
@@ -480,6 +607,11 @@
         "action": "ACCEPT",
         "cost": "1015.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "445.00",
+        "unsupported": 3
       }
     },
     {
@@ -503,6 +635,11 @@
         "action": "ACCEPT",
         "cost": "3000.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "970.00",
+        "unsupported": 5
       }
     },
     {
@@ -523,6 +660,11 @@
         "unsupported": 0
       },
       "accept_all": {
+        "action": "ACCEPT",
+        "cost": "400.00",
+        "unsupported": 0
+      },
+      "llm_only": {
         "action": "ACCEPT",
         "cost": "400.00",
         "unsupported": 0
@@ -549,6 +691,11 @@
         "action": "ACCEPT",
         "cost": "500.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "220.00",
+        "unsupported": 2
       }
     },
     {
@@ -572,6 +719,11 @@
         "action": "ACCEPT",
         "cost": "1500.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "520.00",
+        "unsupported": 5
       }
     },
     {
@@ -595,6 +747,11 @@
         "action": "ACCEPT",
         "cost": "1500.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "445.00",
+        "unsupported": 2
       }
     },
     {
@@ -618,6 +775,11 @@
         "action": "ACCEPT",
         "cost": "15.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "76.00",
+        "unsupported": 3
       }
     },
     {
@@ -641,6 +803,11 @@
         "action": "ACCEPT",
         "cost": "15.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "76.00",
+        "unsupported": 4
       }
     },
     {
@@ -661,6 +828,11 @@
         "unsupported": 0
       },
       "accept_all": {
+        "action": "ACCEPT",
+        "cost": "120.00",
+        "unsupported": 0
+      },
+      "llm_only": {
         "action": "ACCEPT",
         "cost": "120.00",
         "unsupported": 0
@@ -687,6 +859,11 @@
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 3
       }
     },
     {
@@ -707,6 +884,11 @@
         "unsupported": 0
       },
       "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      },
+      "llm_only": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
@@ -733,6 +915,11 @@
         "action": "ACCEPT",
         "cost": "600.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
+        "unsupported": 1
       }
     },
     {
@@ -756,6 +943,11 @@
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 2
       }
     },
     {
@@ -779,6 +971,11 @@
         "action": "ACCEPT",
         "cost": "315.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 3
       }
     },
     {
@@ -802,6 +999,11 @@
         "action": "ACCEPT",
         "cost": "135.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "193.00",
+        "unsupported": 3
       }
     },
     {
@@ -825,6 +1027,11 @@
         "action": "ACCEPT",
         "cost": "141.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "126.40",
+        "unsupported": 3
       }
     },
     {
@@ -848,6 +1055,11 @@
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 3
       }
     },
     {
@@ -871,6 +1083,11 @@
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 6
       }
     },
     {
@@ -894,6 +1111,11 @@
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
+        "unsupported": 1
       }
     },
     {
@@ -917,6 +1139,11 @@
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 2
       }
     },
     {
@@ -940,6 +1167,11 @@
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 2
       }
     },
     {
@@ -963,6 +1195,11 @@
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 4
       }
     },
     {
@@ -986,6 +1223,11 @@
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 1
       }
     },
     {
@@ -1009,6 +1251,11 @@
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 3
       }
     },
     {
@@ -1029,6 +1276,11 @@
         "unsupported": 0
       },
       "accept_all": {
+        "action": "ACCEPT",
+        "cost": "1500.00",
+        "unsupported": 0
+      },
+      "llm_only": {
         "action": "ACCEPT",
         "cost": "1500.00",
         "unsupported": 0
@@ -1055,6 +1307,11 @@
         "action": "ACCEPT",
         "cost": "50.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "ACCEPT",
+        "cost": "50.00",
+        "unsupported": 0
       }
     },
     {
@@ -1078,6 +1335,11 @@
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "CHALLENGE",
+        "cost": "275.00",
+        "unsupported": 2
       }
     },
     {
@@ -1101,6 +1363,11 @@
         "action": "NONE",
         "cost": null,
         "unsupported": 0
+      },
+      "llm_only": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
       }
     },
     {
@@ -1121,6 +1388,11 @@
         "unsupported": 0
       },
       "accept_all": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      },
+      "llm_only": {
         "action": "NONE",
         "cost": null,
         "unsupported": 0

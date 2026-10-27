@@ -96,3 +96,13 @@ def test_the_run_is_opt_in():
     lines = []
     assert main(env={}, out=lines.append) == 2
     assert "NIRNAYA_LIVE_LLM=1" in lines[0]
+
+
+def test_a_missing_value_field_is_filled_from_the_models_own_extracted_value():
+    # The model gave the signature name in extracted_value but left `text` out: judged on the
+    # claim itself (still unsupported, because the record has no signature), not on the format.
+    item = {k: v for k, v in FAKE_SIGNATURE.items() if k != "text"}
+    cache = cache_of({"K2C": {"action": "CHALLENGE", "claims": [item]}})
+    result = llm_only(CASES["K2C"], cache)
+    assert len(result.submitted) == 1  # built, not dropped
+    assert result.unsupported_submitted == 1  # and the verifier still rejects it
