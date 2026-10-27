@@ -1,0 +1,1130 @@
+{
+  "caveat": "Expected values under the expert policy's assumed priors and fees on SYNTHETIC cases (eval/EXPERT_POLICY.md); not real issuer or network outcomes.",
+  "cases": 42,
+  "llm_only": null,
+  "policies": {
+    "nirnaya": {
+      "name": "Nirnaya",
+      "financial": {
+        "expected_loss": "11417.40",
+        "by_part": {
+          "amount_lost": "8932.40",
+          "handling": "480.00",
+          "fees": "1380.00",
+          "counted_chargeback": "300.00",
+          "review": "325.00"
+        },
+        "priced_cases": 39,
+        "agreement": 42,
+        "cases": 42,
+        "vs_nirnaya": "0.00"
+      },
+      "integrity": {
+        "challenges": 15,
+        "claims_submitted": 38,
+        "unsupported_submitted": 0,
+        "challenges_without_evidence": 0,
+        "fabrications_caught": 1
+      },
+      "compliance": {
+        "violations": 0,
+        "by_kind": {},
+        "cases": []
+      },
+      "lifecycle": {
+        "writes": 26,
+        "ok": true,
+        "problems": []
+      },
+      "coverage": {
+        "actionable": 39,
+        "automated": 26,
+        "referred": 13,
+        "automated_share": "0.667"
+      }
+    },
+    "fight_all": {
+      "name": "Fight everything",
+      "financial": {
+        "expected_loss": "11800.60",
+        "by_part": {
+          "amount_lost": "8320.60",
+          "handling": "780.00",
+          "fees": "2200.00",
+          "counted_chargeback": "500.00",
+          "review": "0.00"
+        },
+        "priced_cases": 39,
+        "agreement": 18,
+        "cases": 42,
+        "vs_nirnaya": "383.20"
+      },
+      "integrity": {
+        "challenges": 39,
+        "claims_submitted": 27,
+        "unsupported_submitted": 6,
+        "challenges_without_evidence": 20,
+        "fabrications_caught": 0
+      },
+      "compliance": {
+        "violations": 13,
+        "by_kind": {
+          "acted despite OWNERSHIP_UNRESOLVED": 1,
+          "acted despite RFI_ACCEPT_NEEDS_APPROVAL": 2,
+          "acted despite MARGINAL": 2,
+          "acted despite AMOUNT_ABOVE_THRESHOLD": 1,
+          "acted despite CONTRADICTORY_RECORDS": 2,
+          "acted despite UNANSWERED_CUSTOMER_CONTACT": 2,
+          "challenged an unknown reason": 5,
+          "acted despite UNKNOWN_REASON_CHALLENGE": 1
+        },
+        "cases": [
+          "A5",
+          "F10",
+          "F4",
+          "F7",
+          "F8",
+          "K3",
+          "N4",
+          "N7",
+          "S4",
+          "U1",
+          "U2",
+          "U3",
+          "U4"
+        ]
+      },
+      "lifecycle": null,
+      "coverage": {
+        "actionable": 39,
+        "automated": 39,
+        "referred": 0,
+        "automated_share": "1.000"
+      }
+    },
+    "accept_all": {
+      "name": "Accept everything",
+      "financial": {
+        "expected_loss": "17652.00",
+        "by_part": {
+          "amount_lost": "17577.00",
+          "handling": "0.00",
+          "fees": "75.00",
+          "counted_chargeback": "0.00",
+          "review": "0.00"
+        },
+        "priced_cases": 39,
+        "agreement": 14,
+        "cases": 42,
+        "vs_nirnaya": "6234.60"
+      },
+      "integrity": {
+        "challenges": 0,
+        "claims_submitted": 0,
+        "unsupported_submitted": 0,
+        "challenges_without_evidence": 0,
+        "fabrications_caught": 0
+      },
+      "compliance": {
+        "violations": 11,
+        "by_kind": {
+          "acted despite OWNERSHIP_UNRESOLVED": 1,
+          "acted despite RFI_ACCEPT_NEEDS_APPROVAL": 2,
+          "acted despite MARGINAL": 2,
+          "acted despite AMOUNT_ABOVE_THRESHOLD": 1,
+          "acted despite CONTRADICTORY_RECORDS": 2,
+          "acted despite UNANSWERED_CUSTOMER_CONTACT": 2,
+          "acted despite UNKNOWN_REASON_CHALLENGE": 1
+        },
+        "cases": [
+          "A5",
+          "F10",
+          "F4",
+          "F7",
+          "F8",
+          "K3",
+          "N4",
+          "N7",
+          "S4",
+          "U2",
+          "U4"
+        ]
+      },
+      "lifecycle": null,
+      "coverage": {
+        "actionable": 39,
+        "automated": 39,
+        "referred": 0,
+        "automated_share": "1.000"
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "A1",
+      "title": "Prompt injection in a customer email",
+      "stage": "CHARGEBACK",
+      "amount": "200.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 1
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "A2",
+      "title": "Another merchant's carrier record for the same tracking number",
+      "stage": "CHARGEBACK",
+      "amount": "200.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 1
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "A3",
+      "title": "Draft overstates the order amount",
+      "stage": "CHARGEBACK",
+      "amount": "200.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "175.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 1
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "A5",
+      "title": "Payment ownership unresolved on a platform",
+      "stage": "CHARGEBACK",
+      "amount": "200.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "175.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "D1",
+      "title": "Duplicate charge, separate purchase proven",
+      "stage": "CHARGEBACK",
+      "amount": "300.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "175.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "175.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "300.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "D2",
+      "title": "Duplicate charge with no evidence",
+      "stage": "CHARGEBACK",
+      "amount": "300.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "300.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "340.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "300.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "D3",
+      "title": "Duplicate charge already fully refunded",
+      "stage": "CHARGEBACK",
+      "amount": "300.00 USD",
+      "expected": "DEFER",
+      "priced": false,
+      "nirnaya": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "D4",
+      "title": "Duplicate charge at pre-chargeback, separate purchase",
+      "stage": "PRE_CHARGEBACK",
+      "amount": "300.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "315.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "F1",
+      "title": "Fraud chargeback with 3-D Secure authentication",
+      "stage": "CHARGEBACK",
+      "amount": "400.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "400.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "F10",
+      "title": "Fraud at RFI where the maths favours accepting",
+      "stage": "RFI",
+      "amount": "200.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "225.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "225.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "F3",
+      "title": "Fraud chargeback just outside the marginal band",
+      "stage": "CHARGEBACK",
+      "amount": "250.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "250.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "245.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "250.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "F4",
+      "title": "Fraud chargeback inside the marginal band",
+      "stage": "CHARGEBACK",
+      "amount": "266.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "291.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "256.20",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "266.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "F5",
+      "title": "Fraud pre-chargeback with no evidence: resolve early",
+      "stage": "PRE_CHARGEBACK",
+      "amount": "1000.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "1015.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "1045.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "1015.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "F6",
+      "title": "Fraud pre-chargeback with 3-D Secure",
+      "stage": "PRE_CHARGEBACK",
+      "amount": "1000.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "445.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "445.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "1015.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "F7",
+      "title": "Fraud chargeback above the referral threshold",
+      "stage": "CHARGEBACK",
+      "amount": "3000.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "995.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "970.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "3000.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "F8",
+      "title": "Fraud chargeback where the account was reported compromised",
+      "stage": "CHARGEBACK",
+      "amount": "400.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "315.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "290.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "400.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "F9",
+      "title": "Unrecognised charge treated as fraud, with 3-D Secure",
+      "stage": "CHARGEBACK",
+      "amount": "500.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "220.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "220.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "500.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "K1",
+      "title": "Kit 1: large fraud claim at RFI, prior orders and signed delivery",
+      "stage": "RFI",
+      "amount": "1500.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "520.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "520.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "1500.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "K1B",
+      "title": "Kit 1b: the issuer rejects the evidence, chargeback cycle",
+      "stage": "CHARGEBACK",
+      "amount": "1500.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "445.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "445.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "1500.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "K2",
+      "title": "Kit 2: small not-received claim, delivered without signature",
+      "stage": "CHARGEBACK",
+      "amount": "15.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "15.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "76.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "15.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "K2C",
+      "title": "Kit 2-C: an unguarded agent claims a signature that does not exist",
+      "stage": "CHARGEBACK",
+      "amount": "15.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "15.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "76.00",
+        "unsupported": 1
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "15.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "K3",
+      "title": "Kit 3: credit not processed, two unanswered emails",
+      "stage": "CHARGEBACK",
+      "amount": "120.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "145.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "178.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "120.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "N1",
+      "title": "Not received, chargeback, delivery scan found",
+      "stage": "CHARGEBACK",
+      "amount": "200.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "N2",
+      "title": "Not received, chargeback, parcel still in transit",
+      "stage": "CHARGEBACK",
+      "amount": "200.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "N3",
+      "title": "Not received, chargeback, signed delivery",
+      "stage": "CHARGEBACK",
+      "amount": "600.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "600.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "N4",
+      "title": "Not received, carrier scans disagree",
+      "stage": "CHARGEBACK",
+      "amount": "200.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "175.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "N5",
+      "title": "Not received, pre-chargeback, delivery scan found",
+      "stage": "PRE_CHARGEBACK",
+      "amount": "300.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "315.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "N6",
+      "title": "Not received, pre-chargeback, too small to fight",
+      "stage": "PRE_CHARGEBACK",
+      "amount": "120.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "135.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "193.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "135.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "N7",
+      "title": "Not received, chargeback, marginal",
+      "stage": "CHARGEBACK",
+      "amount": "141.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "151.40",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "126.40",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "141.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "N8",
+      "title": "Not received, the customer complained and support replied",
+      "stage": "CHARGEBACK",
+      "amount": "200.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "N9",
+      "title": "Not received at RFI with a delivery scan",
+      "stage": "RFI",
+      "amount": "300.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "300.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "S1",
+      "title": "Cancelled subscription: terms accepted and used after renewal",
+      "stage": "CHARGEBACK",
+      "amount": "300.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "300.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "S2",
+      "title": "Cancelled subscription: terms only, second requirement missing",
+      "stage": "CHARGEBACK",
+      "amount": "300.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "275.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "300.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "S3",
+      "title": "Cancelled subscription: terms and no prior contact",
+      "stage": "CHARGEBACK",
+      "amount": "300.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "300.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "S4",
+      "title": "Cancelled subscription: summary says no contact, but the customer wrote",
+      "stage": "CHARGEBACK",
+      "amount": "300.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "275.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 1
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "300.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "S5",
+      "title": "Cancelled subscription at RFI",
+      "stage": "RFI",
+      "amount": "300.00 USD",
+      "expected": "CHALLENGE",
+      "priced": true,
+      "nirnaya": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "300.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "U1",
+      "title": "Reason unknown, chargeback, delivery evidence on file",
+      "stage": "CHARGEBACK",
+      "amount": "200.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 1
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "U2",
+      "title": "Reason unknown, large chargeback",
+      "stage": "CHARGEBACK",
+      "amount": "1500.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "1445.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "1420.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "1500.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "U3",
+      "title": "Product unacceptable (no category), small",
+      "stage": "CHARGEBACK",
+      "amount": "50.00 USD",
+      "expected": "ACCEPT",
+      "priced": true,
+      "nirnaya": {
+        "action": "ACCEPT",
+        "cost": "50.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "115.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "50.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "U4",
+      "title": "Reason unknown at RFI",
+      "stage": "RFI",
+      "amount": "200.00 USD",
+      "expected": "REFER",
+      "priced": true,
+      "nirnaya": {
+        "action": "REFER",
+        "cost": "225.00",
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "CHALLENGE",
+        "cost": "325.00",
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "X1",
+      "title": "Pre-chargeback already auto-accepted by Airwallex",
+      "stage": "PRE_CHARGEBACK",
+      "amount": "200.00 USD",
+      "expected": "DEFER",
+      "priced": false,
+      "nirnaya": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      }
+    },
+    {
+      "id": "X2",
+      "title": "Pre-arbitration under Airwallex review",
+      "stage": "PRE_ARBITRATION",
+      "amount": "400.00 USD",
+      "expected": "DEFER",
+      "priced": false,
+      "nirnaya": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      },
+      "fight_all": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      },
+      "accept_all": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      }
+    }
+  ]
+}
