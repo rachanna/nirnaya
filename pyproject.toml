@@ -27,8 +27,11 @@ packages = ["nirnaya"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers -m 'not live'"
-markers = ["live: calls a real model provider (opt-in: NIRNAYA_LIVE_LLM=1 uv run pytest -m live)"]
+addopts = "-ra --strict-markers -m 'not live and not live_airwallex'"
+markers = [
+    "live: calls a real model provider (opt-in: NIRNAYA_LIVE_LLM=1 uv run pytest -m live)",
+    "live_airwallex: calls the Airwallex sandbox (opt-in: NIRNAYA_LIVE_AIRWALLEX=1 uv run pytest -m live_airwallex)",
+]
 
 [tool.ruff]
 line-length = 100

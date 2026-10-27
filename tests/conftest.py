@@ -9,8 +9,8 @@ class NetworkBlockedError(RuntimeError):
 
 @pytest.fixture(autouse=True)
 def _no_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Tests are offline: any socket use is a failure. Only opt-in `live` tests may connect."""
-    if request.node.get_closest_marker("live"):
+    """Tests are offline: any socket use is a failure. Only opt-in live tests may connect."""
+    if request.node.get_closest_marker("live") or request.node.get_closest_marker("live_airwallex"):
         return
 
     def refuse(*args: object, **kwargs: object) -> None:
