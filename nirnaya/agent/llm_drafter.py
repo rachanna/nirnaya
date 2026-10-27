@@ -110,6 +110,37 @@ def _value(item: dict[str, Any]) -> Any:
     raise ValueError(f"unknown value_kind {kind!r}")
 
 
+def build_claims(
+    dispute: Dispute, items: list[Any], citable_ids: set[str]
+) -> tuple[list[Claim], list[dict[str, Any]]]:
+    """Build Claims from a model's submitted items. Code assigns ids and renders the text; an
+    item that cannot be built is dropped with why. Nothing built here is trusted."""
+    claims: list[Claim] = []
+    dropped: list[dict[str, Any]] = []
+    for n, item in enumerate(items, start=1):
+        try:
+            if not isinstance(item, dict) or item.get("source_record_id") not in citable_ids:
+                raise ValueError("cites a record that is not citable")
+            value = _value(item)
+            fact = EvidenceType(item["establishes"])
+            claims.append(
+                Claim(
+                    id=f"claim-{n}",
+                    case_id=dispute.id,
+                    merchant_id=dispute.merchant_id,
+                    text=render_claim_text(fact, value),
+                    source_record_id=item["source_record_id"],
+                    source_field=str(item["source_field"]),
+                    establishes=fact,
+                    extracted_value=str(item["extracted_value"]),
+                    normalised_value=value,
+                )
+            )
+        except (ValidationError, ValueError, KeyError, TypeError) as e:
+            dropped.append({"item": item, "why": str(e).splitlines()[0][:200]})
+    return claims, dropped
+
+
 class LLMDrafter:
     def __init__(self, llm: LLMClient, *, max_tokens: int = 4096) -> None:
         self.llm = llm
@@ -148,29 +179,7 @@ class LLMDrafter:
                 claims=(),
                 run=AgentRun(**run_base, **usage, turns=1, stop=f"NO_SUBMISSION: {resp.stop}"),
             )
-        ids = {r.id for r in own}
-        claims, dropped = [], []
-        for n, item in enumerate(call.arguments["claims"], start=1):
-            try:
-                if not isinstance(item, dict) or item.get("source_record_id") not in ids:
-                    raise ValueError("cites a record that is not citable")
-                value = _value(item)
-                fact = EvidenceType(item["establishes"])
-                claims.append(
-                    Claim(
-                        id=f"claim-{n}",
-                        case_id=dispute.id,
-                        merchant_id=dispute.merchant_id,
-                        text=render_claim_text(fact, value),
-                        source_record_id=item["source_record_id"],
-                        source_field=str(item["source_field"]),
-                        establishes=fact,
-                        extracted_value=str(item["extracted_value"]),
-                        normalised_value=value,
-                    )
-                )
-            except (ValidationError, ValueError, KeyError, TypeError) as e:
-                dropped.append({"item": item, "why": str(e).splitlines()[0][:200]})
+        claims, dropped = build_claims(dispute, call.arguments["claims"], {r.id for r in own})
         run = AgentRun(
             **run_base,
             **usage,
