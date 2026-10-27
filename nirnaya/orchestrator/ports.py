@@ -5,7 +5,7 @@ from typing import Any, Protocol
 
 from nirnaya.models.base import DomainModel, NonBlankStr
 from nirnaya.models.dispute import Dispute
-from nirnaya.models.enums import AcceptReason, EvidenceType
+from nirnaya.models.enums import AcceptReason, ChallengeReason, EvidenceType, ProductType
 from nirnaya.models.evidence import EvidenceRecord
 from nirnaya.models.payment import PaymentAttempt
 
@@ -23,11 +23,15 @@ class WriteOutcomeUnknown(RuntimeError):
 
 
 class ChallengeRequest(DomainModel):
-    """What the gateway submits. M5 maps this onto the real challenge body."""
+    """What the gateway submits; the client maps it onto the challenge body. Every value is
+    decided in code from verified facts and policy, never by the model."""
 
     request_id: NonBlankStr
     file_ids: tuple[NonBlankStr, ...]
     claim_ids: tuple[NonBlankStr, ...]
+    reason: ChallengeReason
+    # Required by Airwallex at CHARGEBACK; None at RFI.
+    product_type: ProductType | None = None
 
 
 class DisputeSource(Protocol):

@@ -9,9 +9,11 @@ from nirnaya.models.enums import (
     AmountBasis,
     AvsResult,
     CardBrand,
+    ChallengeReason,
     CvcResult,
     DisputeStatus,
     EvidenceType,
+    ProductType,
     ReasonCategory,
     RecordAuthor,
     SourceSystem,
@@ -27,6 +29,8 @@ from nirnaya.models.reasons import DisputeReason
 
 __all__ = [
     "AcceptReason",
+    "ChallengeReason",
+    "ProductType",
     "Action",
     "AmountBasis",
     "AvsResult",

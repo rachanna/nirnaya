@@ -18,11 +18,12 @@ from nirnaya.evidence.derive import (
     unanswered_customer_contacts,
 )
 from nirnaya.guardrails.binding import binding_still_holds
+from nirnaya.guardrails.challenge_reason import challenge_reason
 from nirnaya.guardrails.request_ids import request_id
 from nirnaya.models.base import DomainModel
 from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
-from nirnaya.models.enums import ACTIONABLE_STATUS, AcceptReason, Action, DisputeStatus
+from nirnaya.models.enums import ACTIONABLE_STATUS, AcceptReason, Action, DisputeStatus, Stage
 from nirnaya.orchestrator.ports import (
     AirwallexError,
     ChallengeRequest,
@@ -245,6 +246,11 @@ class WriteGateway:
             if render is None:
                 raise _Refused(GuardFailure.FILES_MISSING, "no rendered evidence for the draft")
             ctx["render"] = render
+            # The request's reason and product type, decided in code (architecture 9.5).
+            ctx["challenge_reason"] = challenge_reason(
+                fresh.reason_category, ctx["verification"].established
+            )
+            ctx["product_type"] = policy.product_type if fresh.stage is Stage.CHARGEBACK else None
         return ctx
 
     def _decide(self, dispute: Dispute, policy: Any, records: Any, ownership: bool) -> Decision:
@@ -295,6 +301,8 @@ class WriteGateway:
         else:
             request["claim_ids"] = list(ctx["claim_ids"])
             request["evidence_sha256"] = ctx["render"]["sha256"]
+            request["challenge_reason"] = ctx["challenge_reason"]
+            request["product_type"] = ctx["product_type"]
         if store.write(merchant_id, rid) is None:
             with store.transaction():
                 store.insert_write(
@@ -326,7 +334,11 @@ class WriteGateway:
                     merchant_id,
                     case_id,
                     ChallengeRequest(
-                        request_id=rid, file_ids=(file_id,), claim_ids=ctx["claim_ids"]
+                        request_id=rid,
+                        file_ids=(file_id,),
+                        claim_ids=ctx["claim_ids"],
+                        reason=ctx["challenge_reason"],
+                        product_type=ctx["product_type"],
                     ),
                 )
         except WriteOutcomeUnknown as e:

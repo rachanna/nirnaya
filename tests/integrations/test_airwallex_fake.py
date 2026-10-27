@@ -3,7 +3,7 @@ from datetime import timedelta
 import pytest
 
 from nirnaya.integrations.mocks.airwallex_fake import FakeAirwallex
-from nirnaya.models import AcceptReason, DisputeStatus, Stage
+from nirnaya.models import AcceptReason, ChallengeReason, DisputeStatus, ProductType, Stage
 from nirnaya.orchestrator.ports import AirwallexError, ChallengeRequest, WriteOutcomeUnknown
 from tests.factories import CASE, MERCHANT, OTHER_MERCHANT, T0, make_dispute
 
@@ -15,7 +15,13 @@ def fake(**dispute_overrides):
 
 
 def challenge(aw, request_id="req-1", files=()):
-    request = ChallengeRequest(request_id=request_id, file_ids=files, claim_ids=("c",))
+    request = ChallengeRequest(
+        request_id=request_id,
+        file_ids=files,
+        claim_ids=("c",),
+        reason=ChallengeReason.OTHER_REASONS,
+        product_type=ProductType.PHYSICAL_GOODS,
+    )
     return aw.challenge(MERCHANT, CASE, request)
 
 
@@ -113,3 +119,16 @@ def test_payment_intent_ownership():
     assert aw.payment_intent_owner(MERCHANT, "int-1") == MERCHANT
     assert aw.payment_intent_owner(MERCHANT, "int-2") is None
     assert aw.payment_intent_owner(OTHER_MERCHANT, "int-1") is None
+
+
+def test_a_chargeback_challenge_needs_a_product_type():
+    aw = fake(stage=Stage.CHARGEBACK)
+    file_id = aw.upload_file(MERCHANT, filename="e.pdf", content=b"%PDF")
+    request = ChallengeRequest(
+        request_id="r-pt",
+        file_ids=(file_id,),
+        claim_ids=("c",),
+        reason=ChallengeReason.PRODUCT_RECEIVED,
+    )
+    with pytest.raises(AirwallexError, match="product_type"):
+        aw.challenge(MERCHANT, CASE, request)

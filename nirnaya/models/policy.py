@@ -12,7 +12,7 @@ from nirnaya.models.base import (
     NonNegativeDec,
     Probability,
 )
-from nirnaya.models.enums import KNOWN_REASONS, AcceptReason, ReasonCategory
+from nirnaya.models.enums import KNOWN_REASONS, AcceptReason, ProductType, ReasonCategory
 from nirnaya.models.money import validate_currency
 
 
@@ -55,6 +55,9 @@ class MerchantPolicy(DomainModel):
     # Sent as the Airwallex accept reason whenever the engine accepts. OTHERS is Airwallex's
     # default and asserts nothing about the dispute; a merchant may choose another.
     accept_reason: AcceptReason = AcceptReason.OTHERS
+    # What the merchant sells, sent as the challenge product_type (required at CHARGEBACK).
+    # ASSUMPTION for the demo merchant: physical goods.
+    product_type: ProductType = ProductType.PHYSICAL_GOODS
     assumptions_note: str = ""
 
     _check_currency = field_validator("currency")(validate_currency)

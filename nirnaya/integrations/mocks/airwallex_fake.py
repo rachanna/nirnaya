@@ -169,6 +169,8 @@ class FakeAirwallex:
             raise AirwallexError(
                 "validation_error", "challenge needs RFI or CHARGEBACK awaiting response"
             )
+        if entry.dispute.stage is Stage.CHARGEBACK and request.product_type is None:
+            raise AirwallexError("validation_error", "product_type is required at CHARGEBACK")
         for file_id in request.file_ids:
             if file_id not in self._files or self._files[file_id][0] != merchant_id:
                 raise AirwallexError("validation_error", f"unknown file {file_id}")
