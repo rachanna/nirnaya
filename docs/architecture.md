@@ -928,7 +928,9 @@ Sandbox runs are integration tests. Economic results are simulations on syntheti
 
 ## 15. User interface
 
-Streamlit (`app/`) is thin: it reads from the store and acts only through orchestrator commands.
+Streamlit (`app/streamlit_app.py`, run with `uv run streamlit run app/streamlit_app.py`) is thin: it renders view models from `nirnaya/console/` and acts only through orchestrator commands. An architecture test keeps engine and verifier imports out of `app/`. The console runs offline against the fake Airwallex, or views a store written by the sandbox runner.
+
+The kit demo tells each case as the guide's arc. The **initial plan** is the engine's decision on Airwallex's data alone (the dispute and payment attempt). The **new information** is what Nirnaya then fetched. The **revised decision** is the one on record, followed by the writes or the referral.
 
 | Page | Shows | Actions |
 |---|---|---|
@@ -992,7 +994,7 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | M4: Investigating agent | `agent/` (`LLMInvestigator`, `LLMDrafter`), `llm/` (Anthropic and OpenAI adapters), `runtime.py`, `demo.py` | With a scripted model through the real pipeline: VoI-driven rounds held to the offered tools and keys, budgets and stop conditions, customer text never shown to the model, structured drafts built by code, a fabricating model never gets a write, runs persisted with their step. Opt-in live tests for a real provider | 🔶 offline proof done (1016 tests); live run against a real model pending |
 | M5: Airwallex sandbox | `integrations/airwallex/`, real `ingest/` wire mapping, the wire-specific gateway parts (challenge body, `challenge_method: STANDARD`, file host) | The M3 pipeline against the real sandbox; simulation round-trips; closes the §9 TODOs | ⬜ |
 | M6: Evaluation | `nirnaya/evaluation/` economics, policies, metrics, LLM-only baseline, report | Five metrics against three baselines on 42 cases: Nirnaya has the lowest expected loss, 42/42 agreement with the expert, 0 unsupported claims, 0 violations and a clean ledger | ✅ offline (LLM-only run pending) |
-| M7: Streamlit demo | `app/` | Kit 4 cases in the kit's demo structure, review queue, baseline comparison | ⬜ |
+| M7: Streamlit demo | `app/`, `nirnaya/console/` | Kit 4 cases in the kit's demo structure (with the issuer rejection and the 2-C fabrication), review queue with approver actions, case detail, baseline comparison | ✅ |
 
 **Second code review** ✅ (1108 tests): out-of-range timestamps are unreadable rather than a crash, a new cycle closes the old cycle's referral, each record is dated against its own order, the note event states its authority, cross-tenant record ids fail as `StoreError`, referral descriptions come from the decision, one rule matcher and one date-only rule, and no write lock on opening an up-to-date database.
 
