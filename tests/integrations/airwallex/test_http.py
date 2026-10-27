@@ -148,3 +148,10 @@ def test_credentials_come_from_env_and_never_print_the_key():
     assert "secret" not in repr(creds)
     with pytest.raises(AirwallexError, match="missing_credentials"):
         Credentials.from_env({})
+
+
+def test_amounts_are_sent_as_json_numbers_with_their_exact_digits():
+    http, transport, _ = session(LOGIN, ok({}))
+    http.post("/x", {"amount": Decimal("1500"), "fee": Decimal("15.10"), "n": [Decimal("0.5")]},
+              write=False)  # fmt: skip
+    assert transport.sent[-1].body == b'{"amount": 1500, "fee": 15.1, "n": [0.5]}'

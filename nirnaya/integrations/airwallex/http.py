@@ -78,6 +78,27 @@ def parse_time(value: str) -> datetime:
     return parsed.astimezone(UTC)
 
 
+def _wire(value: Any) -> Any:  # noqa: ANN401
+    """Prepare a body for JSON: Decimal amounts become JSON numbers with the same digits.
+
+    Airwallex takes amounts as JSON numbers. A Decimal is emitted as an int when whole, or as
+    the float whose shortest text equals the Decimal's (true for money at real magnitudes);
+    anything else is refused rather than rounded.
+    """
+    if isinstance(value, Decimal):
+        if value == value.to_integral_value():
+            return int(value)
+        as_float = float(value)
+        if Decimal(repr(as_float)) != value:
+            raise AirwallexError("amount_precision", f"{value} cannot be sent exactly")
+        return as_float
+    if isinstance(value, dict):
+        return {k: _wire(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_wire(v) for v in value]
+    return value
+
+
 def _error(response: Response) -> AirwallexError:
     try:
         body = parse_json(response.body)
@@ -153,7 +174,7 @@ class AirwallexHttp:
 
     def post(self, path: str, body: Mapping[str, Any], *, write: bool) -> dict[str, Any]:
         """POST JSON. `write` marks calls that change state: their timeouts are ambiguous."""
-        payload = json.dumps(body, default=str).encode()
+        payload = json.dumps(_wire(body)).encode()
         url = f"{self._credentials.base_url}{path}"
         return self._call("POST", url, payload, "application/json", write=write)
 
