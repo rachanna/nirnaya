@@ -105,7 +105,10 @@ def stage(
         stale = created is not None and now - datetime.fromisoformat(created) > SECRET_LIFETIME
         if "intent" in st and stale and sim.intent_status(M, st["intent"]) != PAID:
             out(f"   {cid}: unpaid intent {st['intent']} is older than its checkout secret")
+            # Keep the attempt count: the next intent needs a new request_id, not the first one.
+            attempt = st.get("attempt", "1")
             st.clear()
+            st["attempt"] = attempt
         if "intent" not in st:
             attempt = int(st.get("attempt", "0")) + 1
             intent = sim.create_intent(

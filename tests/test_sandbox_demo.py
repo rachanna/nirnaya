@@ -112,3 +112,25 @@ def test_checkout_page_uses_the_documented_hosted_checkout_and_escapes_values():
     assert 'env: "demo"' in page and "redirectToCheckout" in page and "intent_id" in page
     assert "</script><x>" not in page  # a value can never close the script block
     assert "4035 5010 0000 0008" in page
+
+
+def test_a_stale_unpaid_intent_is_replaced_with_a_new_request_id():
+    from datetime import timedelta
+
+    from nirnaya.evaluation.cases import load_cases
+    from nirnaya.integrations.mocks.simulator_fake import FakeSimulator
+    from nirnaya.sandbox_demo import RunState, stage
+
+    cases = {c.id: c for c in load_cases()}
+    sim = FakeSimulator(FakeAirwallex(), now=lambda: NOW)
+    state = RunState(run="r")
+
+    def go(at):
+        return stage(sim, state, cases, at, lambda _: None, checkout=True, save=lambda: None)
+
+    go(NOW)
+    first = state.cases["K1"]["intent"]
+    go(NOW + timedelta(hours=2))  # the checkout secret has expired, still unpaid
+    second = state.cases["K1"]["intent"]
+    assert second != first  # a new intent: the fake, like Airwallex, keys on request_id
+    assert state.cases["K1"]["attempt"] == "2"
