@@ -1,0 +1,305 @@
+"""View models for the console: plain data the UI renders, built from the store.
+
+Each kit case is told as the guide's arc: the goal, the initial plan, the new information, the
+revised decision and the resulting status. The initial plan is the engine's decision on what
+Airwallex alone provides (the dispute and its payment attempt); the new information is what
+Nirnaya then fetched from the merchant's systems; the revised decision is the one on record.
+"""
+
+import json
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+from nirnaya.console.session import DemoSession, M
+from nirnaya.engine import decide
+from nirnaya.evidence.derive import (
+    contradictory_record_ids,
+    evidence_present,
+    unanswered_customer_contacts,
+)
+from nirnaya.models.decision import Decision
+from nirnaya.models.dispute import Dispute
+from nirnaya.models.enums import DisputeStatus, SourceSystem, Stage, ValidationStatus
+from nirnaya.store import Store
+from nirnaya.trace import case_trace
+from nirnaya.verifier import verify
+
+REPORT = Path(__file__).resolve().parents[2] / "eval" / "results" / "report.json"
+
+
+@dataclass(frozen=True)
+class DecisionView:
+    action: str
+    accept_reason: str | None
+    p: str | None
+    margin: str | None
+    math_action: str | None
+    referral_reasons: tuple[str, ...]
+    reasons: tuple[str, ...]
+    worth_finding: tuple[str, ...] = ()  # value of information: evidence that would flip it
+
+    @classmethod
+    def of(cls, d: Decision) -> "DecisionView":
+        return cls(
+            action=str(d.action),
+            accept_reason=None if d.accept_reason is None else str(d.accept_reason),
+            p=None if d.p is None else str(d.p),
+            margin=None if d.margin is None else str(d.margin),
+            math_action=None if d.math_action is None else str(d.math_action),
+            referral_reasons=tuple(str(r) for r in d.referral_reasons),
+            reasons=d.reasons,
+            worth_finding=tuple(
+                " + ".join(sorted(str(e) for e in v.evidence))
+                + f" (p {v.p_if_present} -> {v.final_action_if_present})"
+                for v in d.voi
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class CycleArc:
+    cycle: int
+    stage: str
+    initial: DecisionView | None
+    new_information: tuple[str, ...]
+    refused: tuple[str, ...]
+    revised: DecisionView | None
+    writes: tuple[str, ...]
+    referral: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class KitCard:
+    label: str
+    case_id: str
+    title: str
+    goal: str
+    amount: str
+    reason: str
+    state: str
+    dispute_status: str
+    cycles: tuple[CycleArc, ...]
+
+
+def _airwallex_only(store: Store, case_id: str, dispute: Dispute, cycle: int) -> Decision | None:
+    """What the engine decides with only the dispute and its payment attempt."""
+    row = store.cycle(M, case_id, cycle)
+    attempt = [r for r in store.evidence(M, case_id)
+               if r.source_system is SourceSystem.PAYMENT_ATTEMPT]  # fmt: skip
+    policy = store.policy(M, row.policy_version)
+    return decide(
+        dispute,
+        policy,
+        evidence_present(attempt, dispute),
+        ownership_resolved=bool(row.ownership_resolved),
+        contradictory_record_ids=contradictory_record_ids(attempt, dispute),
+        unanswered_contact_ids=unanswered_customer_contacts(attempt, dispute),
+    )
+
+
+def _events_by_cycle(store: Store, case_id: str) -> dict[int, list[dict[str, Any]]]:
+    out: dict[int, list[dict[str, Any]]] = {1: []}
+    cycle = 1
+    for e in store.audit_events(M, case_id):
+        if e["event"] == "NEW_CYCLE":
+            cycle = int(e["body"].get("cycle", cycle + 1))
+            out.setdefault(cycle, [])
+        out[cycle].append(e)
+    return out
+
+
+def kit_card(session: DemoSession, label: str) -> KitCard | None:
+    store, case_id = session.store, session.kit_ids.get(label, label)
+    case_row = store.case(M, case_id)
+    if case_row is None:
+        return None
+    dispute = store.latest_dispute(M, case_id)
+    assert dispute is not None
+    events = _events_by_cycle(store, case_id)
+    writes = store.writes(M, case_id)
+    referral = store.open_referral_for(M, case_id)
+    arcs = []
+    for cycle in range(1, case_row.cycle + 1):
+        stage = store.cycle(M, case_id, cycle).stage
+        latest = store.latest_decision(M, case_id, cycle)
+        # The dispute as the cycle opened: at its stage, awaiting the merchant's response.
+        opened = dispute.model_copy(
+            update={"stage": Stage(stage), "status": DisputeStatus.REQUIRES_RESPONSE}
+        )
+        initial = _airwallex_only(store, case_id, opened, cycle) if latest else None
+        evs = events.get(cycle, [])
+        arcs.append(
+            CycleArc(
+                cycle=cycle,
+                stage=stage,
+                initial=None if initial is None else DecisionView.of(initial),
+                new_information=tuple(
+                    f"{e['body']['tool']}({e['body']['key']}) -> "
+                    + (", ".join(e["body"]["records"]) or "nothing")
+                    for e in evs
+                    if e["event"] == "TOOL_CALL"
+                ),
+                refused=tuple(
+                    f"{e['body']['tool']}({e['body']['key']}): {e['body']['why']}"
+                    for e in evs
+                    if e["event"] == "TOOL_REFUSED"
+                ),
+                revised=None if latest is None else DecisionView.of(latest[1]),
+                writes=tuple(
+                    f"{w.action} {w.status}" + (" (dry run, not sent)" if w.dry_run else "")
+                    for w in writes
+                    if w.cycle == cycle
+                ),
+                referral=()
+                if referral is None or referral.cycle != cycle
+                else tuple(referral.reasons),
+            )
+        )
+    case = session.cases.get(label)
+    return KitCard(
+        label=label,
+        case_id=case_id,
+        title=case.title if case else label,
+        goal=case.expected.rationale if case else "",
+        amount=str(dispute.amount),
+        reason=f"{dispute.reason.type} (code {dispute.reason.original_code})",
+        state=case_row.state,
+        dispute_status=f"{dispute.stage} {dispute.status}",
+        cycles=tuple(arcs),
+    )
+
+
+@dataclass(frozen=True)
+class ClaimRow:
+    claim_id: str
+    text: str
+    source: str
+    status: str
+    failures: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CaseDetail:
+    case_id: str
+    state: str
+    timeline: tuple[str, ...]
+    evidence: tuple[dict[str, Any], ...]
+    claims: tuple[ClaimRow, ...]
+    counterevidence: tuple[str, ...]
+    notes: tuple[str, ...]
+
+
+def case_detail(session: DemoSession, case_id: str) -> CaseDetail | None:
+    store = session.store
+    case_row = store.case(M, case_id)
+    if case_row is None:
+        return None
+    evidence = tuple(
+        {
+            "id": r.id,
+            "system": str(r.source_system),
+            "author": str(r.author),
+            "sha256": r.sha256[:12],
+            "intact": r.hash_ok(),
+            "fields": r.fields,
+        }
+        for r in store.evidence(M, case_id)
+    )
+    claims: list[ClaimRow] = []
+    counter: list[str] = []
+    notes: list[str] = []
+    for cycle in range(1, case_row.cycle + 1):
+        draft = store.latest_draft(M, case_id, cycle)
+        result = store.verification(M, case_id, cycle, draft) if draft else None
+        if result is None:
+            continue
+        claims += [
+            ClaimRow(
+                c.claim.id,
+                c.claim.text,
+                f"{c.claim.source_record_id}.{c.claim.source_field}",
+                str(c.claim.validation_status),
+                tuple(f"{f.check}: {f.detail}" for f in c.failures),
+            )
+            for c in result.claims
+        ]
+        counter += [f"{c.record_id} ({c.author}): {c.description}" for c in result.counterevidence]
+        notes += [f"{n.record_id}: {n.description}" for n in result.notes]
+    return CaseDetail(
+        case_id=case_id,
+        state=case_row.state,
+        timeline=tuple(case_trace(store, M, case_id)),
+        evidence=evidence,
+        claims=tuple(claims),
+        counterevidence=tuple(counter),
+        notes=tuple(notes),
+    )
+
+
+@dataclass(frozen=True)
+class QueueItem:
+    case_id: str
+    urgent: bool
+    reasons: tuple[str, ...]
+    detail: dict[str, Any]
+    due_at: datetime
+    hours_left: int
+
+
+def queue(session: DemoSession) -> list[QueueItem]:
+    items = []
+    for case in session.store.cases(M, {"REFERRED"}):
+        referral = session.store.open_referral_for(M, case.case_id)
+        if referral is None:
+            continue
+        items.append(
+            QueueItem(
+                case_id=case.case_id,
+                urgent=referral.urgent,
+                reasons=tuple(referral.reasons),
+                detail=referral.detail or {},
+                due_at=case.due_at,
+                hours_left=int((case.due_at - session.now).total_seconds() // 3600),
+            )
+        )
+    return sorted(items, key=lambda i: (not i.urgent, i.due_at, i.case_id))
+
+
+@dataclass(frozen=True)
+class FabricationCheck:
+    title: str
+    outcome: str
+    claims: tuple[ClaimRow, ...] = field(default=())
+
+
+def fabrication_check(session: DemoSession, label: str = "K2C") -> FabricationCheck:
+    """Kit beat 2-C: an unguarded agent's draft, checked by the verifier before anything ships."""
+    case = session.cases[label]
+    result = verify(case.dispute, case.claim_objects(), case.evidence_records())
+    return FabricationCheck(
+        title=case.title,
+        outcome=str(result.outcome),
+        claims=tuple(
+            ClaimRow(
+                c.claim.id,
+                c.claim.text,
+                f"{c.claim.source_record_id}.{c.claim.source_field}",
+                str(c.claim.validation_status),
+                tuple(f"{f.check}: {f.detail}" for f in c.failures),
+            )
+            for c in result.claims
+        ),
+    )
+
+
+def blocked(check: FabricationCheck) -> tuple[ClaimRow, ...]:
+    return tuple(c for c in check.claims if c.status == str(ValidationStatus.BLOCKED))
+
+
+def evaluation(path: Path = REPORT) -> dict[str, Any] | None:
+    """The evaluation report written by `python -m nirnaya.evaluation.report`, if present."""
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
