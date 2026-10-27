@@ -51,9 +51,13 @@ def _set_version(conn: sqlite3.Connection) -> None:
             raise
 
 
-def connect(path: str | Path = ":memory:") -> sqlite3.Connection:
-    """Open (and if new, create) a Nirnaya database. Transactions are managed explicitly."""
-    conn = sqlite3.connect(str(path), isolation_level=None)
+def connect(path: str | Path = ":memory:", *, check_same_thread: bool = True) -> sqlite3.Connection:
+    """Open (and if new, create) a Nirnaya database. Transactions are managed explicitly.
+
+    `check_same_thread=False` is only for a caller that uses the connection from one thread at a
+    time but not always the same one (a Streamlit session, which reruns on worker threads).
+    """
+    conn = sqlite3.connect(str(path), isolation_level=None, check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     if str(path) != ":memory:":

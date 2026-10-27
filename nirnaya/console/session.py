@@ -52,7 +52,7 @@ class DemoSession:
     ) -> "DemoSession":
         """A fresh in-memory session. The agent (scripted or LLM) follows the environment."""
         cases = {c.id: c for c in load_cases()}
-        store = Store(connect())
+        store = Store(connect(check_same_thread=False))  # Streamlit reruns on worker threads
         store.register_merchant(
             M, airwallex_account_id="acct-demo", policy=DEMO_POLICY, delegated_authority=True
         )
@@ -81,7 +81,7 @@ class DemoSession:
         if not kit_ids:
             return None
         cases = {c.id: c for c in load_cases()}
-        store = Store(connect(db_path))
+        store = Store(connect(db_path, check_same_thread=False))
         now = max((c.updated_at for c in store.cases(M)), default=datetime.now().astimezone())
         return cls(store, cases, kit_ids, now, source="sandbox")
 

@@ -16,6 +16,9 @@ def _no_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch)
     def refuse(*args: object, **kwargs: object) -> None:
         raise NetworkBlockedError("network access attempted in an offline test")
 
-    monkeypatch.setattr(socket, "socket", refuse)
+    # UI tests run an asyncio loop, which on Windows needs a local socket pair (a loopback
+    # pipe). They may create sockets, but outbound connections and DNS stay blocked.
+    if not request.node.get_closest_marker("app"):
+        monkeypatch.setattr(socket, "socket", refuse)
     monkeypatch.setattr(socket, "create_connection", refuse)
     monkeypatch.setattr(socket, "getaddrinfo", refuse)

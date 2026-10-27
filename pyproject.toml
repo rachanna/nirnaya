@@ -8,6 +8,7 @@ dependencies = [
     "anthropic>=2.1.0",
     "openai>=3.37.0",
     "pydantic>=2.7",
+    "streamlit>=1.66.1",
     "tzdata>=2026.5",
 ]
 
@@ -30,6 +31,7 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers -m 'not live and not live_airwallex'"
 markers = [
     "live: calls a real model provider (opt-in: NIRNAYA_LIVE_LLM=1 uv run pytest -m live)",
+    "app: Streamlit UI tests (local event-loop sockets allowed; outbound network still blocked)",
     "live_airwallex: calls the Airwallex sandbox (opt-in: NIRNAYA_LIVE_AIRWALLEX=1 uv run pytest -m live_airwallex)",
 ]
 
