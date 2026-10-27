@@ -1,7 +1,7 @@
 from nirnaya.agent.llm_drafter import SUBMIT, LLMDrafter
 from nirnaya.agent.prompts import DRAFTER_SYSTEM
 from nirnaya.llm.fake import ScriptedLLM, reply
-from nirnaya.models import EvidenceType
+from nirnaya.models import EvidenceRecord, EvidenceType
 from nirnaya.verifier import CheckName, VerificationOutcome, verify
 from tests.agent.llm_helpers import all_text_sent, call
 from tests.harness import CASES
@@ -63,7 +63,9 @@ def test_only_this_cases_merchant_and_third_party_records_are_citable():
     record_ids = spec.input_schema["properties"]["claims"]["items"]["properties"][
         "source_record_id"
     ]["enum"]
-    assert "A1-email-1" not in record_ids and "A1-carrier" in record_ids
+    # The customer's email is never citable; only records that establish a fact are offered
+    # (A1's carrier record says IN_TRANSIT, so it establishes nothing).
+    assert "A1-email-1" not in record_ids and record_ids == ["A1-order"]
     assert "ignore previous instructions" not in all_text_sent(llm).lower()
 
 
@@ -101,7 +103,41 @@ def test_no_submission_or_a_model_failure_gives_no_claims():
     assert failed.claims == () and failed.run.stop.startswith("LLM_ERROR")
 
 
-def test_the_field_guide_tells_the_model_which_fields_support_which_facts():
+def offered(llm):
+    props = llm.calls[0]["tools"][0].input_schema["properties"]["claims"]["items"]["properties"]
+    return set(props["establishes"]["enum"])
+
+
+def test_the_guide_lists_exactly_the_fields_of_this_case_that_establish_a_fact():
     case, llm, _ = draft("N1", DELIVERED)
     prompt = llm.calls[0]["messages"][0].text
-    assert "DELIVERY_SIGNATURE: CARRIER.signed_by (NAME)" in prompt
+    assert "N1-carrier.status (ENUM) establishes DELIVERY_CONFIRMED" in prompt
+    assert "signed_by" not in prompt  # N1's carrier record has no signature to offer
+
+
+def test_only_facts_the_records_establish_are_offered():
+    # K1's order has no is_distinct_purchase flag, so "separate purchase" is never offered:
+    # the live model once claimed it from order_id and the whole draft was blocked.
+    case, llm, _ = draft("K1", DELIVERED)
+    facts = offered(llm)
+    assert "PRIOR_UNDISPUTED_ORDERS_MATCH" in facts and "ORDER_PLACED" in facts
+    assert "DISTINCT_TRANSACTIONS" not in facts
+    assert "DELIVERY_SIGNATURE" in facts  # K1's delivery really was signed for
+    prompt = llm.calls[0]["messages"][0].text
+    assert "K1-order.prior_undisputed_orders_matching_device_ip" in prompt
+
+
+def test_nothing_to_offer_means_no_model_call():
+    case = CASES["N1"]
+    order_only = [r for r in case.evidence_records() if r.id == "N1-carrier"]
+    # A citable, intact record that establishes nothing.
+    bare = [
+        EvidenceRecord.create(
+            **r.model_dump(exclude={"sha256", "fields"}), fields={"tracking_number": "TRK"}
+        )
+        for r in order_only
+    ]
+    assert all(r.hash_ok() for r in bare)
+    llm = ScriptedLLM([])
+    result = LLMDrafter(llm).draft(case.dispute, bare)
+    assert result.claims == () and llm.calls == []

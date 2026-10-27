@@ -14,7 +14,12 @@ from nirnaya.agent.context import facts_block, records_block
 from nirnaya.agent.prompts import DRAFTER_SYSTEM
 from nirnaya.agent.runs import AgentRun, DraftResult
 from nirnaya.agent.scripted import FIELD_KIND
-from nirnaya.evidence.catalogue import FIELD_RULES, REASON_SPECIFIC, render_claim_text
+from nirnaya.evidence.catalogue import (
+    FIELD_RULES,
+    REASON_SPECIFIC,
+    record_establishes,
+    render_claim_text,
+)
 from nirnaya.evidence.derive import case_records
 from nirnaya.llm.base import LLMClient
 from nirnaya.llm.types import LLMError, Message, ToolSpec
@@ -44,16 +49,37 @@ def citable(dispute: Dispute, records: list[EvidenceRecord]) -> list[EvidenceRec
     ]
 
 
-def field_guide(facts: list[str]) -> str:
-    """Which field of which system can support which fact, and the value form it takes."""
+Supported = list[tuple[EvidenceRecord, str, EvidenceType]]
+
+
+def supported(dispute: Dispute, own: list[EvidenceRecord]) -> Supported:
+    """(record, field, fact) for every field of this case's records that establishes a fact.
+
+    Only these are offered to the model, so it cannot pick a fact no record supports (a live
+    model once claimed "separate purchase" from a bare order id, which blocked its whole draft).
+    The verifier still checks everything the model submits.
+    """
+    allowed = set(allowed_facts(dispute))
+    return [
+        (record, name, fact)
+        for record in own
+        for name in record.fields
+        for fact in sorted(record_establishes(record, name))
+        if fact in allowed
+    ]
+
+
+def field_guide(pairs: Supported) -> str:
+    """Exactly which field of which record establishes which fact, and its value form."""
     lines = []
-    for rule in FIELD_RULES:
-        if rule.establishes in facts:
-            kind = FIELD_KIND[(rule.source_system, rule.field)]
-            lines.append(
-                f"- {rule.establishes}: {rule.source_system}.{rule.field} ({kind});"
-                f" {rule.description}"
-            )
+    for record, name, fact in pairs:
+        kind = FIELD_KIND.get((record.source_system, name), "IDENTIFIER")
+        rule = next(
+            r
+            for r in FIELD_RULES
+            if r.source_system is record.source_system and r.field == name and r.establishes is fact
+        )
+        lines.append(f"- {record.id}.{name} ({kind}) establishes {fact}: {rule.description}")
     return "\n".join(lines)
 
 
@@ -150,15 +176,18 @@ class LLMDrafter:
         own = citable(dispute, records)
         if not own:
             return DraftResult(claims=())
-        facts = allowed_facts(dispute)
-        spec = submit_spec([r.id for r in own], facts)
+        pairs = supported(dispute, own)
+        if not pairs:
+            return DraftResult(claims=())  # nothing these records can establish
+        facts = sorted({fact.value for _, _, fact in pairs})
+        spec = submit_spec(sorted({record.id for record, _, _ in pairs}), facts)
         prompt = (
             "Case facts:\n"
             + facts_block(dispute)
             + "\n\nRecords you may cite:\n"
             + records_block(own, source="citable-records")
-            + "\n\nWhich field can support which fact:\n"
-            + field_guide(facts)
+            + "\n\nThe facts these records establish (cite only these):\n"
+            + field_guide(pairs)
             + "\n\nSubmit the statements these records support."
         )
         run_base = {"kind": "DRAFT", "provider": self.llm.provider, "model": self.llm.model}
