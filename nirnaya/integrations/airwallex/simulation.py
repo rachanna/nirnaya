@@ -3,6 +3,7 @@ simulation. Never used by the orchestrator; only by the sandbox runner and tests
 
 Endpoints and fields (API reference and kit 4 guide, checked 2026-10-27):
 - POST /api/v1/pa/payment_intents/create   {request_id, amount, currency, merchant_order_id}
+- GET  /api/v1/pa/payment_intents/{id}      (status SUCCEEDED once paid)
 - POST /api/v1/pa/payment_intents/{id}/confirm
        {request_id, payment_method: {type: "card", card: {number, expiry_month, expiry_year,
         cvc, name}}}  -- test card 4035501000000008, any future expiry, any CVC
@@ -39,6 +40,18 @@ def wire_time(at: datetime) -> str:
     return at.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S+0000")
 
 
+# A payment intent counts as paid in this status (Payment Intents API reference).
+PAID = "SUCCEEDED"
+
+
+@dataclass(frozen=True)
+class StagedIntent:
+    payment_intent_id: str
+    # For the hosted checkout page; valid for 60 minutes (Payment Intents API reference).
+    client_secret: str | None
+    status: str
+
+
 @dataclass(frozen=True)
 class StagedPayment:
     payment_intent_id: str
@@ -47,9 +60,13 @@ class StagedPayment:
 
 
 class SandboxSimulator(Protocol):
-    def create_payment(
+    def create_intent(
         self, merchant_id: str, *, key: str, amount: Money, merchant_order_id: str
+    ) -> StagedIntent: ...
+    def confirm_with_test_card(
+        self, merchant_id: str, *, key: str, payment_intent_id: str
     ) -> StagedPayment: ...
+    def intent_status(self, merchant_id: str, payment_intent_id: str) -> str: ...
     def create_dispute(
         self,
         merchant_id: str,
@@ -76,9 +93,9 @@ class AirwallexSimulator:
         if merchant_id != self.merchant_id:
             raise AirwallexError("wrong_merchant", "this simulator serves another merchant")
 
-    def create_payment(
+    def create_intent(
         self, merchant_id: str, *, key: str, amount: Money, merchant_order_id: str
-    ) -> StagedPayment:
+    ) -> StagedIntent:
         self._own(merchant_id)
         intent = self._http.post(
             "/api/v1/pa/payment_intents/create",
@@ -93,6 +110,18 @@ class AirwallexSimulator:
         intent_id = intent.get("id")
         if not isinstance(intent_id, str) or not intent_id:
             raise AirwallexError("staging_failed", "no payment intent id returned")
+        secret = intent.get("client_secret")
+        return StagedIntent(
+            intent_id, secret if isinstance(secret, str) else None, str(intent.get("status"))
+        )
+
+    def confirm_with_test_card(
+        self, merchant_id: str, *, key: str, payment_intent_id: str
+    ) -> StagedPayment:
+        """Server-side confirm with the raw test card ("native API"). Needs Airwallex to enable
+        native API access on the account; otherwise pay through the hosted checkout page."""
+        self._own(merchant_id)
+        intent_id = payment_intent_id
         confirmed = self._http.post(
             f"/api/v1/pa/payment_intents/{quote(intent_id, safe='')}/confirm",
             {
@@ -113,6 +142,11 @@ class AirwallexSimulator:
         attempt = confirmed.get("latest_payment_attempt")
         attempt_id = attempt.get("id") if isinstance(attempt, dict) else None
         return StagedPayment(intent_id, attempt_id, str(confirmed.get("status")))
+
+    def intent_status(self, merchant_id: str, payment_intent_id: str) -> str:
+        self._own(merchant_id)
+        body = self._http.get(f"/api/v1/pa/payment_intents/{quote(payment_intent_id, safe='')}")
+        return str(body.get("status"))
 
     def create_dispute(
         self,

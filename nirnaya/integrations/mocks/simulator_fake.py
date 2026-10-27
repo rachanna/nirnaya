@@ -9,7 +9,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from nirnaya.integrations.airwallex.simulation import InFavorOf, StagedPayment
+from nirnaya.integrations.airwallex.simulation import (
+    PAID,
+    InFavorOf,
+    StagedIntent,
+    StagedPayment,
+)
 from nirnaya.integrations.mocks.airwallex_fake import FakeAirwallex
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import (
@@ -38,6 +43,7 @@ class _Intent:
     amount: Money
     merchant_order_id: str
     attempt_id: str
+    status: str = "REQUIRES_PAYMENT_METHOD"
 
 
 @dataclass
@@ -47,9 +53,9 @@ class FakeSimulator:
     _intents: dict[str, _Intent] = field(default_factory=dict)
     _by_key: dict[str, str] = field(default_factory=dict)
 
-    def create_payment(
+    def create_intent(
         self, merchant_id: str, *, key: str, amount: Money, merchant_order_id: str
-    ) -> StagedPayment:
+    ) -> StagedIntent:
         if key in self._by_key:  # same key, same operation: idempotent like a request_id
             intent_id = self._by_key[key]
         else:
@@ -58,7 +64,25 @@ class FakeSimulator:
                 merchant_id, amount, merchant_order_id, f"att_fake_{len(self._intents) + 1:03d}"
             )
             self._by_key[key] = intent_id
-        return StagedPayment(intent_id, self._intents[intent_id].attempt_id, "SUCCEEDED")
+        intent = self._intents[intent_id]
+        return StagedIntent(intent_id, f"secret_{intent_id}", intent.status)
+
+    def confirm_with_test_card(
+        self, merchant_id: str, *, key: str, payment_intent_id: str
+    ) -> StagedPayment:
+        self.pay(payment_intent_id)
+        intent = self._intents[payment_intent_id]
+        return StagedPayment(payment_intent_id, intent.attempt_id, intent.status)
+
+    def pay(self, payment_intent_id: str) -> None:
+        """What the shopper does on the hosted checkout page (test helper)."""
+        self._intents[payment_intent_id].status = PAID
+
+    def intent_status(self, merchant_id: str, payment_intent_id: str) -> str:
+        intent = self._intents.get(payment_intent_id)
+        if intent is None or intent.merchant_id != merchant_id:
+            raise AirwallexError("not_found", f"payment intent {payment_intent_id}")
+        return intent.status
 
     def create_dispute(
         self,
@@ -72,6 +96,8 @@ class FakeSimulator:
         intent = self._intents.get(payment_intent_id)
         if intent is None or intent.merchant_id != merchant_id:
             raise AirwallexError("not_found", f"payment intent {payment_intent_id}")
+        if intent.status != PAID:
+            raise AirwallexError("validation_error", "the payment intent has not succeeded")
         dispute_id = f"dst_fake_{len(self.aw.list_disputes(merchant_id)) + 1:03d}"
         opened = self.now()
         attempt = PaymentAttempt(

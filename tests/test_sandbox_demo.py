@@ -67,3 +67,48 @@ def test_the_scope_hides_and_protects_disputes_the_runner_did_not_stage():
         scoped.accept(MERCHANT, "theirs", request_id="r", reason=AcceptReason.OTHERS)
     with pytest.raises(AirwallexError, match="not_staged"):
         scoped.retrieve_dispute(MERCHANT, "theirs")
+
+
+def test_checkout_mode_stops_until_the_browser_payments_are_made():
+    code, text = run("--offline", "--checkout")
+    assert code == 0
+    assert "Pay K1, K2, K3 on the hosted checkout" in text
+    assert "2. Decide and act" not in text  # nothing is decided before the payments exist
+
+
+def test_staging_resumes_after_payment_without_creating_anything_twice():
+    from nirnaya.evaluation.cases import load_cases
+    from nirnaya.integrations.mocks.simulator_fake import FakeSimulator
+    from nirnaya.sandbox_demo import RunState, stage
+
+    cases = {c.id: c for c in load_cases()}
+    sim = FakeSimulator(FakeAirwallex(), now=lambda: NOW)
+    state = RunState(run="r")
+    saves: list[int] = []
+
+    def go():
+        return stage(sim, state, cases, NOW, lambda _: None, checkout=True,
+                     save=lambda: saves.append(1))  # fmt: skip
+
+    assert go() == ["K1", "K2", "K3"]  # intents created, all waiting for payment
+    intents = {cid: st["intent"] for cid, st in state.cases.items()}
+    for intent in intents.values():
+        sim.pay(intent)  # the shopper pays each on the hosted checkout
+    assert go() == []
+    assert {cid: st["intent"] for cid, st in state.cases.items()} == intents  # same intents
+    assert all("dispute" in st and "secret" not in st for st in state.cases.values())
+    assert go() == []  # a third run reuses everything
+    assert len(saves) == 6  # three intents, three disputes: each saved once
+
+
+def test_checkout_page_uses_the_documented_hosted_checkout_and_escapes_values():
+    from nirnaya.evaluation.cases import load_cases
+    from nirnaya.sandbox_demo import CHECKOUT_SDK, RunState, checkout_page
+
+    cases = {c.id: c for c in load_cases()}
+    state = RunState(run="r", cases={"K1": {"intent": "int_1", "secret": "s</script><x>"}})
+    page = checkout_page(state, cases, ["K1"])
+    assert CHECKOUT_SDK in page
+    assert 'env: "demo"' in page and "redirectToCheckout" in page and "intent_id" in page
+    assert "</script><x>" not in page  # a value can never close the script block
+    assert "4035 5010 0000 0008" in page

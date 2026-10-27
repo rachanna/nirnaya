@@ -4,6 +4,7 @@
     uv run python -m nirnaya.sandbox_demo --offline    # the same against the in-memory fake
     uv run python -m nirnaya.sandbox_demo --submit     # real accept/challenge (DRY_RUN=false)
     uv run python -m nirnaya.sandbox_demo --fresh      # stage new disputes instead of reusing
+    uv run python -m nirnaya.sandbox_demo --checkout   # pay in the browser (hosted checkout)
 
 Staging creates and confirms one payment intent per case with the test card and raises a
 dispute on it (kit 4 guide): K1 1,500 USD at RFI (Visa 10.4), K2 15 USD at CHARGEBACK (13.1),
@@ -17,6 +18,7 @@ Safety:
 """
 
 import argparse
+import html
 import json
 import os
 import sys
@@ -33,7 +35,11 @@ from nirnaya.evaluation.cases import EvalCase, load_cases, synthetic_world
 from nirnaya.integrations.airwallex.client import AirwallexClient
 from nirnaya.integrations.airwallex.http import AirwallexHttp, Credentials
 from nirnaya.integrations.airwallex.scoped import ScopedAirwallex
-from nirnaya.integrations.airwallex.simulation import AirwallexSimulator, SandboxSimulator
+from nirnaya.integrations.airwallex.simulation import (
+    PAID,
+    AirwallexSimulator,
+    SandboxSimulator,
+)
 from nirnaya.integrations.mocks.airwallex_fake import FakeAirwallex
 from nirnaya.integrations.mocks.simulator_fake import FakeSimulator
 from nirnaya.models.enums import DisputeStatus, Stage
@@ -71,30 +77,116 @@ class RunState:
             path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
+# The hosted checkout's client_secret lasts 60 minutes; an older unpaid intent is replaced.
+SECRET_LIFETIME = timedelta(minutes=55)
+CHECKOUT_SDK = "https://static.airwallex.com/components/sdk/v1/index.js"
+
+
 def stage(
-    sim: SandboxSimulator, source: Any, state: RunState, cases: dict[str, EvalCase],  # noqa: ANN401
-    now: datetime, out: Callable[[str], None],
-) -> None:  # fmt: skip
+    sim: SandboxSimulator,
+    state: RunState,
+    cases: dict[str, EvalCase],
+    now: datetime,
+    out: Callable[[str], None],
+    *,
+    checkout: bool,
+    save: Callable[[], None],
+) -> list[str]:
+    """Create, pay and dispute each kit case, saving after every step so nothing is created
+    twice. Returns the cases still waiting for a payment on the hosted checkout page."""
+    waiting = []
     for cid in KIT_CASES:
-        if cid in state.cases:
-            out(f"   {cid}: reusing {state.cases[cid]['dispute']}")
-            continue
         d = cases[cid].dispute
-        paid = sim.create_payment(
-            M, key=f"{state.run}:{cid}", amount=d.amount, merchant_order_id=d.merchant_order_id
-        )
-        dispute_id = sim.create_dispute(
+        st = state.cases.setdefault(cid, {})
+        if "dispute" in st:
+            out(f"   {cid}: reusing dispute {st['dispute']}")
+            continue
+        created = st.get("created")
+        stale = created is not None and now - datetime.fromisoformat(created) > SECRET_LIFETIME
+        if "intent" in st and stale and sim.intent_status(M, st["intent"]) != PAID:
+            out(f"   {cid}: unpaid intent {st['intent']} is older than its checkout secret")
+            st.clear()
+        if "intent" not in st:
+            attempt = int(st.get("attempt", "0")) + 1
+            intent = sim.create_intent(
+                M,
+                key=f"{state.run}:{cid}:{attempt}",
+                amount=d.amount,
+                merchant_order_id=d.merchant_order_id,
+            )
+            st.update(
+                intent=intent.payment_intent_id,
+                secret=intent.client_secret or "",
+                created=now.isoformat(),
+                attempt=str(attempt),
+            )
+            save()
+            out(f"   {cid}: payment intent {intent.payment_intent_id} ({d.amount})")
+        status = sim.intent_status(M, st["intent"])
+        if status != PAID and not checkout:
+            status = sim.confirm_with_test_card(
+                M, key=f"{state.run}:{cid}:{st['attempt']}", payment_intent_id=st["intent"]
+            ).status
+        if status != PAID:
+            waiting.append(cid)
+            out(f"   {cid}: waiting for payment ({status})")
+            continue
+        st["dispute"] = sim.create_dispute(
             M,
-            payment_intent_id=paid.payment_intent_id,
+            payment_intent_id=st["intent"],
             reason_code=d.reason.original_code or "",
             stage=d.stage,
             due_at=now + RESPONSE_WINDOW,
         )
-        state.cases[cid] = {"intent": paid.payment_intent_id, "dispute": dispute_id}
-        out(
-            f"   {cid}: payment {paid.payment_intent_id} ({paid.status}), "
-            f"dispute {dispute_id} at {d.stage}, Visa {d.reason.original_code}"
-        )
+        st.pop("secret", None)  # paid: the checkout secret is no longer needed
+        save()
+        out(f"   {cid}: paid; dispute {st['dispute']} at {d.stage}, Visa {d.reason.original_code}")
+    return waiting
+
+
+def checkout_page(state: RunState, cases: dict[str, EvalCase], waiting: list[str]) -> str:
+    """A local page with one Pay button per waiting case, using Airwallex's hosted checkout
+    (Quickstart: your first online payment, checked 2026-10-27). Card data never touches
+    Nirnaya: the shopper types the test card on Airwallex's page."""
+    intents = {
+        cid: {
+            "intent_id": state.cases[cid]["intent"],
+            "client_secret": state.cases[cid]["secret"],
+            "currency": cases[cid].dispute.amount.currency,
+        }
+        for cid in waiting
+    }
+    buttons = "\n".join(
+        f'<p><button data-case="{html.escape(cid)}">Pay {html.escape(cid)}: '
+        f"{html.escape(str(cases[cid].dispute.amount))}</button> "
+        f"{html.escape(cases[cid].title)}</p>"
+        for cid in waiting
+    )
+    # JSON inside a <script> block: escape "<" so no value can close the tag.
+    data = json.dumps(intents).replace("<", "\\u003c")
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Nirnaya kit 4 test payments</title>
+<script src="{CHECKOUT_SDK}"></script></head>
+<body style="font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto">
+<h1>Kit 4 test payments (Airwallex sandbox)</h1>
+<p>Pay each case on Airwallex's hosted checkout with the test card
+<b>4035 5010 0000 0008</b>, any future expiry, any CVC. After each payment, come back to this
+page for the next one. Then run the sandbox runner again.</p>
+{buttons}
+<script>
+const intents = {data};
+const pay = async (b) => {{
+  const i = intents[b.dataset.case];
+  const {{ payments }} = await window.AirwallexComponentsSDK.init({{
+    env: "demo", enabledElements: ["payments"] }});
+  payments.redirectToCheckout({{ env: "demo", mode: "payment", currency: i.currency,
+    intent_id: i.intent_id, client_secret: i.client_secret,
+    successUrl: "https://www.example.com/success" }});
+}};
+document.querySelectorAll("button[data-case]").forEach((b) =>
+  b.addEventListener("click", () => pay(b)));
+</script></body></html>
+"""
 
 
 def wait_until_readable(
@@ -131,6 +223,11 @@ def main(
     parser.add_argument("--submit", action="store_true", help="send real accept/challenge")
     parser.add_argument("--yes", action="store_true", help="skip the --submit confirmation")
     parser.add_argument("--fresh", action="store_true", help="stage new disputes")
+    parser.add_argument(
+        "--checkout",
+        action="store_true",
+        help="pay on Airwallex's hosted checkout page instead of the native card API",
+    )
     args = parser.parse_args(argv)
 
     if env is None:
@@ -171,9 +268,17 @@ def main(
         db = str(DATA_DIR / f"sandbox-{state.run}.db")
     mode = "offline fake" if args.offline else "Airwallex sandbox"
     out(f"Kit 4 on the {mode}. DRY_RUN={settings.dry_run}. Run {state.run}.")
-    out("\n1. Stage the cases (create + confirm payment, raise dispute)")
-    stage(sim, inner, state, cases, now, out)
-    state.save(state_path)
+    out("\n1. Stage the cases (create + pay, raise dispute)")
+    waiting = stage(
+        sim, state, cases, now, out, checkout=args.checkout, save=lambda: state.save(state_path)
+    )
+    if waiting:
+        page = (DATA_DIR if state_path else Path(".")) / "checkout.html"
+        if state_path is not None:
+            page.write_text(checkout_page(state, cases, waiting), encoding="utf-8")
+        out(f"\nPay {', '.join(waiting)} on the hosted checkout: open {page.resolve()}")
+        out("in a browser, pay each case with the test card, then run this again.")
+        return 0
     scoped = ScopedAirwallex(inner, {v["dispute"] for v in state.cases.values()})
     wait_until_readable(scoped, sorted(scoped.allowed), sleep)
 
