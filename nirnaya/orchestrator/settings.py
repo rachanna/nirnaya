@@ -4,15 +4,16 @@ Deadline buffers and budgets are ASSUMPTIONS (architecture sections 4.4 and 8.5)
 """
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import timedelta
 
 from nirnaya.models.enums import Stage
 
 
-def _dry_run_from_env() -> bool:
+def _dry_run_from_env(env: Mapping[str, str]) -> bool:
     # Only an explicit "false" or "0" turns writes on; anything else, including unset, is dry run.
-    return os.environ.get("DRY_RUN", "true").strip().lower() not in {"false", "0"}
+    return env.get("DRY_RUN", "true").strip().lower() not in {"false", "0"}
 
 
 @dataclass(frozen=True)
@@ -48,5 +49,5 @@ class Settings:
     max_step_failures: int = 3
 
     @classmethod
-    def from_env(cls) -> "Settings":
-        return cls(dry_run=_dry_run_from_env())
+    def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
+        return cls(dry_run=_dry_run_from_env(os.environ if env is None else env))

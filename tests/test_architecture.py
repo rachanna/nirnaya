@@ -11,6 +11,8 @@ WRITE_CALLS = {"accept", "challenge", "upload_file"}
 ALLOWED = {
     ROOT / "nirnaya" / "guardrails" / "gateway.py",
     ROOT / "nirnaya" / "integrations" / "mocks" / "airwallex_fake.py",
+    # Forwards the gateway's own calls to the client, limited to staged disputes.
+    ROOT / "nirnaya" / "integrations" / "airwallex" / "scoped.py",
 }
 
 
@@ -35,3 +37,23 @@ def test_the_ui_has_no_business_logic_imports():
     for path in app.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         assert "nirnaya.engine" not in text and "nirnaya.verifier" not in text, path
+
+
+CORE = ("models", "evidence", "engine", "verifier")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [p for pkg in CORE for p in sorted((ROOT / "nirnaya" / pkg).rglob("*.py"))],
+    ids=lambda p: str(p.relative_to(ROOT)),
+)
+def test_the_deterministic_core_never_imports_the_airwallex_integration(path):
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        names = []
+        if isinstance(node, ast.Import):
+            names = [a.name for a in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            names = [node.module]
+        for name in names:
+            assert not name.startswith("nirnaya.integrations"), f"{path}: imports {name}"

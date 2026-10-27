@@ -20,6 +20,7 @@ from nirnaya.llm.types import LLMConfigError
 from nirnaya.orchestrator.settings import Settings
 from nirnaya.runtime import build_orchestrator
 from nirnaya.store import Store, connect, verify_chain
+from nirnaya.trace import case_trace
 
 CASE_IDS = ("K1", "K2", "K3", "S5", "N1")
 
@@ -67,26 +68,8 @@ def main(case_ids: tuple[str, ...] = CASE_IDS) -> int:
             f"\n== {cid}: {cases[cid].title}\n   ends {case.state} (cycle {case.cycle});"
             f" expected route {cases[cid].expected.route}"
         )
-        for e in store.audit_events(m, cid):
-            b = e["body"]
-            if e["event"] == "STATE":
-                extra = {
-                    k: b[k]
-                    for k in ("action", "margin", "reasons", "outcome", "blocked", "failure")
-                    if b.get(k)
-                }
-                print(f"   {b['from']:>16} -> {b['to']:<16} {extra or ''}")
-            elif e["event"] == "TOOL_CALL":
-                print(f"   {'lookup':>16}    {b['tool']}({b['key']}) -> {b['records']}")
-            elif e["event"] == "TOOL_REFUSED":
-                print(f"   {'refused':>16}    {b['tool']}({b['key']}): {b['why']}")
-            elif e["event"] == "AGENT_RUN":
-                print(
-                    f"   {'agent':>16}    {b['kind']} {b['provider']}/{b['model']} "
-                    f"stop={b['stop']} turns={b['turns']} tokens={b['tokens']}"
-                )
-        for w in store.writes(m, cid):
-            print(f"   write: {w.action} cycle {w.cycle} {w.status}")
+        for line in case_trace(store, m, cid):
+            print(line)
     print("\nAudit chain intact:", verify_chain(store.conn) is None)
     return 0
 

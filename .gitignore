@@ -19,5 +19,6 @@ dist/
 htmlcov/
 
 # Local data
+.nirnaya/
 *.db
 *.sqlite3
