@@ -22,3 +22,6 @@ htmlcov/
 .nirnaya/
 *.db
 *.sqlite3
+
+# Working notes (kept locally, not published)
+first-session-prompt.md
