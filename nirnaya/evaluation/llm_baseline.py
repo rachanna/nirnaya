@@ -128,7 +128,8 @@ def ask(llm: LLMClient, case: EvalCase) -> dict[str, Any]:
             messages=[Message.user(case_prompt(case))],
             tools=[decide_spec(ids)],
             force_tool=DECIDE,
-            max_tokens=2048,
+            # Reasoning models spend part of this on thinking; leave room for the answer.
+            max_tokens=8192,
         )
     except LLMError as e:
         return {"error": str(e)[:300]}
