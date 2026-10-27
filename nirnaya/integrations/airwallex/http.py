@@ -51,6 +51,8 @@ class Credentials:
         client_id = env.get("AIRWALLEX_CLIENT_ID", "").strip()
         api_key = env.get("AIRWALLEX_API_KEY", "").strip()
         base_url = env.get("AIRWALLEX_BASE_URL", "").strip().rstrip("/") or SANDBOX_API
+        # The docs show the host both with and without /api/v1; paths here add it themselves.
+        base_url = base_url.removesuffix("/api/v1")
         if not client_id or not api_key:
             raise AirwallexError("missing_credentials", "set AIRWALLEX_CLIENT_ID and _API_KEY")
         return cls(client_id, api_key, base_url)

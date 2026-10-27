@@ -162,3 +162,19 @@ def test_the_trace_id_is_kept_for_support():
     http, _, _ = session(LOGIN, Response(400, body))
     with pytest.raises(AirwallexError, match="trace_id t-123"):
         http.post("/x", {}, write=False)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "https://api.sandbox.airwallex.com",
+        "https://api.sandbox.airwallex.com/",
+        "https://api.sandbox.airwallex.com/api/v1",
+        "https://api.sandbox.airwallex.com/api/v1/",
+    ],
+)
+def test_the_base_url_may_be_given_with_or_without_api_v1(value):
+    creds = Credentials.from_env(
+        {"AIRWALLEX_CLIENT_ID": "c", "AIRWALLEX_API_KEY": "k", "AIRWALLEX_BASE_URL": value}
+    )
+    assert creds.base_url == SANDBOX_API
