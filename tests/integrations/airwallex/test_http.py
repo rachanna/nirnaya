@@ -155,3 +155,10 @@ def test_amounts_are_sent_as_json_numbers_with_their_exact_digits():
     http.post("/x", {"amount": Decimal("1500"), "fee": Decimal("15.10"), "n": [Decimal("0.5")]},
               write=False)  # fmt: skip
     assert transport.sent[-1].body == b'{"amount": 1500, "fee": 15.1, "n": [0.5]}'
+
+
+def test_the_trace_id_is_kept_for_support():
+    body = b'{"code": "configuration_error", "message": "Invalid request", "trace_id": "t-123"}'
+    http, _, _ = session(LOGIN, Response(400, body))
+    with pytest.raises(AirwallexError, match="trace_id t-123"):
+        http.post("/x", {}, write=False)

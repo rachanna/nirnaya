@@ -219,5 +219,14 @@ def main(
     return 0
 
 
+def cli() -> int:
+    try:
+        return main()
+    except AirwallexError as e:
+        print(f"Airwallex refused the request: {e}", file=sys.stderr)
+        print("Nothing further was sent. Staged ids so far are in .nirnaya/.", file=sys.stderr)
+        return 1
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(cli())

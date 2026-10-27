@@ -105,7 +105,11 @@ def _error(response: Response) -> AirwallexError:
     except ValueError:
         body = {}
     code = str(body.get("code") or f"http_{response.status}")
-    return AirwallexError(code, str(body.get("message") or ""))
+    message = str(body.get("message") or "")
+    # Airwallex support looks requests up by trace_id, so keep it with the error.
+    if trace := body.get("trace_id"):
+        message = f"{message} (trace_id {trace})".strip()
+    return AirwallexError(code, message)
 
 
 class AirwallexHttp:
