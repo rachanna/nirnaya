@@ -893,7 +893,7 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 
 ```mermaid
 flowchart LR
-    F[eval/cases/*.json<br/>~30 SYNTHETIC cases<br/>+ expected decisions] --> R[Runner]
+    F[eval/cases/*.json<br/>42 SYNTHETIC cases<br/>+ expected decisions] --> R[Runner]
     R -->|mock integrations,<br/>simulated clock| P[Full pipeline<br/>scripted or Claude investigator]
     R --> B1[Baseline: fight all]
     R --> B2[Baseline: accept all]
@@ -909,13 +909,18 @@ flowchart LR
 - **Baselines:**
   - **Fight all:** challenge every automated-stage dispute.
   - **Accept all:** accept everything.
-  - **LLM only:** Claude decides and drafts with the same tools, with no engine or verifier. Its drafts are then passed through `verify()` offline to *count* unsupported claims, without blocking them.
+  - **LLM only:** the configured model gets the dispute and all the case's records (customer messages inside untrusted data blocks) and answers ACCEPT, CHALLENGE or ESCALATE with its claims in one forced-tool call; no engine, verifier or investigation loop. Answers are cached in `eval/results/llm_only.json`, and its claims are passed through `verify()` only to *count* unsupported ones.
+- **Nirnaya** is measured from real pipeline runs (dry run, scripted agent; the fabrication cases use their careless fixture drafter), never copied from the expectations.
 - **Metrics**, reported separately (spec §9):
   1. Expected net dispute loss against the baselines, and agreement with the expert decisions.
   2. Unsupported claims submitted (target 0) and fabrications caught.
   3. Merchant-policy violations (target 0).
   4. Lifecycle correctness: the right action per stage, deadlines met, no duplicate writes.
   5. Share of cases automated versus referred.
+
+**Expected loss** (`nirnaya/evaluation/economics.py`) prices each policy's action with the case's hand-derived prior and the policy's fees, from the current stage on (sunk costs excluded): accept costs A (+ F_pre or F_rfi); a chargeback challenge costs (1 − p)·A + h + q·F_pa; an RFI or pre-chargeback challenge costs its handling + F_cb + R plus the chargeback stage, where an expert then accepts or fights (whichever is cheaper) and fight-everything always fights. A referral costs the reviewer's expert action plus a 25 USD review (assumption). Accept minus challenge equals the engine's margin + m on every case, which a test checks. Deferred cases are excluded.
+
+Run it with `uv run python -m nirnaya.evaluation.report`, which writes `eval/results/report.json` and `report.md`. The LLM-only answers come from `NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline`.
 
 Sandbox runs are integration tests. Economic results are simulations on synthetic data.
 
@@ -986,7 +991,7 @@ Streamlit (`app/`) is thin: it reads from the store and acts only through orches
 | M3: Orchestrator | `store/`, `orchestrator/`, `ingest/` (domain source), `agent/` tool gateway + scripted investigator and drafter, `render/`, and the write gateway (`guardrails/`, moved forward from M5 against ports) | All 42 cases through the real pipeline against `FakeAirwallex` land on their expected route; the kit rejection cycle; approvals; watchdog; crash-and-resume; timed-out write reconciliation; hash-chained audit verified | ✅ (925 tests) |
 | M4: Investigating agent | `agent/` (`LLMInvestigator`, `LLMDrafter`), `llm/` (Anthropic and OpenAI adapters), `runtime.py`, `demo.py` | With a scripted model through the real pipeline: VoI-driven rounds held to the offered tools and keys, budgets and stop conditions, customer text never shown to the model, structured drafts built by code, a fabricating model never gets a write, runs persisted with their step. Opt-in live tests for a real provider | 🔶 offline proof done (1016 tests); live run against a real model pending |
 | M5: Airwallex sandbox | `integrations/airwallex/`, real `ingest/` wire mapping, the wire-specific gateway parts (challenge body, `challenge_method: STANDARD`, file host) | The M3 pipeline against the real sandbox; simulation round-trips; closes the §9 TODOs | ⬜ |
-| M6: Evaluation | `eval/` runner, baselines, metrics | Five metrics against three baselines | ⬜ |
+| M6: Evaluation | `nirnaya/evaluation/` economics, policies, metrics, LLM-only baseline, report | Five metrics against three baselines on 42 cases: Nirnaya has the lowest expected loss, 42/42 agreement with the expert, 0 unsupported claims, 0 violations and a clean ledger | ✅ offline (LLM-only run pending) |
 | M7: Streamlit demo | `app/` | Kit 4 cases in the kit's demo structure, review queue, baseline comparison | ⬜ |
 
 **Second code review** ✅ (1108 tests): out-of-range timestamps are unreadable rather than a crash, a new cycle closes the old cycle's referral, each record is dated against its own order, the note event states its authority, cross-tenant record ids fail as `StoreError`, referral descriptions come from the decision, one rule matcher and one date-only rule, and no write lock on opening an up-to-date database.

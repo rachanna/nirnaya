@@ -151,6 +151,21 @@ Pre-chargeback cases that need a response are tagged `offline_only`, because the
 | A3 | CHARGEBACK | PRODUCT_NOT_RECEIVED | 200.00 | **REFER** | CHALLENGE | Draft overstates the order amount |
 | A5 | CHARGEBACK | PRODUCT_NOT_RECEIVED | 200.00 | **REFER** | REFER (OWNERSHIP_UNRESOLVED) | Payment ownership unresolved on a platform |
 
+## 9. Evaluation economics
+
+Every policy is priced with the same assumptions, from the current stage on (costs already sunk are the same for all and are left out). A is the disputed amount in the policy currency; p is the case's prior above; q, the fees and the handling costs are §1.
+
+| Stage | Accept | Challenge |
+|---|---|---|
+| CHARGEBACK | A | (1 − p) × A + h + q × F_pa |
+| PRE_CHARGEBACK | A + F_pre | h_pre + F_cb + R + the chargeback stage |
+| RFI | A + F_rfi | h_rfi + F_cb + R + the chargeback stage |
+
+- **The chargeback stage after a challenge:** an expert accepts or fights, whichever is cheaper; a fight-everything policy always fights.
+- **A referral** costs the reviewer's action (the expected maths action) plus a **review cost of 25 USD (ASSUMPTION)**.
+- **Deferred cases** (Airwallex acts on its own) are excluded.
+- These are expected values under assumed priors on synthetic cases, not real outcomes. Accept minus challenge equals the engine's margin + m for every case.
+
 ## Changing a case
 
 1. Edit the case JSON and its `rationale` together. Recompute the expectation by hand from this policy, never from the engine's output.

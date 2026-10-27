@@ -91,7 +91,7 @@ Every write carries a unique request ID, so it cannot run twice. Dry-run mode, l
 - **Mocked and labelled synthetic:** order system, carrier tracking, login history, helpdesk and merchant policy store.
 
 ## 9. Evaluation
-About 30 synthetic cases across fraud, non-receipt, duplicate-charge, subscription and unknown reasons, at both stages. They include marginal cases where a small change in assumptions flips the decision. Each case has an expected decision from a documented expert policy.
+42 synthetic cases across fraud, non-receipt, duplicate-charge, subscription and unknown reasons, at RFI, pre-chargeback and chargeback (`uv run python -m nirnaya.evaluation.report`; the economics are in `eval/EXPERT_POLICY.md` §9). They include marginal cases where a small change in assumptions flips the decision. Each case has an expected decision from a documented expert policy.
 
 Baselines: fight everything; accept everything; an LLM-only agent.
 
