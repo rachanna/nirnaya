@@ -6,12 +6,14 @@ A value outside the documented set is never guessed: an unknown stage or status 
 dispute, and an unknown authentication result maps to UNKNOWN, which establishes nothing.
 """
 
+import json
 from decimal import Decimal
 from typing import Any
 
 from nirnaya.integrations.airwallex.http import parse_time
-from nirnaya.models.dispute import Dispute
+from nirnaya.models.dispute import AiRecommendation, Dispute
 from nirnaya.models.enums import (
+    Action,
     AvsResult,
     CardBrand,
     CvcResult,
@@ -79,6 +81,31 @@ def refunded_total(refunds: list[dict[str, Any]], dispute_amount: Money) -> Mone
     return Money(amount=min(total, dispute_amount.amount), currency=dispute_amount.currency)
 
 
+_AI_ACTIONS = {"Challenge": Action.CHALLENGE, "Accept": Action.ACCEPT}
+
+
+def ai_recommendation_from_wire(data: Any) -> AiRecommendation | None:  # noqa: ANN401
+    """`ai_dispute_automation` -> AiRecommendation; anything malformed is simply absent.
+
+    TODO(verify-airwallex-docs): the reference does not give the item format of
+    evidence_to_submit; strings are kept as they are and anything else as compact JSON.
+    """
+    if not isinstance(data, dict) or not _text(data, "status"):
+        return None
+    rec = data.get("recommendation") if isinstance(data.get("recommendation"), dict) else {}
+    raw = _text(rec, "action")
+    items = rec.get("evidence_to_submit") if isinstance(rec.get("evidence_to_submit"), list) else []
+    return AiRecommendation(
+        status=data["status"],
+        unavailable_reason=_text(data, "unavailable_reason"),
+        action=_AI_ACTIONS.get(raw) if raw else None,
+        action_raw=raw,
+        evidence_to_submit=tuple(
+            i if isinstance(i, str) else json.dumps(i, sort_keys=True, default=str) for i in items
+        ),
+    )
+
+
 def dispute_from_wire(
     data: dict[str, Any], *, merchant_id: str, refunds: list[dict[str, Any]] | None = None
 ) -> Dispute:
@@ -108,6 +135,7 @@ def dispute_from_wire(
         # TODO(verify-airwallex-docs): created_at is taken as when the dispute was received.
         opened_at=parse_time(_required(data, "created_at", what)),
         due_at=parse_time(_required(data, "due_at", what)),
+        ai_recommendation=ai_recommendation_from_wire(data.get("ai_dispute_automation")),
     )
 
 

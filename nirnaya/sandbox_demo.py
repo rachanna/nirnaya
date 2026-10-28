@@ -29,6 +29,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from nirnaya.airwallex_ai import comparison
 from nirnaya.config.demo import DEMO_POLICY
 from nirnaya.config.env import load_dotenv
 from nirnaya.evaluation.cases import EvalCase, load_cases, synthetic_world
@@ -319,6 +320,14 @@ def main(
             f"\n   Nirnaya: {case.state if case else 'not ingested'}"
             f"; expected route {cases[cid].expected.route}"
         )
+        decided = store.latest_decision(M, dispute_id, case.cycle) if case else None
+        if decided is not None:
+            ai = comparison(
+                d.ai_recommendation,
+                decided[1].action,
+                [str(r) for r in decided[1].referral_reasons],
+            )
+            out(f"   {ai.text}")
         for line in case_trace(store, M, dispute_id):
             out(line)
     if isinstance(inner, AirwallexClient) and inner.unmappable:

@@ -349,6 +349,15 @@ class Store:
         )
         return digest
 
+    def disputes(self, merchant_id: str, case_id: str) -> list[Dispute]:
+        """Every snapshot of the dispute, oldest first."""
+        rows = self.conn.execute(
+            "SELECT dispute_json FROM dispute_snapshots WHERE merchant_id = ? AND case_id = ?"
+            " ORDER BY snapshot_id",
+            (merchant_id, case_id),
+        ).fetchall()
+        return [Dispute.model_validate_json(r["dispute_json"]) for r in rows]
+
     def latest_dispute(self, merchant_id: str, case_id: str) -> Dispute | None:
         row = self.conn.execute(
             "SELECT dispute_json FROM dispute_snapshots WHERE merchant_id = ? AND case_id = ?"

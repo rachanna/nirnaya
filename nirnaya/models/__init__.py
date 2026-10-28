@@ -2,7 +2,7 @@
 
 from nirnaya.models.claim import Claim, DateTimeValue, DateValue, MoneyValue, TextValue
 from nirnaya.models.decision import Decision, ReferralReason, VoIEntry
-from nirnaya.models.dispute import Dispute
+from nirnaya.models.dispute import AiRecommendation, Dispute
 from nirnaya.models.enums import (
     AcceptReason,
     Action,
@@ -28,6 +28,7 @@ from nirnaya.models.policy import MerchantPolicy, PriorEntry
 from nirnaya.models.reasons import DisputeReason
 
 __all__ = [
+    "AiRecommendation",
     "AcceptReason",
     "ChallengeReason",
     "ProductType",

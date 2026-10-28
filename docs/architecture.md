@@ -621,6 +621,7 @@ The simulation client is constructible only when the base URL is the sandbox hos
 | `id` | `Dispute.id` | |
 | account (webhook envelope `account_id`) | `Dispute.merchant_id` via the merchant registry | §11.2 |
 | `payment_intent_id`, `payment_attempt_id` | same names | |
+| `ai_dispute_automation` (`status`, `unavailable_reason`, `recommendation.action`, `recommendation.evidence_to_submit`) | `Dispute.ai_recommendation` | Airwallex AI Dispute Automation's recommendation (CHARGEBACK stage). **Comparison only:** the engine never reads it; the console, case view and sandbox runner show it beside Nirnaya's decision. An unknown action is kept verbatim, never guessed. The offline demo uses labelled SYNTHETIC examples (`integrations/mocks/airwallex_ai.py`). |
 | `stage`, `status` | `Stage`, `DisputeStatus` | Documented values. An unknown value fails ingestion for that dispute and is surfaced; it is never guessed |
 | `reason.{type, original_code, description}` | `DisputeReason` | `category_for()` maps `type` → `ReasonCategory`; unmapped → UNKNOWN |
 | `card_brand` | `CardBrand` | |

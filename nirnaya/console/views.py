@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from nirnaya.airwallex_ai import AiComparison, comparison
 from nirnaya.console.session import DemoSession, M
 from nirnaya.engine import decide
 from nirnaya.evidence.derive import (
@@ -21,7 +22,7 @@ from nirnaya.evidence.derive import (
 )
 from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
-from nirnaya.models.enums import DisputeStatus, SourceSystem, Stage, ValidationStatus
+from nirnaya.models.enums import Action, DisputeStatus, SourceSystem, Stage, ValidationStatus
 from nirnaya.store import Store
 from nirnaya.trace import case_trace
 from nirnaya.verifier import verify
@@ -68,6 +69,8 @@ class CycleArc:
     revised: DecisionView | None
     writes: tuple[str, ...]
     referral: tuple[str, ...]
+    # Airwallex's AI recommendation at this stage beside Nirnaya's decision (comparison only).
+    airwallex_ai: AiComparison | None = None
 
 
 @dataclass(frozen=True)
@@ -120,6 +123,7 @@ def kit_card(session: DemoSession, label: str) -> KitCard | None:
     events = _events_by_cycle(store, case_id)
     writes = store.writes(M, case_id)
     referral = store.open_referral_for(M, case_id)
+    history = store.disputes(M, case_id)
     arcs = []
     for cycle in range(1, case_row.cycle + 1):
         stage = store.cycle(M, case_id, cycle).stage
@@ -129,6 +133,17 @@ def kit_card(session: DemoSession, label: str) -> KitCard | None:
             update={"stage": Stage(stage), "status": DisputeStatus.REQUIRES_RESPONSE}
         )
         initial = _airwallex_only(store, case_id, opened, cycle) if latest else None
+        at_stage = [d for d in history if d.stage == Stage(stage)]
+        rec = at_stage[-1].ai_recommendation if at_stage else None
+        ai = (
+            None
+            if latest is None
+            else comparison(
+                rec,
+                Action(latest[1].action),
+                [str(r) for r in latest[1].referral_reasons],
+            )
+        )
         evs = events.get(cycle, [])
         arcs.append(
             CycleArc(
@@ -155,6 +170,7 @@ def kit_card(session: DemoSession, label: str) -> KitCard | None:
                 referral=()
                 if referral is None or referral.cycle != cycle
                 else tuple(referral.reasons),
+                airwallex_ai=ai,
             )
         )
     case = session.cases.get(label)

@@ -11,7 +11,7 @@ Failures can be injected: an error, or a timeout before or after the write lands
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import AcceptReason, DisputeStatus, Stage
@@ -63,6 +63,11 @@ class FakeAirwallex:
             }
         )
         return entry.dispute
+
+    def set_ai_recommendation(self, dispute_id: str, rec: Any) -> None:  # noqa: ANN401
+        """What Airwallex's AI says about the dispute now (an AiRecommendation, or None)."""
+        entry = self._disputes[dispute_id]
+        entry.dispute = entry.dispute.model_copy(update={"ai_recommendation": rec})
 
     def simulate_resolve(
         self, dispute_id: str, *, in_favor_of: Literal["MERCHANT", "CUSTOMER"]

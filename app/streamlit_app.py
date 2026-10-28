@@ -132,6 +132,14 @@ with demo:
                     cols[3].markdown("🧑‍⚖️ Referred: " + ", ".join(arc.referral))
                 if not arc.writes and not arc.referral:
                     cols[3].caption("no action")
+                if arc.airwallex_ai is not None:
+                    mark = {True: "🤝", False: "↔️", None: "🤖"}[arc.airwallex_ai.agree]
+                    st.caption(f"{mark} {arc.airwallex_ai.text}")
+                    if arc.airwallex_ai.evidence_to_submit:
+                        st.caption(
+                            "Airwallex AI would submit: "
+                            + ", ".join(arc.airwallex_ai.evidence_to_submit)
+                        )
 
     with st.container(border=True):
         check = fabrication_check(s)

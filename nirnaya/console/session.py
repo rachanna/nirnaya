@@ -14,9 +14,10 @@ from pathlib import Path
 
 from nirnaya.config.demo import DEMO_POLICY
 from nirnaya.evaluation.cases import EvalCase, load_cases, synthetic_world
+from nirnaya.integrations.mocks.airwallex_ai import simulated as simulated_ai
 from nirnaya.integrations.mocks.airwallex_fake import FakeAirwallex
 from nirnaya.llm.base import LLMClient
-from nirnaya.models.enums import Action
+from nirnaya.models.enums import Action, Stage
 from nirnaya.orchestrator.machine import Orchestrator
 from nirnaya.orchestrator.referrals import approve, close_manually
 from nirnaya.orchestrator.settings import Settings
@@ -97,8 +98,9 @@ class DemoSession:
         for label in KIT:
             case = self.cases[label]
             if self.store.case(M, label) is None:
+                rec = simulated_ai(label, case.dispute.stage)
                 aw.add_dispute(
-                    case.dispute,
+                    case.dispute.model_copy(update={"ai_recommendation": rec}),
                     attempt=case.payment_attempt,
                     intent_owner="same" if case.ownership_resolved else None,
                 )
@@ -109,6 +111,7 @@ class DemoSession:
         """Kit beat 1b: the issuer rejects case 1's evidence; Airwallex escalates it."""
         aw, orch = self._require()
         aw.simulate_escalate("K1", due_at=self.now + timedelta(days=20))
+        aw.set_ai_recommendation("K1", simulated_ai("K1", Stage.CHARGEBACK))
         self.now = self.now + timedelta(days=5)
         orch.run_until_idle(self.now)
         self.rejected = True

@@ -65,6 +65,10 @@ uv run pytest           # about 1,300 offline tests; no network, no keys needed
 | **2-C. A fabricated signature** | An unguarded draft says "signed for by J. Smith". The carrier record has no signature, so the verifier blocks it and says why. |
 | **3. Credit not processed** (120 USD, chargeback, Visa 13.6) | The customer emailed support twice with no reply. The maths would accept, but a person decides. |
 
+## Airwallex AI beside Nirnaya
+
+Airwallex's AI Dispute Automation can recommend Challenge or Accept for a dispute at the chargeback stage. Nirnaya reads that recommendation and shows it next to its own decision, with its reasons when they differ, for example: *"Airwallex AI recommends Challenge; Nirnaya decides REFER to a person (UNANSWERED_CUSTOMER_CONTACT)."* It is a comparison, never an input: the engine does not read it. Offline, the kit cases carry clearly labelled **simulated** recommendations to show the display; on the live sandbox the real one is used.
+
 ## Evaluation (42 synthetic cases)
 
 | | Nirnaya | Fight everything | Accept everything | LLM only: naive v1 | LLM only: informed v1 | LLM only: informed v2 |

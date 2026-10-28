@@ -3,9 +3,25 @@ from typing import Self
 from pydantic import model_validator
 
 from nirnaya.models.base import DomainModel, NonBlankStr, UtcDatetime
-from nirnaya.models.enums import CardBrand, DisputeStatus, ReasonCategory, Stage
+from nirnaya.models.enums import Action, CardBrand, DisputeStatus, ReasonCategory, Stage
 from nirnaya.models.money import Money
 from nirnaya.models.reasons import DisputeReason
+
+
+class AiRecommendation(DomainModel):
+    """Airwallex AI Dispute Automation's view of the dispute (`ai_dispute_automation`, Payment
+    Disputes API, checked 2026-10-28). Shown beside Nirnaya's decision for comparison only: the
+    engine never reads it, so it cannot decide or authorise anything.
+    """
+
+    status: NonBlankStr  # AVAILABLE | UNAVAILABLE (kept verbatim if Airwallex adds a value)
+    unavailable_reason: str | None = None  # DISABLED | NOT_SUPPORTED
+    action: Action | None = None  # recommendation.action Challenge / Accept; None if unknown
+    action_raw: str | None = None  # the value as sent, so an unknown one is shown, not guessed
+    # recommendation.evidence_to_submit: the challenge evidence fields it recommends.
+    evidence_to_submit: tuple[str, ...] = ()
+    # True for the offline demo's SYNTHETIC examples, never for anything read from Airwallex.
+    simulated: bool = False
 
 
 class Dispute(DomainModel):
@@ -25,6 +41,8 @@ class Dispute(DomainModel):
     refunded_amount: Money | None = None
     opened_at: UtcDatetime
     due_at: UtcDatetime
+    # Airwallex's own AI recommendation, when it sends one. For comparison only.
+    ai_recommendation: AiRecommendation | None = None
 
     @model_validator(mode="after")
     def _consistent(self) -> Self:
