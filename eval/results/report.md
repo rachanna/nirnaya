@@ -2,7 +2,7 @@
 
 42 SYNTHETIC cases. Expected values under the expert policy's assumed priors and fees on SYNTHETIC cases (eval/EXPERT_POLICY.md); not real issuer or network outcomes.
 
-| Metric | Nirnaya | Fight everything | Accept everything | LLM only |
+| Metric | Nirnaya | Fight everything | Accept everything | LLM only (naive) |
 |---|---|---|---|---|
 | Expected net loss (USD) | 11417.40 | 11800.60 | 17652.00 | 11495.60 |
 | vs Nirnaya (USD) | 0.00 | 383.20 | 6234.60 | 78.20 |
@@ -16,7 +16,7 @@
 
 ## Per case
 
-| Case | Stage | Amount | Expert | Nirnaya | Fight everything | Accept everything | LLM only |
+| Case | Stage | Amount | Expert | Nirnaya | Fight everything | Accept everything | LLM only (naive) |
 |---|---|---|---|---|---|---|---|
 | A1 | CHARGEBACK | 200.00 USD | ACCEPT | ACCEPT (200.00) | CHALLENGE (250.00) | ACCEPT (200.00) | ACCEPT (200.00) |
 | A2 | CHARGEBACK | 200.00 USD | ACCEPT | ACCEPT (200.00) | CHALLENGE (250.00) | ACCEPT (200.00) | CHALLENGE (250.00) |
@@ -60,3 +60,10 @@
 | U4 | RFI | 200.00 USD | REFER | REFER (225.00) | CHALLENGE (325.00) | ACCEPT (200.00) | REFER (225.00) |
 | X1 | PRE_CHARGEBACK | 200.00 USD | DEFER | NONE | NONE | NONE | NONE |
 | X2 | PRE_ARBITRATION | 400.00 USD | DEFER | NONE | NONE | NONE | NONE |
+
+## Versions
+
+- Code: git `d4526eda7087aebaf45b3743578fd2accb79198a` (uncommitted changes)
+- Case set: v1 (42 cases, sha256 `22fb03b56b3b`)
+- Policy: `merchant-demo@demo-2026-10#bd3f0c2ec782`; FX: `fx@demo-2026-10-01#a74fb42c5c16`; economics: `economics@v1#b0b04a506ede`
+- LLM only (naive): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_naive_system@v1#1e33f22c05c7`, `baseline_naive_user@v1#86578a4c5f93`, `tools@v1#ba84dfdfa56a`

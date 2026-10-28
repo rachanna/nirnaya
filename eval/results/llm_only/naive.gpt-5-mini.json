@@ -1,6 +1,13 @@
 {
   "provider": "openai",
   "model": "gpt-5-mini",
+  "variant": "naive",
+  "prompts": [
+    "baseline_naive_system@v1#1e33f22c05c7",
+    "baseline_naive_user@v1#86578a4c5f93",
+    "tools@v1#ba84dfdfa56a"
+  ],
+  "prompts_note": "Recorded after the run: these answers predate prompt versioning. The v1 files were shown byte-identical to the text sent (capture of every model call, all 42 cases).",
   "run_at": "2026-10-27T17:57:38.409231+00:00",
   "cases": {
     "A1": {

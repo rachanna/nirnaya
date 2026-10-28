@@ -288,10 +288,10 @@ with evals:
             hide_index=True,
             use_container_width=True,
         )
-        if report.get("llm_only"):
-            m = report["llm_only"]
+        for variant, m in (report.get("llm_only") or {}).items():
             st.caption(
-                f"LLM only: {m['provider']}/{m['model']}, answers cached {m['run_at'][:10]}."
+                f"LLM only ({variant}): {m['provider']}/{m['model']}, answers cached "
+                f"{m['run_at'][:10]}."
             )
         with st.expander("Per case"):
             st.dataframe(

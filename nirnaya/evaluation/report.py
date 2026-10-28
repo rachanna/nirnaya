@@ -3,20 +3,25 @@
     uv run python -m nirnaya.evaluation.report
 
 Writes eval/results/report.json (read by the demo UI) and eval/results/report.md, and prints
-the comparison. Includes the LLM-only baseline when its cached answers exist
-(nirnaya.evaluation.llm_baseline). Offline and deterministic otherwise.
+the comparison. Includes each LLM-only variant whose cached answers exist
+(nirnaya.evaluation.llm_baseline). Offline and deterministic otherwise. Every report states
+the versions it was built from: git commit, case set, policy, FX, economics and, for each
+LLM-only variant, the model and prompt versions.
 """
 
 import json
+import subprocess
 import sys
 from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from nirnaya.config.demo import DEMO_POLICY
+from nirnaya.config.demo import DEMO_POLICY, FX_ASSET, POLICY_ASSET
+from nirnaya.evaluation import case_set
 from nirnaya.evaluation.cases import EvalCase, load_cases, synthetic_world
-from nirnaya.evaluation.llm_baseline import CACHE, RESULTS, Cache, llm_only
+from nirnaya.evaluation.economics import ECONOMICS_ASSET
+from nirnaya.evaluation.llm_baseline import RESULTS, VARIANTS, Cache, cache_path, llm_only
 from nirnaya.evaluation.metrics import (
     case_cost,
     compliance,
@@ -37,34 +42,69 @@ NAMES = {
     "nirnaya": "Nirnaya",
     "fight_all": "Fight everything",
     "accept_all": "Accept everything",
-    "llm_only": "LLM only",
+    "llm_only_naive": "LLM only (naive)",
+    "llm_only_informed": "LLM only (informed)",
 }
+REPO = Path(__file__).resolve().parents[2]
 
 
 def _money(value: Decimal) -> str:
     return f"{value.quantize(Decimal('0.01'))}"
 
 
-def run_policies(cases: list[EvalCase], cache: Cache | None) -> dict[str, dict[str, CaseResult]]:
+def run_policies(
+    cases: list[EvalCase], caches: dict[str, Cache]
+) -> dict[str, dict[str, CaseResult]]:
     world = synthetic_world(cases)
     results = {
         "nirnaya": {c.id: nirnaya(c, world) for c in cases},
         "fight_all": {c.id: fight_all(c) for c in cases},
         "accept_all": {c.id: accept_all(c) for c in cases},
     }
-    if cache is not None:
-        results["llm_only"] = {c.id: llm_only(c, cache) for c in cases}
+    for variant, cache in caches.items():
+        results[f"llm_only_{variant}"] = {c.id: llm_only(c, cache) for c in cases}
     return results
+
+
+def _git() -> dict[str, Any]:
+    def git(*args: str) -> str | None:
+        try:
+            done = subprocess.run(
+                ["git", *args], cwd=REPO, capture_output=True, text=True, timeout=10, check=True
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return done.stdout.strip()
+
+    commit = git("rev-parse", "HEAD")
+    status = git("status", "--porcelain")
+    return {"commit": commit, "dirty": None if status is None else bool(status)}
+
+
+def versions(cases_dir: Path | None = None) -> dict[str, Any]:
+    """What this report was built from, so any result can be traced and reproduced."""
+    try:
+        cases = case_set.check() if cases_dir is None else case_set.check(cases_dir)
+    except case_set.CaseSetChanged as e:
+        cases = {"version": None, "error": str(e)}
+    return {
+        "git": _git(),
+        "case_set": cases,
+        "policy": POLICY_ASSET.ref,
+        "fx": FX_ASSET.ref,
+        "economics": ECONOMICS_ASSET.ref,
+    }
 
 
 def build(
     cases: list[EvalCase] | None = None,
     *,
-    cache: Cache | None = None,
+    caches: dict[str, Cache] | None = None,
     policy: MerchantPolicy = DEMO_POLICY,
 ) -> dict[str, Any]:
     cases = cases if cases is not None else load_cases()
-    results = run_policies(cases, cache)
+    caches = caches or {}
+    results = run_policies(cases, caches)
     policies: dict[str, Any] = {}
     for key, res in results.items():
         fighting = key == "fight_all"
@@ -130,9 +170,17 @@ def build(
     return {
         "caveat": CAVEAT,
         "cases": len(cases),
-        "llm_only": None
-        if cache is None
-        else {"provider": cache.provider, "model": cache.model, "run_at": cache.run_at},
+        "llm_only": {
+            variant: {
+                "provider": c.provider,
+                "model": c.model,
+                "run_at": c.run_at,
+                "prompts": list(c.prompts),
+            }
+            for variant, c in caches.items()
+        }
+        or None,
+        "versions": versions(),
         "policies": policies,
         "rows": rows,
     }
@@ -184,8 +232,12 @@ def as_text(report: dict[str, Any]) -> str:
             "LLM only: not run (NIRNAYA_LIVE_LLM=1 python -m nirnaya.evaluation.llm_baseline)",
         ]
     else:
-        m = report["llm_only"]
-        out += ["", f"LLM only: {m['provider']}/{m['model']}, answers cached {m['run_at']}"]
+        out.append("")
+        for variant, m in report["llm_only"].items():
+            out.append(
+                f"LLM only ({variant}): {m['provider']}/{m['model']}, answers cached "
+                f"{m['run_at']}; prompts {', '.join(m['prompts']) or 'not recorded'}"
+            )
     return "\n".join(out)
 
 
@@ -241,11 +293,32 @@ def as_markdown(report: dict[str, Any]) -> str:
             + " | ".join(cells)
             + " |"
         )
+    v = report["versions"]
+    lines += [
+        "",
+        "## Versions",
+        "",
+        f"- Code: git `{v['git']['commit']}`"
+        + (" (uncommitted changes)" if v["git"]["dirty"] else ""),
+        f"- Case set: {v['case_set'].get('version')} ({v['case_set'].get('count')} cases, "
+        f"sha256 `{str(v['case_set'].get('sha256'))[:12]}`)",
+        f"- Policy: `{v['policy']}`; FX: `{v['fx']}`; economics: `{v['economics']}`",
+    ]
+    for variant, m in (report["llm_only"] or {}).items():
+        prompts = ", ".join(f"`{x}`" for x in m["prompts"]) or "not recorded"
+        lines.append(
+            f"- LLM only ({variant}): {m['provider']}/{m['model']}, {m['run_at'][:10]}; {prompts}"
+        )
     return "\n".join(lines) + "\n"
 
 
 def main(out: Callable[[str], None] = print, results: Path = RESULTS) -> int:
-    report = build(cache=Cache.load(results / CACHE.name))
+    caches = {}
+    for variant in VARIANTS:
+        cache = Cache.load(results / cache_path(variant).relative_to(RESULTS))
+        if cache is not None:
+            caches[variant] = cache
+    report = build(caches=caches)
     results.mkdir(parents=True, exist_ok=True)
     (results / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     (results / "report.md").write_text(as_markdown(report), encoding="utf-8")

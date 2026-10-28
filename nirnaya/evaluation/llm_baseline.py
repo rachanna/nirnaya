@@ -1,6 +1,12 @@
 """The LLM-only baseline: one model call per case decides and drafts, with nothing checking it.
 
-    NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline
+    NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline [--variant informed]
+
+Two prompt variants (versioned in nirnaya/assets/prompts):
+- naive: the task, the dispute, every record and the fees.
+- informed: also the merchant's rules, rendered from its policy: when to escalate, the costs,
+  the win priors, FX rates, the stage formulas, whose records may be cited, and a field guide
+  saying which record field establishes which fact. It shows how far prompting alone gets.
 
 It is shown everything an unguarded agent would get: the dispute and all the case's records,
 customer messages included. Records are still passed as untrusted data blocks, never in the
@@ -8,8 +14,8 @@ system prompt. It answers ACCEPT, CHALLENGE or ESCALATE with the claims for a ch
 is no engine, no verifier and no investigation loop. The verifier is used afterwards only to
 score its claims.
 
-The answers are cached in eval/results/llm_only.json so the report is reproducible without
-calling the model again.
+The answers are cached per variant in eval/results/llm_only/<variant>.json, with the model
+and prompt versions, so the report is reproducible without calling the model again.
 """
 
 import json
@@ -22,24 +28,30 @@ from pathlib import Path
 from typing import Any
 
 from nirnaya import assets
-from nirnaya.agent.llm_drafter import VALUE_KINDS, build_claims
-from nirnaya.config.demo import DEMO_POLICY
+from nirnaya.agent.llm_drafter import VALUE_KINDS, build_claims, field_guide
+from nirnaya.config.demo import DEMO_FX, DEMO_POLICY
 from nirnaya.config.env import load_dotenv
 from nirnaya.evaluation.cases import EvalCase, load_cases
 from nirnaya.evaluation.policies import Act, CaseResult, actionable, score_claims
+from nirnaya.evidence.catalogue import record_establishes
 from nirnaya.llm.base import LLMClient
 from nirnaya.llm.factory import llm_settings_from_env, make_llm
 from nirnaya.llm.types import LLMConfigError, LLMError, Message, ToolSpec
 from nirnaya.llm.untrusted import untrusted
-from nirnaya.models.enums import AmountBasis, EvidenceType
+from nirnaya.models.enums import AmountBasis, EvidenceType, RecordAuthor
+from nirnaya.models.money import FxTable
 from nirnaya.models.policy import MerchantPolicy
 
 RESULTS = Path(__file__).resolve().parents[2] / "eval" / "results"
-CACHE = RESULTS / "llm_only.json"
+CACHES = RESULTS / "llm_only"
 DECIDE = "decide"
 
 # Prompt variants: each names its versioned system and user prompts (nirnaya/assets).
-VARIANTS = {"naive": "baseline_naive"}
+VARIANTS = {"naive": "baseline_naive", "informed": "baseline_informed"}
+
+
+def cache_path(variant: str) -> Path:
+    return CACHES / f"{variant}.json"
 
 
 @dataclass(frozen=True)
@@ -139,23 +151,97 @@ def _fees(policy: MerchantPolicy) -> dict[str, str]:
     }
 
 
-def system_prompt(prompts: BaselinePrompts, policy: MerchantPolicy = DEMO_POLICY) -> str:
-    """Static instructions only: no case data, no customer text."""
-    return assets.render(prompts.system)
+def _priors(policy: MerchantPolicy) -> str:
+    lines = []
+    for e in policy.priors:
+        has = f" with {' + '.join(sorted(e.evidence))}" if e.evidence else ", no evidence"
+        lines.append(f"- {e.reason}{has}: p = {e.p}")
+    return "\n".join(lines)
+
+
+def _fx(fx: FxTable) -> str:
+    return "\n".join(f"- 1 {r.base} = {r.rate} {r.quote}" for r in fx.rates)
+
+
+def _policy_values(policy: MerchantPolicy, fx: FxTable) -> dict[str, str]:
+    return {
+        "merchant_id": policy.merchant_id,
+        "currency": policy.currency,
+        "referral_threshold": str(policy.referral_amount_threshold),
+        "marginal_band": str(policy.marginal_band),
+        "F_pre": str(policy.fee_pre_resolution),
+        "F_cb": str(policy.fee_chargeback),
+        "F_pa": str(policy.fee_pre_arbitration),
+        "F_rfi": str(policy.fee_rfi_accept),
+        "h": str(policy.handling_cost),
+        "h_pre": str(policy.handling_cost_pre),
+        "h_rfi": str(policy.handling_cost_rfi),
+        "R": str(policy.counted_chargeback_cost),
+        "m": str(policy.min_gain),
+        "q": str(policy.escalation_probability),
+        "unknown_p": str(policy.unknown_reason_prior),
+        "priors": _priors(policy),
+        "fx": _fx(fx),
+    }
+
+
+def system_prompt(
+    prompts: BaselinePrompts, policy: MerchantPolicy = DEMO_POLICY, fx: FxTable = DEMO_FX
+) -> str:
+    """Static instructions only: no case data, no customer text. The informed variant adds the
+    merchant's configuration, which is not case data."""
+    if prompts.variant == "naive":
+        return assets.render(prompts.system)
+    return assets.render(prompts.system, **_policy_values(policy, fx))
+
+
+def _guide(case: EvalCase) -> str:
+    """The evidence catalogue applied to every record that is not customer-written. Unlike the
+    drafter's guide it is not filtered by merchant or hash: the model must apply that rule."""
+    pairs = [
+        (r, name, fact)
+        for r in case.evidence_records()
+        if r.author is not RecordAuthor.CUSTOMER
+        for name in r.fields
+        for fact in sorted(record_establishes(r, name))
+    ]
+    return field_guide(pairs) or "(no field of these records establishes a catalogued fact)"
 
 
 def case_prompt(
     case: EvalCase, prompts: BaselinePrompts, policy: MerchantPolicy = DEMO_POLICY
 ) -> str:
+    if prompts.variant == "naive":
+        records = [
+            {
+                "id": r.id,
+                "system": str(r.source_system),
+                "author": str(r.author),
+                "fields": r.fields,
+            }
+            for r in case.evidence_records()
+        ]
+        return assets.render(
+            prompts.user,
+            dispute=untrusted(_dispute(case), source="dispute"),
+            records=untrusted(records, source="case-records"),
+            **_fees(policy),
+        )
     records = [
-        {"id": r.id, "system": str(r.source_system), "author": str(r.author), "fields": r.fields}
+        {
+            "id": r.id,
+            "merchant_id": r.merchant_id,
+            "system": str(r.source_system),
+            "author": str(r.author),
+            "fields": r.fields,
+        }
         for r in case.evidence_records()
     ]
     return assets.render(
         prompts.user,
         dispute=untrusted(_dispute(case), source="dispute"),
         records=untrusted(records, source="case-records"),
-        **_fees(policy),
+        field_guide=_guide(case),
     )
 
 
@@ -223,7 +309,7 @@ class Cache:
     prompts: tuple[str, ...] = ()
 
     @classmethod
-    def load(cls, path: Path = CACHE) -> "Cache | None":
+    def load(cls, path: Path) -> "Cache | None":
         if not path.is_file():
             return None
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -267,7 +353,20 @@ def llm_only(case: EvalCase, cache: Cache) -> CaseResult:
     return CaseResult(case.id, act, tuple(claims), unsupported_submitted=unsupported)
 
 
-def main(env: dict[str, str] | None = None, out: Callable[[str], None] = print) -> int:
+def main(
+    env: dict[str, str] | None = None,
+    out: Callable[[str], None] = print,
+    argv: list[str] | None = None,
+) -> int:
+    args = argv or []
+    variant = "naive"
+    if args:
+        if len(args) != 2 or args[0] != "--variant" or args[1] not in VARIANTS:
+            out(
+                f"usage: python -m nirnaya.evaluation.llm_baseline [--variant {'|'.join(VARIANTS)}]"
+            )
+            return 2
+        variant = args[1]
     if env is None:
         load_dotenv()
         env = dict(os.environ)
@@ -279,13 +378,15 @@ def main(env: dict[str, str] | None = None, out: Callable[[str], None] = print) 
     except LLMConfigError as e:
         out(f"Configuration error: {e}")
         return 2
-    out(f"LLM-only baseline with {llm.provider}/{llm.model}")
-    result = run(llm, load_cases(), now=datetime.now(UTC), out=out)
-    RESULTS.mkdir(parents=True, exist_ok=True)
-    CACHE.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
-    out(f"Saved {len(result['cases'])} answers to {CACHE}")
+    prompts = load_prompts(variant, env)
+    out(f"LLM-only baseline ({variant}) with {llm.provider}/{llm.model}: {', '.join(prompts.refs)}")
+    result = run(llm, load_cases(), now=datetime.now(UTC), out=out, prompts=prompts)
+    path = cache_path(variant)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+    out(f"Saved {len(result['cases'])} answers to {path}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(argv=sys.argv[1:]))

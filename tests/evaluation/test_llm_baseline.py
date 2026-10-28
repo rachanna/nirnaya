@@ -120,3 +120,64 @@ def test_a_missing_value_field_is_filled_from_the_models_own_extracted_value():
     result = llm_only(CASES["K2C"], cache)
     assert len(result.submitted) == 1  # built, not dropped
     assert result.unsupported_submitted == 1  # and the verifier still rejects it
+
+
+# --- the informed variant: the same model, told the merchant's rules --------------------------
+
+
+def informed():
+    from nirnaya.evaluation.llm_baseline import load_prompts
+
+    return load_prompts("informed", {})
+
+
+def test_the_informed_system_prompt_states_the_policy_and_no_case_data():
+    from nirnaya.evaluation.llm_baseline import system_prompt
+
+    text = system_prompt(informed())
+    for expected in (
+        "merchant-demo",  # whose records may be cited
+        "above 2000 USD",  # referral threshold
+        "5 USD",  # marginal band
+        "FRAUD with PRIOR_UNDISPUTED_ORDERS_MATCH: p = 0.60",  # a prior, shown as a prior
+        "1 EUR = 1.10 USD",  # FX
+        "got no reply",  # the unanswered-contact rule
+    ):
+        assert expected in text
+    assert all(case_id not in text for case_id in ("K1", "N1", "A1"))
+    assert "$" not in text  # every placeholder filled
+
+
+def test_the_informed_case_prompt_shows_merchants_and_a_field_guide_outside_the_data():
+    from nirnaya.evaluation.llm_baseline import case_prompt
+
+    text = case_prompt(CASES["A2"], informed())  # A2: another merchant's carrier record
+    data, guide = text.split("Which record fields establish which facts", 1)
+    assert '"merchant_id": "merchant-other"' in data and "<untrusted" in data
+    assert "<untrusted" not in guide  # the guide is code output, not case data
+    assert "establishes DELIVERY_CONFIRMED" in guide
+
+
+def test_informed_customer_text_stays_inside_untrusted_blocks():
+    from nirnaya.evaluation.llm_baseline import case_prompt, system_prompt
+
+    p = informed()
+    text = case_prompt(CASES["A1"], p)
+    at = text.lower().index("ignore previous instructions")
+    assert text.rfind("<untrusted", 0, at) > text.rfind("</untrusted", 0, at)
+    assert "ignore previous" not in system_prompt(p).lower()
+
+
+def test_each_variant_has_its_own_cache_and_records_its_prompts():
+    from nirnaya.evaluation.llm_baseline import cache_path, load_prompts
+
+    assert cache_path("naive").name == "naive.json"
+    assert cache_path("informed").name == "informed.json"
+    llm = ScriptedLLM([decision("ACCEPT")])
+    result = run(llm, [CASES["K2"]], now=NOW, out=lambda _: None, prompts=informed())
+    assert result["variant"] == "informed"
+    assert result["prompts"][0].startswith("baseline_informed_system@v1#")
+    import pytest
+
+    with pytest.raises(ValueError, match="unknown variant"):
+        load_prompts("clever", {})

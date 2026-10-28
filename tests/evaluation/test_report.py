@@ -40,12 +40,28 @@ def test_without_the_cache_llm_only_is_not_run(report):
     assert "LLM only: not run" in as_text(report)
 
 
-def test_with_the_cache_llm_only_is_included():
-    cache = Cache("fake", "fake-model", datetime(2026, 10, 27, tzinfo=UTC).isoformat(),
-                  {"N1": {"action": "CHALLENGE", "claims": []}})  # fmt: skip
-    report = build([c for c in CASES if c.id in {"N1", "K2"}], cache=cache)
-    assert report["policies"]["llm_only"]["integrity"]["challenges_without_evidence"] == 1
-    assert report["llm_only"]["model"] == "fake-model"
+def test_each_cached_llm_only_variant_is_its_own_column():
+    at = datetime(2026, 10, 27, tzinfo=UTC).isoformat()
+    naive = Cache("fake", "fake-model", at, {"N1": {"action": "CHALLENGE", "claims": []}})
+    informed = Cache("fake", "fake-model", at, {"N1": {"action": "ACCEPT"}}, "informed",
+                     ("baseline_informed_system@v1#abc",))  # fmt: skip
+    report = build([c for c in CASES if c.id in {"N1", "K2"}],
+                   caches={"naive": naive, "informed": informed})  # fmt: skip
+    pol = report["policies"]
+    assert pol["llm_only_naive"]["integrity"]["challenges_without_evidence"] == 1
+    assert pol["llm_only_informed"]["name"] == "LLM only (informed)"
+    assert report["llm_only"]["informed"]["prompts"] == ["baseline_informed_system@v1#abc"]
+    n1 = next(r for r in report["rows"] if r["id"] == "N1")
+    assert n1["llm_only_informed"]["action"] == "ACCEPT"
+
+
+def test_the_report_states_the_versions_it_was_built_from(report):
+    v = report["versions"]
+    assert v["case_set"]["version"] == "v1" and v["case_set"]["count"] == 42
+    assert v["policy"].startswith("merchant-demo@demo-2026-10#")
+    assert v["fx"].startswith("fx@") and v["economics"].startswith("economics@v1#")
+    assert set(v["git"]) == {"commit", "dirty"}
+    assert "## Versions" in as_markdown(report)
 
 
 def test_the_report_states_its_caveat_and_every_case(report):
