@@ -324,6 +324,39 @@ def stalled_writes(session: DemoSession) -> list[StalledWrite]:
 
 
 @dataclass(frozen=True)
+class UnreadableDispute:
+    dispute_id: str
+    why: str
+    due_at: str | None
+    seen_at: str
+
+
+def unreadable_disputes(session: DemoSession) -> list[UnreadableDispute]:
+    """Disputes Nirnaya could not read or refused at ingestion. They have no case, so a person
+    must handle them in Airwallex before their deadline."""
+    events = session.store.merchant_events(M, {"INGEST_UNMAPPABLE", "INGEST_REJECTED"})
+    latest: dict[str, UnreadableDispute] = {}
+    for e in events:
+        b = e["body"]
+        dispute_id = str(b.get("dispute_id"))
+        latest[dispute_id] = UnreadableDispute(
+            dispute_id=dispute_id,
+            why=str(b.get("why")),
+            due_at=b.get("due_at"),
+            seen_at=e["at"],
+        )
+    return sorted(latest.values(), key=lambda d: (d.due_at or "", d.dispute_id))
+
+
+def airwallex_unreachable(session: DemoSession) -> dict[str, Any] | None:
+    """The current ingestion outage, if any: when it started and why."""
+    events = session.store.merchant_events(M, {"INGEST_FAILED", "INGEST_RECOVERED"})
+    if not events or events[-1]["event"] != "INGEST_FAILED":
+        return None
+    return {"since": events[-1]["at"], **events[-1]["body"]}
+
+
+@dataclass(frozen=True)
 class FabricationCheck:
     title: str
     outcome: str

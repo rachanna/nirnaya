@@ -296,6 +296,7 @@ stateDiagram-v2
 ### 4.2 Execution model
 
 - **One step per case per tick.** The scheduler loads runnable cases, earliest `due_at` first, and runs one handler for each. Each handler is a pure function `(case, store snapshot, now) → (new state, effects)`, applied in **one SQLite transaction** together with an audit event.
+- **Ingestion never stops the tick.** Each merchant's listing runs on its own: a failure (Airwallex unreachable, bad credentials, an unreadable listing) is audited once as `INGEST_FAILED` and once as `INGEST_RECOVERED`, and the watchdog and every other merchant's cases still run on stored deadlines. The console shows the outage.
 - **Idempotent and resumable.** Re-running a handler after a crash produces the same effects. Writes are protected by the `request_id` ledger (§7.3), so `SUBMITTING` can be retried safely.
 - **Leases.** `cases.lease_until` stops two workers advancing the same case. The demo runs one worker, but the column keeps the invariant explicit.
 - **Per-case isolation.** A step that raises is rolled back with its transaction, audited as `STEP_FAILED` (state and error type), and skipped; the tick carries on with the other cases. After 3 failures in the same state the case is referred (urgent, `STEP_FAILED`), except in `SUBMITTING`: a write in flight is never interrupted and keeps reconciling through the gateway. It is never silent either: after `Settings.max_submitting_failures` (3, ASSUMPTION) failures, or once past the deadline buffer, the case is marked urgent and `SUBMISSION_STALLED` is audited (once per cause and cycle), with no transition, cancel or resend; the console's review tab lists it as a stalled write to check in Airwallex. (The ordinary paths are already bounded: a failed re-fetch refers the case through the gateway's `REFETCH_FAILED`, and repeated timeouts end at the gateway's deadline-buffer refusal. The alert covers a handler that raises every tick.) `Settings.isolate_step_failures` turns this off for debugging.
@@ -502,7 +503,9 @@ Each approval is **bound to what the approver saw** ([kit 4 guide](https://airwa
 - `attempt` is 1 plus the number of `FAILED` ledger rows for the same cycle and action. A timeout (`PENDING`/`UNKNOWN`) does not count, so its retry reuses the id; a new attempt after a rejected write (for example, after a human approval) is a new operation and gets a new id.
 - Both accept and challenge require `request_id` ([API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve), [Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md)).
 - Never retry a write that timed out without first re-fetching the dispute to see whether it landed (§12).
-- The `writes` table has a **unique** constraint on `request_id`. The row is inserted as `PENDING` *before* the HTTP call and updated to `SENT`, `CONFIRMED` or `FAILED` after it. On restart, `PENDING`/`SENT` rows are reconciled by re-fetching the dispute rather than re-sending.
+- The `writes` table has a **unique** constraint on `request_id`. The row is inserted as `PENDING` *before* the HTTP call and updated to `CONFIRMED`, `FAILED` or `UNKNOWN` (outcome not known) after it. A `PENDING` or `UNKNOWN` row is reconciled by re-fetching the dispute; if the write has not landed it is re-sent under the **same id with the same payload** (whether Airwallex returns the first result for a reused id is `TODO(verify-airwallex-docs)`).
+- **An id is never reused for a different payload.** If a ledger row exists for the `request_id` and the request about to be sent differs (for example a re-draft while the first write's outcome is unknown), the gateway refuses with `REQUEST_CONFLICT` and a person decides.
+- **A write in flight is never interrupted by a failed read.** While the cycle has a `PENDING` or `UNKNOWN` write, a `REFETCH_FAILED` refusal leaves the case in `SUBMITTING` to reconcile on the next tick (a long stall is flagged, §4.2). Any other refusal refers it with the in-flight request id and the note that the write may have landed.
 
 ### 7.4 Dry run
 
@@ -672,6 +675,7 @@ The simulation client is constructible only when the base URL is the sandbox hos
 ### 9.4 Ingestion: polling first, webhooks second
 
 - **Reconciliation poll (primary).** Each tick lists disputes `updated_at` after the stored cursor, per merchant. This catches everything, including missed webhooks.
+- **Unreadable disputes are surfaced.** A dispute the mapping cannot read (an undocumented enum, or any value the domain models refuse: precision, currency, naive or unordered timestamps, a negative amount) becomes an unreadable record, never a crash and never a guess. It has no case, so ingestion audits `INGEST_UNMAPPABLE` once per dispute and reason (with the raw `due_at`), and the console lists it for a person to handle in Airwallex, alongside disputes refused for tenancy (`INGEST_REJECTED`).
 - **Webhooks (optional; not built).** The events are `payment_dispute.requires_response`, `.challenged`, `.accepted`, `.won`, `.lost`, `.reversed`, `.expired`, `.pending_closure` and `.pending_decision` ([Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis)). A webhook only marks a dispute for immediate reconciliation; its payload is never used to decide or write.
 - `TODO(verify-airwallex-docs)`: webhook signature verification before any webhook endpoint is exposed.
 
@@ -901,10 +905,10 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 
 | Failure | Behaviour |
 |---|---|
-| Airwallex unreachable during polling | Retry with backoff; the watchdog still runs on stored `due_at` |
-| Airwallex unreachable at re-fetch | `REFETCH_FAILED` → `REFERRED` |
+| Airwallex unreachable during polling | Retry with backoff; that merchant's ingestion fails alone (`INGEST_FAILED`, shown in the console) and the watchdog and other merchants still run on stored `due_at` |
+| Airwallex unreachable at re-fetch | `REFETCH_FAILED` → `REFERRED`; with a write in flight, wait in `SUBMITTING` and reconcile (§7.3) |
 | Webhook missed | The reconciliation poll picks it up |
-| Unknown stage or status value | That dispute fails ingestion, an alert goes to the UI, and no decision is made |
+| Unknown stage or status value, or any value the models refuse | That dispute is unreadable: `INGEST_UNMAPPABLE` audited once and listed in the console; no decision is made; the rest of the listing continues |
 | Unknown `reason.type` | `ReasonCategory.UNKNOWN`: never auto-challenged |
 | Missing FX rate | Engine `MISSING_FX_RATE` referral; verifier `AMOUNT_MISMATCH` |
 | Mock or merchant system error | That tool target is stopped; decide on the evidence so far |
@@ -998,7 +1002,7 @@ The kit demo tells each case as the guide's arc. The **initial plan** is the eng
 | Tab | Shows | Actions |
 |---|---|---|
 | Kit 4 demo | Kit cases 1, 1b, 2, 2-C and 3, each as goal → initial plan → new information → revised decision → status, with Airwallex's AI recommendation beside the decision (offline: labelled SIMULATED) and any `customer_info` sent | Run the kit · simulate the issuer's rejection |
-| Review queue | Referrals by urgency: reason, failed claims, counterevidence, time left | Approve accept · approve challenge (still verified) · handle manually |
+| Review queue | An Airwallex outage banner; disputes Nirnaya could not read (no case: handle in Airwallex); stalled writes; then referrals by urgency: reason, failed claims, counterevidence, time left | Approve accept · approve challenge (still verified) · handle manually |
 | Case detail | Timeline; the decision maths and priors (shown as priors, not predictions); VoI; evidence records with hashes; claims and verification results; **counterevidence** | none |
 | Evaluation | Nirnaya against the baselines on the five metrics, with the expected-loss chart and per-case table | none (the report is generated offline) |
 
@@ -1081,7 +1085,7 @@ What a model is told, and the configuration decisions depend on, live in files r
 
 Review and change notes, **newest first** (dates are commit dates, so test counts rise as you read upward):
 
-**Independent review, 2026-10-29** (in progress): before any challenge is drafted, code fetches every record that could contradict it, so neither the model nor an unqueried system can hide counterevidence; the gateway checks it again (§8.2, §7.2 7c).
+**Independent review, 2026-10-29** (in progress): before any challenge is drafted, code fetches every record that could contradict it, so neither the model nor an unqueried system can hide counterevidence; the gateway checks it again (§8.2, §7.2 7c). Ingestion failures no longer stop the watchdog or other merchants; every unreadable dispute is surfaced; a write in flight waits through a failed re-fetch, and a request id is never sent with a different payload (§4.2, §7.3, §9.4).
 
 **External architecture review, 2026-10-28** ✅: a deferral is checked at the deadline buffer and referred if Airwallex has not acted (`DEFERRAL_UNCONFIRMED`, §4.3); a stalled write in `SUBMITTING` is flagged and made urgent, never interrupted (§4.2); the 42/42 agreement is qualified as self-consistency (§14); endpoints are checked against their citations (I7).
 

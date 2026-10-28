@@ -135,6 +135,25 @@ class Store:
             self.conn, merchant_id=merchant_id, case_id=case_id, event=event, body=body, at=at
         )
 
+    def merchant_events(self, merchant_id: str, events: set[str]) -> list[dict[str, Any]]:
+        """This merchant's audit events of the given kinds that belong to no case (ingestion
+        outcomes), oldest first."""
+        marks = ",".join("?" * len(events))
+        rows = self.conn.execute(
+            "SELECT seq, event, body_json, at FROM audit_events WHERE merchant_id = ?"
+            f" AND case_id IS NULL AND event IN ({marks}) ORDER BY seq",
+            (merchant_id, *sorted(events)),
+        )
+        return [
+            {
+                "seq": r["seq"],
+                "event": r["event"],
+                "body": json.loads(r["body_json"]),
+                "at": r["at"],
+            }
+            for r in rows
+        ]
+
     def audit_events(self, merchant_id: str, case_id: str) -> list[dict[str, Any]]:
         rows = self.conn.execute(
             "SELECT seq, event, body_json, at FROM audit_events"

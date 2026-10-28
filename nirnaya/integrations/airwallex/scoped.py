@@ -27,6 +27,12 @@ class ScopedAirwallex:
     def list_disputes(self, merchant_id: str) -> list[Dispute]:
         return [d for d in self._inner.list_disputes(merchant_id) if d.id in self.allowed]
 
+    def refused(self, merchant_id: str) -> dict[str, dict[str, str | None]]:
+        refused = getattr(self._inner, "refused", None)
+        if refused is None:
+            return {}
+        return {d: v for d, v in refused(merchant_id).items() if d in self.allowed}
+
     def retrieve_dispute(self, merchant_id: str, dispute_id: str) -> Dispute:
         self._check(dispute_id)
         return self._inner.retrieve_dispute(merchant_id, dispute_id)

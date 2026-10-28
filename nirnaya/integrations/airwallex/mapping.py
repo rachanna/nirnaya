@@ -106,7 +106,27 @@ def ai_recommendation_from_wire(data: Any) -> AiRecommendation | None:  # noqa: 
     )
 
 
+def _unreadable(what: str, call: Any) -> Any:  # noqa: ANN401
+    """Any value the domain models refuse (precision, currency, naive or unordered timestamps,
+    negative amounts) makes the record unreadable: surfaced, never guessed, never a crash."""
+    try:
+        return call()
+    except UnmappableRecord:
+        raise
+    except (ValueError, ArithmeticError) as e:  # includes pydantic's ValidationError
+        raise UnmappableRecord(f"{what}: {str(e).splitlines()[0][:200]}") from e
+
+
 def dispute_from_wire(
+    data: dict[str, Any], *, merchant_id: str, refunds: list[dict[str, Any]] | None = None
+) -> Dispute:
+    return _unreadable(
+        f"dispute {data.get('id')!r}",
+        lambda: _dispute_from_wire(data, merchant_id=merchant_id, refunds=refunds),
+    )
+
+
+def _dispute_from_wire(
     data: dict[str, Any], *, merchant_id: str, refunds: list[dict[str, Any]] | None = None
 ) -> Dispute:
     what = f"dispute {data.get('id')!r}"
@@ -160,6 +180,13 @@ def _three_ds(auth: dict[str, Any]) -> ThreeDSResult:
 
 
 def attempt_from_wire(data: dict[str, Any], *, merchant_id: str) -> PaymentAttempt:
+    return _unreadable(
+        f"payment attempt {data.get('id')!r}",
+        lambda: _attempt_from_wire(data, merchant_id=merchant_id),
+    )
+
+
+def _attempt_from_wire(data: dict[str, Any], *, merchant_id: str) -> PaymentAttempt:
     what = f"payment attempt {data.get('id')!r}"
     auth = (
         data.get("authentication_data") if isinstance(data.get("authentication_data"), dict) else {}

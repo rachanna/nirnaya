@@ -7,6 +7,7 @@ exact request without sending it. A timed-out write is reconciled by re-fetching
 blind resend.
 """
 
+import json
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -54,6 +55,8 @@ class GuardFailure(StrEnum):
     OUTCOME_UNKNOWN = "OUTCOME_UNKNOWN"
     # A record that could contradict the challenge was never looked at (architecture 6).
     COUNTEREVIDENCE_INCOMPLETE = "COUNTEREVIDENCE_INCOMPLETE"
+    # A write already exists under this request_id with a different payload (architecture 7.3).
+    REQUEST_CONFLICT = "REQUEST_CONFLICT"
 
 
 class Ledger(StrEnum):
@@ -322,7 +325,20 @@ class WriteGateway:
             request["product_type"] = ctx["product_type"]
             info = ctx["customer_info"]
             request["customer_info"] = None if info is None else info.model_dump(mode="json")
-        if store.write(merchant_id, rid) is None:
+        earlier = store.write(merchant_id, rid)
+        if earlier is not None and earlier.request != json.loads(json.dumps(request, default=str)):
+            # Retrying the same operation reuses its id; a different payload under that id
+            # (e.g. a re-draft while the first write's outcome is unknown) is never sent.
+            return WriteResult(
+                ok=False,
+                action=action,
+                request_id=rid,
+                ledger=Ledger(earlier.status),
+                failure=GuardFailure.REQUEST_CONFLICT,
+                detail=f"request {rid} was already used for a different payload "
+                f"(ledger {earlier.status}); check Airwallex before acting",
+            )
+        if earlier is None:
             with store.transaction():
                 store.insert_write(
                     merchant_id,

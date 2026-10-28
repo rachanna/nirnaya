@@ -41,6 +41,7 @@ class AirwallexClient:
         self.merchant_id = merchant_id
         # Disputes the mapping refused, with why: surfaced, never silently dropped.
         self.unmappable: dict[str, str] = {}
+        self._unmappable_due: dict[str, str | None] = {}
 
     def _own(self, merchant_id: str) -> None:
         if merchant_id != self.merchant_id:
@@ -122,9 +123,21 @@ class AirwallexClient:
                 dispute = dispute_from_wire(item, merchant_id=self.merchant_id, refunds=refunds)
         except UnmappableRecord as e:
             self.unmappable[dispute_id] = str(e)
+            due = item.get("due_at")
+            self._unmappable_due[dispute_id] = due if isinstance(due, str) else None
             return None
         self.unmappable.pop(dispute_id, None)
+        self._unmappable_due.pop(dispute_id, None)
         return dispute
+
+    def refused(self, merchant_id: str) -> dict[str, dict[str, str | None]]:
+        """Disputes this merchant has that the mapping could not read, with why and the raw
+        due_at, so ingestion can put them in front of a person."""
+        self._own(merchant_id)
+        return {
+            d: {"why": why, "due_at": self._unmappable_due.get(d)}
+            for d, why in sorted(self.unmappable.items())
+        }
 
     # --- DisputeActions -----------------------------------------------------------------------
 

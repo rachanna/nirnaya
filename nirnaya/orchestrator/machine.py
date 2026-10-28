@@ -73,6 +73,7 @@ class Orchestrator:
     ) -> None:
         self.store = store
         self.observer = observer
+        self._ingest_failing: set[str] = set()
         self.source = source
         self.systems = systems
         self.investigator = investigator
@@ -99,7 +100,7 @@ class Orchestrator:
         """Ingest, run the watchdog, then advance each runnable case one step."""
         changed = 0
         for merchant_id in self.store.merchant_ids():
-            changed += len(ingest(self.store, self.source, merchant_id, now))
+            changed += self._ingest(merchant_id, now)
         changed += self.watchdog(now)
         for merchant_id in self.store.merchant_ids():
             for case in self.store.cases(merchant_id, {s.value for s in RUNNABLE}):
@@ -111,6 +112,32 @@ class Orchestrator:
                 except Exception as e:  # one case never stalls the others
                     self._step_failed(case, now, e)
         return changed
+
+    def _ingest(self, merchant_id: str, now: datetime) -> int:
+        """Read one merchant's disputes. A failure (Airwallex unreachable, bad credentials, a
+        listing that cannot be read) is audited once when it starts and once when it ends, and
+        never stops the watchdog or another merchant's cases."""
+        try:
+            touched = len(ingest(self.store, self.source, merchant_id, now))
+        except Exception as e:
+            if not self.settings.isolate_step_failures:
+                raise
+            if merchant_id not in self._ingest_failing:
+                self._ingest_failing.add(merchant_id)
+                with self.store.transaction():
+                    self.store.audit(
+                        merchant_id,
+                        None,
+                        "INGEST_FAILED",
+                        {"error": type(e).__name__, "detail": str(e)[:300]},
+                        now,
+                    )
+            return 0
+        if merchant_id in self._ingest_failing:
+            self._ingest_failing.discard(merchant_id)
+            with self.store.transaction():
+                self.store.audit(merchant_id, None, "INGEST_RECOVERED", {}, now)
+        return touched
 
     def _step_failed(self, case: CaseRow, now: datetime, error: Exception) -> None:
         """Audit a failed step; after repeated failures, a person takes over (fail closed)."""
@@ -704,11 +731,23 @@ class Orchestrator:
             )
         if result.failure is GuardFailure.OUTCOME_UNKNOWN:
             return None  # re-fetch and reconcile on the next tick; never a blind resend
-        return _Step(
-            S.REFERRED,
-            {"failure": result.failure, "detail": result.detail},
-            referral=[f"GUARD_{result.failure}"],
-        )
+        in_flight = [
+            w
+            for w in self.store.writes(case.merchant_id, case.case_id)
+            if w.cycle == case.cycle and w.status in {"PENDING", "UNKNOWN"}
+        ]
+        if in_flight and result.failure is GuardFailure.REFETCH_FAILED:
+            # A write may have landed: wait and reconcile, never leave SUBMITTING over one
+            # failed read. A long stall is flagged by SUBMISSION_STALLED (section 4.2).
+            return None
+        body: dict[str, Any] = {"failure": result.failure, "detail": result.detail}
+        if in_flight:
+            body["in_flight"] = {
+                "request_id": in_flight[-1].request_id,
+                "ledger": in_flight[-1].status,
+                "note": "a write may have landed: check Airwallex before acting",
+            }
+        return _Step(S.REFERRED, body, referral=[f"GUARD_{result.failure}"])
 
 
 def _verification_detail(draft: str, result: VerificationResult) -> dict[str, Any]:

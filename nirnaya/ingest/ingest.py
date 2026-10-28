@@ -40,7 +40,31 @@ def ingest(store: Store, source: DisputeSource, merchant_id: str, now: datetime)
         with store.transaction():
             _record(store, merchant_id, merchant.active_policy_version, dispute, now)
         touched.append(dispute.id)
+    _surface_refused(store, source, merchant_id, now)
     return touched
+
+
+def _surface_refused(store: Store, source: DisputeSource, merchant_id: str, now: datetime) -> None:
+    """Disputes the source could not read never become cases, so their deadlines would pass
+    unseen. Each is audited once per reason (with its raw due_at), for a person to handle."""
+    refused = getattr(source, "refused", None)
+    if refused is None:
+        return
+    seen = {
+        (e["body"].get("dispute_id"), e["body"].get("why"))
+        for e in store.merchant_events(merchant_id, {"INGEST_UNMAPPABLE"})
+    }
+    for dispute_id, info in refused(merchant_id).items():
+        if (dispute_id, info.get("why")) in seen:
+            continue
+        with store.transaction():
+            store.audit(
+                merchant_id,
+                None,
+                "INGEST_UNMAPPABLE",
+                {"dispute_id": dispute_id, "why": info.get("why"), "due_at": info.get("due_at")},
+                now,
+            )
 
 
 # A write in flight is reconciled by the write gateway first; ingestion never closes it.

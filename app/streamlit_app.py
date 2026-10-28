@@ -11,6 +11,7 @@ import streamlit as st
 from nirnaya.config.env import load_dotenv
 from nirnaya.console.session import KIT, DemoSession
 from nirnaya.console.views import (
+    airwallex_unreachable,
     blocked,
     case_detail,
     evaluation,
@@ -18,6 +19,7 @@ from nirnaya.console.views import (
     kit_card,
     queue,
     stalled_writes,
+    unreadable_disputes,
 )
 from nirnaya.models import Action
 
@@ -167,6 +169,16 @@ with demo:
 # --- review queue -------------------------------------------------------------------------------
 
 with review:
+    if outage := airwallex_unreachable(s):
+        st.error(
+            f"Airwallex unreachable since {outage['since']} ({outage['error']}). The deadline "
+            "watchdog still runs on stored deadlines."
+        )
+    for unreadable in unreadable_disputes(s):
+        st.warning(
+            f"Dispute {unreadable.dispute_id} could not be read and has no case: "
+            f"{unreadable.why}. Due {unreadable.due_at or 'unknown'}; handle it in Airwallex."
+        )
     for stalled in stalled_writes(s):
         st.error(
             f"Write stalled: {stalled.case_id} ({', '.join(stalled.causes)}). The write may have "
