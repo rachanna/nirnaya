@@ -19,6 +19,7 @@ from nirnaya.evidence.derive import (
 )
 from nirnaya.guardrails.binding import binding_still_holds
 from nirnaya.guardrails.challenge_reason import challenge_reason
+from nirnaya.guardrails.customer_info import customer_info
 from nirnaya.guardrails.request_ids import request_id
 from nirnaya.models.base import DomainModel
 from nirnaya.models.decision import Decision
@@ -251,6 +252,12 @@ class WriteGateway:
                 fresh.reason_category, ctx["verification"].established
             )
             ctx["product_type"] = policy.product_type if fresh.stage is Stage.CHARGEBACK else None
+            # The customer's device and IP, only from an order record the verified claims cite.
+            ctx["customer_info"] = customer_info(
+                fresh.stage,
+                records,
+                cited={c.claim.source_record_id for c in ctx["verification"].claims},
+            )
         return ctx
 
     def _decide(self, dispute: Dispute, policy: Any, records: Any, ownership: bool) -> Decision:
@@ -303,6 +310,8 @@ class WriteGateway:
             request["evidence_sha256"] = ctx["render"]["sha256"]
             request["challenge_reason"] = ctx["challenge_reason"]
             request["product_type"] = ctx["product_type"]
+            info = ctx["customer_info"]
+            request["customer_info"] = None if info is None else info.model_dump(mode="json")
         if store.write(merchant_id, rid) is None:
             with store.transaction():
                 store.insert_write(
@@ -339,6 +348,7 @@ class WriteGateway:
                         claim_ids=ctx["claim_ids"],
                         reason=ctx["challenge_reason"],
                         product_type=ctx["product_type"],
+                        customer_info=ctx["customer_info"],
                     ),
                 )
         except WriteOutcomeUnknown as e:

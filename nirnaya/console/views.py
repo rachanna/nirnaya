@@ -24,7 +24,7 @@ from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import Action, DisputeStatus, SourceSystem, Stage, ValidationStatus
 from nirnaya.store import Store
-from nirnaya.trace import case_trace
+from nirnaya.trace import case_trace, customer_info_text
 from nirnaya.verifier import verify
 
 REPORT = Path(__file__).resolve().parents[2] / "eval" / "results" / "report.json"
@@ -163,7 +163,13 @@ def kit_card(session: DemoSession, label: str) -> KitCard | None:
                 ),
                 revised=None if latest is None else DecisionView.of(latest[1]),
                 writes=tuple(
-                    f"{w.action} {w.status}" + (" (dry run, not sent)" if w.dry_run else "")
+                    f"{w.action} {w.status}"
+                    + (" (dry run, not sent)" if w.dry_run else "")
+                    + (
+                        f"; customer_info: {customer_info_text(w.request['customer_info'])}"
+                        if w.request.get("customer_info")
+                        else ""
+                    )
                     for w in writes
                     if w.cycle == cycle
                 ),

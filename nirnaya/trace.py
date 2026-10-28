@@ -25,4 +25,14 @@ def case_trace(store: Store, merchant_id: str, case_id: str) -> list[str]:
     for w in store.writes(merchant_id, case_id):
         mode = " (dry run: not sent)" if w.dry_run else ""
         lines.append(f"   write: {w.action} cycle {w.cycle} {w.status}{mode}")
+        if info := w.request.get("customer_info"):
+            lines.append(f"          customer_info: {customer_info_text(info)}")
     return lines
+
+
+def customer_info_text(info: dict) -> str:
+    """The device and IP a challenge carried, and the record they came from."""
+    sent = ", ".join(
+        f"{k.replace('_id', '')} {info[k]}" for k in ("device_id", "ip") if info.get(k)
+    )
+    return f"{sent} (from {info['source_record_id']})"

@@ -160,6 +160,8 @@ class AirwallexClient:
         }
         if request.product_type is not None:
             payload["product_type"] = request.product_type.value
+        if request.customer_info is not None and request.customer_info.wire():
+            payload["customer_info"] = request.customer_info.wire()
         body = self._http.post(
             self._path("/api/v1/pa/payment_disputes/{}/challenge", dispute_id), payload, write=True
         )

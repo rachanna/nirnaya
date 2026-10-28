@@ -36,6 +36,8 @@ class FakeAirwallex:
     _failures: dict[str, FailureKind] = field(default_factory=dict)
     _files: dict[str, tuple[str, str, bytes]] = field(default_factory=dict)
     calls: list[tuple[str, str]] = field(default_factory=list)
+    # Every challenge request received, as (dispute id, request), for tests and the demo.
+    challenges: list[tuple[str, ChallengeRequest]] = field(default_factory=list)
 
     # --- seeding and simulation -----------------------------------------------------------
 
@@ -163,6 +165,7 @@ class FakeAirwallex:
 
     def challenge(self, merchant_id: str, dispute_id: str, request: ChallengeRequest) -> Dispute:
         self.calls.append(("challenge", dispute_id))
+        self.challenges.append((dispute_id, request))
         signature = f"challenge:{dispute_id}"
         if (prior := self._idempotent(request.request_id, signature)) is not None:
             return prior

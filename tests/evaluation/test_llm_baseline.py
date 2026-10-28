@@ -201,3 +201,13 @@ def test_informed_v1_still_renders_unchanged():
     p = load_prompts("informed", {"NIRNAYA_PROMPTS": "baseline_informed_system:v1"})
     text = system_prompt(p)
     assert "CANCELLED_PRODUCT" not in text and "within 5 USD of zero" in text
+
+
+def test_a_repeat_run_gets_its_own_cache_file():
+    from nirnaya.evaluation.llm_baseline import cache_path
+
+    p = informed()
+    assert cache_path(p, run=1).name == f"informed-{p.system.version}.json"
+    assert cache_path(p, run=2).name == f"informed-{p.system.version}.run2.json"
+    lines = []
+    assert main(env={}, out=lines.append, argv=["--variant", "informed", "--run", "0"]) == 2

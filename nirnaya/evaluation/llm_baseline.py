@@ -52,9 +52,11 @@ DECIDE = "decide"
 VARIANTS = {"naive": "baseline_naive", "informed": "baseline_informed"}
 
 
-def cache_path(prompts: "BaselinePrompts") -> Path:
-    """One cache per variant and system-prompt version, so versions sit side by side."""
-    return CACHES / f"{prompts.label}.json"
+def cache_path(prompts: "BaselinePrompts", run: int = 1) -> Path:
+    """One cache per variant and system-prompt version, so versions sit side by side; a repeat
+    run of the same prompts (to see whether the model answers the same way) is .runN."""
+    suffix = "" if run == 1 else f".run{run}"
+    return CACHES / f"{prompts.label}{suffix}.json"
 
 
 @dataclass(frozen=True)
@@ -379,15 +381,23 @@ def main(
     out: Callable[[str], None] = print,
     argv: list[str] | None = None,
 ) -> int:
-    args = argv or []
-    variant = "naive"
-    if args:
-        if len(args) != 2 or args[0] != "--variant" or args[1] not in VARIANTS:
-            out(
-                f"usage: python -m nirnaya.evaluation.llm_baseline [--variant {'|'.join(VARIANTS)}]"
-            )
-            return 2
-        variant = args[1]
+    args = list(argv or [])
+    usage = (
+        "usage: python -m nirnaya.evaluation.llm_baseline "
+        f"[--variant {'|'.join(VARIANTS)}] [--run N]"
+    )
+    options = dict(zip(args[::2], args[1::2], strict=False))
+    run_no = options.get("--run", "1")
+    if (
+        len(args) % 2
+        or set(options) - {"--variant", "--run"}
+        or options.get("--variant", "naive") not in VARIANTS
+        or not run_no.isdigit()
+        or int(run_no) < 1
+    ):
+        out(usage)
+        return 2
+    variant, run_no = options.get("--variant", "naive"), int(run_no)
     if env is None:
         load_dotenv()
         env = dict(os.environ)
@@ -402,7 +412,7 @@ def main(
     prompts = load_prompts(variant, env)
     out(f"LLM-only baseline ({variant}) with {llm.provider}/{llm.model}: {', '.join(prompts.refs)}")
     result = run(llm, load_cases(), now=datetime.now(UTC), out=out, prompts=prompts)
-    path = cache_path(prompts)
+    path = cache_path(prompts, run_no)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
     out(f"Saved {len(result['cases'])} answers to {path}")

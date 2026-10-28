@@ -98,6 +98,7 @@ def build(
     cases: list[EvalCase] | None = None,
     *,
     caches: dict[str, Cache] | None = None,
+    repeats: dict[str, list[Cache]] | None = None,
     policy: MerchantPolicy = DEMO_POLICY,
 ) -> dict[str, Any]:
     cases = cases if cases is not None else load_cases()
@@ -180,6 +181,7 @@ def build(
         }
         or None,
         "versions": versions(),
+        "variance": variance(cases, repeats or {}, policy),
         "policies": policies,
         "rows": rows,
     }
@@ -292,6 +294,26 @@ def as_markdown(report: dict[str, Any]) -> str:
             + " | ".join(cells)
             + " |"
         )
+    for label, var in (report.get("variance") or {}).items():
+        lines += [
+            "",
+            f"## Repeat runs: LLM only ({label.replace('-', ' ')}), same model and prompts",
+            "",
+            "| Run | Expected net loss (USD) | Agrees with expert | Unsupported claims "
+            "| Policy violations |",
+            "|---|---|---|---|---|",
+        ]
+        lines += [
+            f"| {r['run']} | {r['expected_loss']} | {r['agreement']} | {r['unsupported']} "
+            f"| {r['violations']} |"
+            for r in var["per_run"]
+        ]
+        changed = ", ".join(f"{c['case']} ({' / '.join(c['actions'])})" for c in var["changed"])
+        lines += [
+            "",
+            f"Cases whose answer changed between runs: {changed or 'none'}. "
+            "Nirnaya gives the same result on every run.",
+        ]
     v = report["versions"]
     lines += [
         "",
@@ -321,15 +343,63 @@ def load_caches(directory: Path = CACHES) -> dict[str, Cache]:
         return order.get(variant, len(order)), path.stem
 
     caches = {}
-    for path in sorted(directory.glob("*.json"), key=key):
+    for path in sorted((p for p in directory.glob("*.json") if ".run" not in p.stem), key=key):
         cache = Cache.load(path)
         if cache is not None:
             caches[path.stem] = cache
     return caches
 
 
+def load_repeats(directory: Path = CACHES) -> dict[str, list[Cache]]:
+    """label -> [run 1, run 2, ...] for every label run more than once."""
+    runs: dict[str, dict[int, Cache]] = {}
+    for path in directory.glob("*.json"):
+        label, _, n = path.stem.partition(".run")
+        cache = Cache.load(path)
+        if cache is not None and (not n or n.isdigit()):
+            runs.setdefault(label, {})[int(n or 1)] = cache
+    return {
+        label: [by_run[n] for n in sorted(by_run)]
+        for label, by_run in sorted(runs.items())
+        if len(by_run) > 1
+    }
+
+
+def variance(
+    cases: list[EvalCase],
+    repeats: dict[str, list[Cache]],
+    policy: MerchantPolicy = DEMO_POLICY,
+) -> dict[str, Any]:
+    """The same model and prompts, run again: each run's numbers, and every case whose answer
+    changed between runs. Nirnaya's own results are the same on every run by construction."""
+    out: dict[str, Any] = {}
+    for label, runs in repeats.items():
+        results = [{c.id: llm_only(c, cache) for c in cases} for cache in runs]
+        per_run = []
+        for n, res in enumerate(results, start=1):
+            fin = financial(cases, res, policy)
+            per_run.append(
+                {
+                    "run": n,
+                    "run_at": runs[n - 1].run_at,
+                    "expected_loss": _money(fin.expected_loss),
+                    "agreement": f"{fin.agreement}/{fin.decided}",
+                    "unsupported": integrity(cases, res).unsupported_submitted,
+                    "violations": compliance(cases, res).violations,
+                }
+            )
+        changed = []
+        for c in cases:
+            actions = [str(res[c.id].action) for res in results]
+            if len(set(actions)) > 1:
+                changed.append({"case": c.id, "actions": actions})
+        out[label] = {"runs": len(runs), "per_run": per_run, "changed": changed}
+    return out
+
+
 def main(out: Callable[[str], None] = print, results: Path = RESULTS) -> int:
-    report = build(caches=load_caches(results / CACHES.relative_to(RESULTS)))
+    directory = results / CACHES.relative_to(RESULTS)
+    report = build(caches=load_caches(directory), repeats=load_repeats(directory))
     results.mkdir(parents=True, exist_ok=True)
     (results / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     (results / "report.md").write_text(as_markdown(report), encoding="utf-8")

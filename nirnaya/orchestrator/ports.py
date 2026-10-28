@@ -4,6 +4,7 @@ plug in Claude and the real Airwallex client behind the same Protocols."""
 from contextlib import AbstractContextManager, nullcontext
 from typing import Any, Protocol
 
+from nirnaya.guardrails.customer_info import CustomerInfo
 from nirnaya.models.base import DomainModel, NonBlankStr
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import AcceptReason, ChallengeReason, EvidenceType, ProductType
@@ -33,6 +34,8 @@ class ChallengeRequest(DomainModel):
     reason: ChallengeReason
     # Required by Airwallex at CHARGEBACK; None at RFI.
     product_type: ProductType | None = None
+    # Device ID and IP from a verified merchant record, CHARGEBACK only (guardrails/customer_info).
+    customer_info: CustomerInfo | None = None
 
 
 class DisputeSource(Protocol):

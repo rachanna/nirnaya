@@ -93,3 +93,33 @@ def test_main_writes_json_and_markdown(tmp_path):
     assert data["policies"]["nirnaya"]["compliance"]["violations"] == 0
     assert (tmp_path / "report.md").read_text(encoding="utf-8").startswith("# Nirnaya evaluation")
     assert any("Expected" in line or "expected net loss" in line for line in lines)
+
+
+# --- repeat runs: does the model answer the same way twice? -------------------------------------
+
+
+def test_repeat_runs_are_kept_apart_from_the_columns_and_compared_case_by_case(tmp_path):
+    from nirnaya.evaluation.report import load_caches, load_repeats, variance
+
+    at = datetime(2026, 10, 27, tzinfo=UTC).isoformat()
+    first = {"N1": {"action": "CHALLENGE", "claims": []}, "K2": {"action": "ACCEPT"}}
+    second = {"N1": {"action": "ESCALATE"}, "K2": {"action": "ACCEPT"}}
+    for name, answers in [("informed-v2", first), ("informed-v2.run2", second)]:
+        data = {"provider": "fake", "model": "m", "run_at": at, "cases": answers,
+                "variant": "informed", "prompts": ["p@v2#1"]}  # fmt: skip
+        (tmp_path / f"{name}.json").write_text(json.dumps(data), encoding="utf-8")
+    assert list(load_caches(tmp_path)) == ["informed-v2"]  # repeats are not extra columns
+    repeats = load_repeats(tmp_path)
+    assert {k: len(v) for k, v in repeats.items()} == {"informed-v2": 2}
+
+    cases = [c for c in CASES if c.id in {"N1", "K2"}]
+    v = variance(cases, repeats)["informed-v2"]
+    assert v["runs"] == 2
+    assert [r["agreement"] for r in v["per_run"]] == ["2/2", "1/2"]
+    assert v["changed"] == [{"case": "N1", "actions": ["CHALLENGE", "REFER"]}]
+
+
+def test_a_single_run_has_no_variance_section():
+    from nirnaya.evaluation.report import variance
+
+    assert variance(CASES, {}) == {}
