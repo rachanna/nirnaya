@@ -24,6 +24,7 @@ from nirnaya.evidence.catalogue import (
 )
 from nirnaya.evidence.derive import case_records
 from nirnaya.llm.base import LLMClient
+from nirnaya.llm.tracing import annotate
 from nirnaya.llm.types import LLMError, Message, ToolSpec
 from nirnaya.models.claim import Claim, DateTimeValue, DateValue, MoneyValue, TextValue
 from nirnaya.models.dispute import Dispute
@@ -209,13 +210,20 @@ class LLMDrafter:
             "prompts": (self.system.ref, self.user.ref, self.tools_asset.ref),
         }
         try:
-            resp = self.llm.complete(
-                system=self.system.text,
-                messages=[Message.user(prompt)],
-                tools=[spec],
-                force_tool=SUBMIT,
-                max_tokens=self.max_tokens,
-            )
+            with annotate(
+                step="draft",
+                case_id=dispute.id,
+                merchant_id=dispute.merchant_id,
+                stage=str(dispute.stage),
+                prompts=run_base["prompts"],
+            ):
+                resp = self.llm.complete(
+                    system=self.system.text,
+                    messages=[Message.user(prompt)],
+                    tools=[spec],
+                    force_tool=SUBMIT,
+                    max_tokens=self.max_tokens,
+                )
         except LLMError as e:
             return DraftResult(claims=(), run=AgentRun(**run_base, turns=1, stop=f"LLM_ERROR: {e}"))
         usage = {"input_tokens": resp.usage.input_tokens, "output_tokens": resp.usage.output_tokens}

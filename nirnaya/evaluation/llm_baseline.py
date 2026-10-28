@@ -36,6 +36,7 @@ from nirnaya.evaluation.policies import Act, CaseResult, actionable, score_claim
 from nirnaya.evidence.catalogue import record_establishes
 from nirnaya.llm.base import LLMClient
 from nirnaya.llm.factory import llm_settings_from_env, make_llm
+from nirnaya.llm.tracing import annotate
 from nirnaya.llm.types import LLMConfigError, LLMError, Message, ToolSpec
 from nirnaya.llm.untrusted import untrusted
 from nirnaya.models.enums import AmountBasis, EvidenceType, RecordAuthor
@@ -263,14 +264,21 @@ def ask(llm: LLMClient, case: EvalCase, prompts: BaselinePrompts | None = None) 
     prompts = prompts or load_prompts()
     ids = [r.id for r in case.evidence_records()]
     try:
-        resp = llm.complete(
-            system=system_prompt(prompts),
-            messages=[Message.user(case_prompt(case, prompts))],
-            tools=[decide_spec(ids, prompts.decide_description)],
-            force_tool=DECIDE,
-            # Reasoning models spend part of this on thinking; leave room for the answer.
-            max_tokens=8192,
-        )
+        with annotate(
+            step="baseline",
+            case_id=case.id,
+            variant=prompts.variant,
+            stage=str(case.dispute.stage),
+            prompts=prompts.refs,
+        ):
+            resp = llm.complete(
+                system=system_prompt(prompts),
+                messages=[Message.user(case_prompt(case, prompts))],
+                tools=[decide_spec(ids, prompts.decide_description)],
+                force_tool=DECIDE,
+                # Reasoning models spend part of this on thinking; leave room for the answer.
+                max_tokens=8192,
+            )
     except LLMError as e:
         return {"error": str(e)[:300]}
     call = next((c for c in resp.tool_calls if c.name == DECIDE), None)

@@ -4,6 +4,7 @@ NIRNAYA_LLM_PROVIDER  anthropic (default) | openai
 NIRNAYA_MODEL         model id; defaults to claude-sonnet-5-5 for anthropic, required for openai
 ANTHROPIC_API_KEY / OPENAI_API_KEY   the provider's key (never logged)
 OPENAI_BASE_URL       optional, for an OpenAI-compatible endpoint
+LANGSMITH_TRACING     true to trace every call to LangSmith (nirnaya.llm.tracing)
 """
 
 import os
@@ -13,6 +14,7 @@ from typing import Literal
 from nirnaya.llm.anthropic_client import AnthropicClient
 from nirnaya.llm.base import LLMClient
 from nirnaya.llm.openai_client import OpenAIClient
+from nirnaya.llm.tracing import maybe_traced
 from nirnaya.llm.types import LLMConfigError
 from nirnaya.models.base import DomainModel, NonBlankStr
 
@@ -45,6 +47,9 @@ def make_llm(settings: LLMSettings, env: Mapping[str, str] = os.environ) -> LLMC
     key = (env.get(KEY_VARS[settings.provider]) or "").strip()
     if not key:
         raise LLMConfigError(f"{KEY_VARS[settings.provider]} is not set")
+    client: LLMClient
     if settings.provider == "anthropic":
-        return AnthropicClient(settings.model, api_key=key)
-    return OpenAIClient(settings.model, api_key=key, base_url=settings.base_url)
+        client = AnthropicClient(settings.model, api_key=key)
+    else:
+        client = OpenAIClient(settings.model, api_key=key, base_url=settings.base_url)
+    return maybe_traced(client, env)

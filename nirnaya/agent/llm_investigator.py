@@ -15,6 +15,7 @@ from nirnaya.agent.runs import AgentRun, InvestigationResult, ToolCallRecord
 from nirnaya.agent.targets import tools_for
 from nirnaya.agent.tools import Tool, ToolGateway, ToolRefused
 from nirnaya.llm.base import LLMClient
+from nirnaya.llm.tracing import annotate
 from nirnaya.llm.types import LLMError, Message, StopReason, ToolSpec
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import EvidenceType
@@ -105,12 +106,20 @@ class LLMInvestigator:
         while turns < self.max_turns:
             turns += 1
             try:
-                resp = self.llm.complete(
-                    system=self.system.text,
-                    messages=messages,
-                    tools=specs,
-                    max_tokens=self.max_tokens,
-                )
+                with annotate(
+                    step="investigate",
+                    case_id=dispute.id,
+                    merchant_id=dispute.merchant_id,
+                    stage=str(dispute.stage),
+                    turn=turns,
+                    prompts=(self.system.ref, self.user.ref, self.tools_asset.ref),
+                ):
+                    resp = self.llm.complete(
+                        system=self.system.text,
+                        messages=messages,
+                        tools=specs,
+                        max_tokens=self.max_tokens,
+                    )
             except LLMError as e:
                 stop = f"LLM_ERROR: {e}"
                 break
