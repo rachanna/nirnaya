@@ -196,6 +196,9 @@ with demo:
         if staged and not any(i.case_id == NOTE_CASE for i in queue(s)):
             done = [f"{w.action} {w.status}" for w in s.store.writes(M, NOTE_CASE)]
             st.markdown("Status: " + (", ".join(done) or "no write"))
+            note = case_detail(s, NOTE_CASE)
+            for c in note.claims if note is not None else ():
+                st.caption(f"{c.status}: {c.text} ({c.source})")
 
 
 # --- review queue -------------------------------------------------------------------------------

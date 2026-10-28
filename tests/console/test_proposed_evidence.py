@@ -115,7 +115,7 @@ def test_the_note_beat_replays_a_labelled_cached_reading_and_a_confirmation_chal
     s = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
     s.run_kit()
     s.run_note_case(caches={"llm-run1": CACHE})
-    assert "cached answer from anthropic/claude-sonnet-5-5" in s.note_source
+    assert "cached answer by anthropic/claude-sonnet-5-5" in s.note_source
     assert "no model call" in s.note_source
     (item,) = [i for i in queue(s) if i.case_id == "AG-F1"]
     assert item.reasons == ("PROPOSED_EVIDENCE",)

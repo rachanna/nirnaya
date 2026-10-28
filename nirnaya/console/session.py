@@ -146,8 +146,8 @@ class DemoSession:
             run = answered[-1]
             orch.reader = Cached(run["cases"], run["provider"], run["model"])
             self.note_source = (
-                f"cached answer from {run['provider']}/{run['model']} recorded "
-                f"{run['run_at'][:10]}, replayed (no model call now)"
+                f"read from a cached answer by {run['provider']}/{run['model']}, recorded "
+                f"{run['run_at'][:10]} and replayed (no model call now)"
             )
         case = self.note_case.case
         if self.store.case(M, case.id) is None:

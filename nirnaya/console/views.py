@@ -10,6 +10,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,13 @@ from nirnaya.verifier import verify
 REPORT = Path(__file__).resolve().parents[2] / "eval" / "results" / "report.json"
 
 
+def money_text(value: object) -> str | None:
+    """A margin or amount for display: two decimal places (the engine keeps full precision)."""
+    if value is None:
+        return None
+    return str(Decimal(str(value)).quantize(Decimal("0.01")))
+
+
 @dataclass(frozen=True)
 class DecisionView:
     action: str
@@ -48,7 +56,7 @@ class DecisionView:
             action=str(d.action),
             accept_reason=None if d.accept_reason is None else str(d.accept_reason),
             p=None if d.p is None else str(d.p),
-            margin=None if d.margin is None else str(d.margin),
+            margin=money_text(d.margin),
             math_action=None if d.math_action is None else str(d.math_action),
             referral_reasons=tuple(str(r) for r in d.referral_reasons),
             reasons=d.reasons,
@@ -318,7 +326,8 @@ def _if_confirmed(detail: dict[str, Any]) -> str | None:
     text = (
         f"If confirmed: {detail['action_now']} → {detail['action_if_confirmed']} · "
         f"p {detail['p_now']} → {detail['p_if_confirmed']} · "
-        f"margin {detail['margin_now']} → {detail['margin_if_confirmed']} (prior, not a prediction)"
+        f"margin {money_text(detail['margin_now'])} → {money_text(detail['margin_if_confirmed'])}"
+        " USD (prior, not a prediction)"
     )
     conflicts = detail.get("contradictions_if_confirmed") or []
     if conflicts:
