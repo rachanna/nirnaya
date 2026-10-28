@@ -27,6 +27,7 @@
 16. [Deployment and configuration](#16-deployment-and-configuration)
 17. [Open decisions](#17-open-decisions)
 18. [Build map](#18-build-map)
+19. [Prior calibration (proposed)](#19-prior-calibration-proposed)
 
 ---
 
@@ -1072,3 +1073,9 @@ Review and change notes, **newest first** (dates are commit dates, so test count
 **Pre-submission audit, batch 1, 2026-10-23** ✅ (1047 tests): a changed source record is versioned instead of halting the scheduler, and a failing step is isolated per case (H1); a new attempt after a rejected write gets a new `request_id` (M1); the gateway compares against the decision's own dispute, and an amended amount re-decides the case and voids stale approvals (M2); no PNG for any brand (L1). Since closed: metrics and baselines (M6; L2 by choosing expected values over realised fees, §14), the sandbox client (M5), and showing the model only the facts its records establish (L5).
 
 Each milestone is finished and tested before the next starts (`CLAUDE.md`).
+
+---
+
+## 19. Prior calibration (proposed)
+
+**Not built; specified for review in [`docs/calibration.md`](calibration.md).** The win priors are hand-set, yet every challenged case's final outcome is recorded with the priors entry its decision used (`Decision.prior_key`). The proposal is an offline job that estimates each entry's realised win rate (shrunk toward the current prior: posterior mean of a Beta prior with pseudo-count κ, minimum sample per entry) and writes a **candidate policy version**. A person reviews it, with the decisions it would flip, before locking and pinning it (§16.1). The engine is untouched (I2), and calibration authorises nothing (I1).
