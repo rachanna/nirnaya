@@ -26,6 +26,7 @@ from nirnaya.models.enums import ACTIONABLE_STATUS, AUTOMATED_STAGES, Validation
 from nirnaya.models.evidence import EvidenceRecord
 from nirnaya.orchestrator.deferral import deferral_reason
 from nirnaya.orchestrator.machine import Orchestrator
+from nirnaya.orchestrator.ports import Drafter, Investigator
 from nirnaya.orchestrator.settings import Settings
 from nirnaya.orchestrator.states import CaseState
 from nirnaya.store import Store, connect
@@ -94,9 +95,20 @@ class _FixtureDrafter:
         return DraftResult(claims=self._claims)
 
 
-def nirnaya(case: EvalCase, world: SyntheticWorld | None = None) -> CaseResult:
-    """Run the case through the full pipeline and read the outcome from the store."""
-    store = Store(connect())
+def nirnaya(
+    case: EvalCase,
+    world: SyntheticWorld | None = None,
+    *,
+    agents: tuple[Investigator, Drafter] | None = None,
+    store: Store | None = None,
+) -> CaseResult:
+    """Run the case through the full pipeline and read the outcome from the store.
+
+    By default the agent is the scripted one (with the careless fixture drafter on the
+    fabrication cases). `agents` swaps in another investigator and drafter, and `store` lets
+    the caller inspect the run afterwards (nirnaya.evaluation.llm_agent).
+    """
+    store = store if store is not None else Store(connect())
     store.register_merchant(
         DEMO_POLICY.merchant_id,
         airwallex_account_id="acct-eval",
@@ -109,14 +121,15 @@ def nirnaya(case: EvalCase, world: SyntheticWorld | None = None) -> CaseResult:
         attempt=case.payment_attempt,
         intent_owner="same" if case.ownership_resolved else None,
     )
-    drafter = _FixtureDrafter(case) if "fabrication" in case.tags else ScriptedDrafter()
+    if agents is None:
+        drafter = _FixtureDrafter(case) if "fabrication" in case.tags else ScriptedDrafter()
+        agents = (ScriptedInvestigator(), drafter)
     orch = Orchestrator(
         store,
         aw,
         aw,
         world or synthetic_world([case]),
-        ScriptedInvestigator(),
-        drafter,
+        *agents,
         # Dry run, as the e2e tests: the evaluation measures decisions, and the fake refuses a
         # pre-chargeback challenge (architecture open decision 18) that the sandbox would never
         # reach anyway (pre-chargebacks auto-accept there).
