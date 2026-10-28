@@ -63,7 +63,7 @@
 
 ## Versions
 
-- Code: git `19183422e61ecb0460f16f650a7bc14652e25cc6` (uncommitted changes)
+- Code: git `33e4054b0dc85c5aa3056fa849dda4fff8669278`
 - Case set: v1 (42 cases, sha256 `22fb03b56b3b`)
 - Policy: `merchant-demo@demo-2026-10#bd3f0c2ec782`; FX: `fx@demo-2026-10-01#a74fb42c5c16`; economics: `economics@v1#b0b04a506ede`
 - LLM only (naive-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_naive_system@v1#1e33f22c05c7`, `baseline_naive_user@v1#86578a4c5f93`, `tools@v1#ba84dfdfa56a`
