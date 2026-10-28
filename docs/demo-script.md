@@ -1,0 +1,56 @@
+# Demo script (presentation slot, about 5 minutes)
+
+A run sheet for presenting Nirnaya live. Every number here comes from the repo; the claims are the ones the evidence supports (see "Say / don't say").
+
+## Before you start
+
+- `uv run streamlit run app/streamlit_app.py` with the default `NIRNAYA_AGENT=scripted` (no network, no tokens; the note reading is a labelled replay of a real Claude run). Open http://localhost:8501 and press **Reset**.
+- A second terminal, scrolled clear, for `uv run python -m nirnaya.demo` (demo A).
+- Browser zoom about 90% so a whole kit card fits on screen.
+- If the live sandbox works by then (card payments), a third terminal with the `sandbox_demo` output already run. Otherwise say plainly that Airwallex is simulated offline.
+
+## Run sheet
+
+| Time | Show | Say |
+|---|---|---|
+| 0:00 | Title / README top | "A finance-ops lead works a chargeback queue: fight or accept, on evidence and money. Nirnaya decides which disputes are worth fighting, finds evidence Airwallex cannot see, and refuses to submit any claim it cannot prove." |
+| 0:20 | README "How it works" table | "Three parts. The model investigates and drafts; it authorises nothing. A deterministic engine decides on the merchant's economics. A deterministic verifier checks every claim against its source record. One guarded gateway is the only path to Airwallex." |
+| 0:45 | Console → **Run kit cases 1–3** | Walk K1 left to right: "Initial plan on Airwallex data alone: refer, an RFI accept would refund. New information from the merchant's order system: three prior undisputed orders. Revised: challenge, margin shown, prior shown as a prior." |
+| 1:15 | K2, K3 cards | "K2: 15 USD, fees exceed the amount, accept with LOW_VALUE_TRANSACTION. K3: the customer emailed support twice with no reply, so a person decides; Nirnaya never denies a complaint exists." Point at the Airwallex AI line: "Airwallex's own AI recommendation sits beside ours (simulated offline, labelled)." |
+| 1:40 | **Issuer rejects case 1** | "The issuer rejects; Airwallex escalates to chargeback. A new cycle re-decides on the new stage and challenges again, with the device and IP sent as customer_info." |
+| 2:00 | 2-C card | "An unguarded agent claims 'signed for by J. Smith'. The carrier record has no signature field, so the verifier blocks it with the reason. Nothing unverified ships." |
+| 2:25 | Terminal: `uv run python -m nirnaya.demo`, scroll to N1 | Demo A: "N1 starts as accept, margin −60. Value of information says a delivery scan would flip it, so the agent looks only for that, finds it, and the decision flips to challenge, +40, verified." |
+| 2:55 | Console → **Read the driver's note** | "Now evidence only a free-text note holds. The carrier shows delivered with no signature field, so the engine accepts. The driver's note says a signature was captured. The model may only propose the exact words." Point at the label: "This is a recorded Claude reading, replayed." |
+| 3:15 | Review queue → AG-F1 | "A person sees the quote in its whole note and what confirming would change: accept to challenge, prior 0.60 to 0.80. Tick, **Confirm and challenge**." |
+| 3:35 | Back to the card | "Challenge sent. The quote claim is VERIFIED: code checked it word for word in the record, and that a person confirmed exactly that quote." |
+| 3:50 | Evaluation tab / README tables | "42 synthetic cases against fight-all, accept-all and the model alone. Honestly: a well-prompted Claude agrees on 39 of 42, close to us. Our edge is guarantees that don't depend on a prompt or a run: rules are tested code, every claim is checked, the same answer every time, and the model never controls a write." |
+| 4:25 | README agentic table | "Where the model does add value: reading notes. On 10 note cases Claude found all 6 note-only facts and proposed nothing on the 4 traps, identically across 3 runs. A keyword list found the same 6 but sent 3 traps to a person. Unsafe outcomes: zero for every reader, by construction." |
+| 4:50 | Close | "Fight what pays, prove what you claim, and put a person where judgement is needed." |
+
+Demo B (an early pre-chargeback accept, promised in the idea entry) is in the evaluation, not the console: the sandbox auto-accepts pre-chargebacks within a second, so it runs offline only (cases F5, N6). Mention it in one line if asked.
+
+## Say / don't say
+
+| Say | Don't say |
+|---|---|
+| "Close to a well-prompted model on decisions; better on guarantees" | "Nirnaya decides better than an LLM" (informed Claude: 39/42, slightly lower expected loss) |
+| "42/42 against our written expert policy: it shows the code follows its policy" | "42/42 accuracy" |
+| "Priors are fixed and shown as priors" | "Predicted win rate" |
+| "Airwallex simulated offline; the sandbox client is built, and login, listing disputes and creating payment intents work there" | "End to end on Airwallex" (no write has reached the sandbox yet; card payments fail there) |
+| "Unsafe outcomes zero by construction" | "The model never makes mistakes" |
+| "A small synthetic suite, labelled by us" | Any real-world accuracy claim |
+| K1's flip comes from code's intake lookup; N1 shows the agent's search | "The agent found K1's evidence" |
+
+## If something breaks
+
+- **Console error or blank page:** press **Reset**, then rerun. Fallback: `uv run python -m nirnaya.demo` shows K1–K3, S5 and N1 in the terminal.
+- **"No cached reading" on the note button:** the cache is committed in `eval/results/agentic/`; check you're on `main`. Live fallback: `NIRNAYA_AGENT=llm` (one model call).
+- **Questions about numbers:** `eval/results/report.md` has every table, the variance across runs and the sensitivity section.
+
+## Likely questions
+
+- **"What if the fees or priors are wrong?"** They are merchant configuration, labelled assumptions. The report re-runs every decision with one assumption changed: q from 0.10 to 0.25 flips 14 of 40. A merchant sets them; `docs/calibration.md` describes learning priors from outcomes.
+- **"Why not just let the LLM decide?"** It nearly can on these cases. But one rule it wasn't told (a subscription needs a second piece of evidence) was silently not applied; in Nirnaya that rule is code and tested. And its results vary by run; ours don't.
+- **"Can a note inject instructions?"** It's shown to the model only as data. At most it becomes a proposed quote, which must be word for word in the note, confirmed by a person, and verified. Customer text is never shown to the model.
+- **"What does a person do that code can't?"** Judge meaning. The verifier checks a quote's words, not what they mean, so confirmation is required, not optional.
+- **"Is this on the real Airwallex API?"** The client, guardrails, idempotent writes and dispute simulation are built against the sandbox; login, listing disputes and creating payment intents work there. Live writes wait on sandbox card payments, which currently fail with provider_unavailable (raised in the hackathon Slack).
