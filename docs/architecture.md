@@ -194,7 +194,7 @@ flowchart TB
 | Component | Package | Status | Responsibility | Authority | Depends on |
 |---|---|---|---|---|---|
 | Domain models | `nirnaya/models/` | ✅ | Pydantic types: `Dispute` (with Airwallex's `AiRecommendation`, display only), `PaymentAttempt`, `EvidenceRecord`, `Claim`, `MerchantPolicy`, `Decision`, `Money`, `FxTable`, `DisputeReason` | none | none |
-| Evidence catalogue | `nirnaya/evidence/` | ✅ | `FIELD_RULES`, `REQUIRED_EVIDENCE`, `CONTRADICTION_RULES`, `TEMPORAL_RULES`, `REASON_SPECIFIC`, `render_claim_text`; `evidence_present()`, `contradictory_record_ids()`, `late_evidence_notes()` | data | models |
+| Evidence catalogue | `nirnaya/evidence/` | ✅ | `FIELD_RULES`, `REQUIRED_EVIDENCE`, `CONTRADICTION_RULES`, `TEMPORAL_RULES`, `REASON_SPECIFIC`, `TEXT_RULES` (which note may state which fact, §8.8), `render_claim_text`, `quote_in_record()`; `evidence_present()`, `contradictory_record_ids()`, `late_evidence_notes()` | data | models |
 | Decision engine | `nirnaya/engine/` | ✅ | `decide()` → `Decision` with `voi`; `value_of_information()` | **sole decider** | models, evidence |
 | Verifier | `nirnaya/verifier/` | ✅ | `verify()` → `VerificationResult` | **sole clearer** | models, evidence |
 | Ingestion | `nirnaya/ingest/` *(new package)* | ✅ (polling; webhooks not built) | Poll and reconcile disputes; snapshot disputes and payment attempts; wire → domain mapping in `integrations/airwallex/mapping.py` (§9.3) | none | Airwallex client, store |
@@ -202,6 +202,7 @@ flowchart TB
 | Orchestrator | `nirnaya/orchestrator/` | ✅ | Persistent case state machine, scheduler tick, deadline watchdog, command handling; a `StepObserver` port reports steps and committed transitions to an observer that cannot affect them (§13) | routes only | everything inbound and outbound |
 | Review queue | `nirnaya/orchestrator/referrals.py` | ✅ (commands and console) | Referral records, approver commands | human | store |
 | Investigating agent | `nirnaya/agent/` | ✅ (`LLMInvestigator`, `LLMDrafter` on any `LLMClient`; scripted versions for tests and `NIRNAYA_AGENT=scripted`) | Model rounds: choose permitted lookups from VoI targets, stop, draft structured claims; prompts from versioned assets (§16.1) | none | `nirnaya/llm/`, tool gateway, assets |
+| Note reader | `nirnaya/agent/reading.py`, `nirnaya/agent/llm_reader.py` | ✅ (`LLMReader` in `llm` mode; none in scripted mode) | Proposes exact quotes from merchant and carrier notes for facts VoI says would change the decision; code screens them, a person confirms them (§8.8) | none | `nirnaya/llm/`, assets |
 | LLM layer | `nirnaya/llm/` | ✅ | Provider-neutral `LLMClient`; Anthropic and OpenAI adapters (§8.6); `ScriptedLLM` for tests; optional LangSmith tracing (`tracing.py`, §13) | none | provider SDKs |
 | Tool gateway | `nirnaya/agent/tools.py` | ✅ | Validate tool arguments, inject `merchant_id`, call mocks, wrap results as hashed `EvidenceRecord`s, persist them | none | mocks, store |
 | Evidence renderer | `nirnaya/render/` *(new package)* | ✅ | Verified claims → evidence files that meet card-brand format and size limits | none | models |
@@ -247,7 +248,7 @@ stateDiagram-v2
 
     DECIDED --> PRE_WRITE_CHECK: ACCEPT
     DECIDED --> DRAFTING: CHALLENGE
-    DECIDED --> REFERRED: REFER
+    DECIDED --> REFERRED: REFER, or quotes from a note would change the decision (PROPOSED_EVIDENCE, §8.8)
 
     DRAFTING --> VERIFYING
     DRAFTING --> REFERRED: draft failed
@@ -262,7 +263,7 @@ stateDiagram-v2
     SUBMITTING --> REFERRED: write rejected
 
     REFERRED --> PRE_WRITE_CHECK: approver approves ACCEPT
-    REFERRED --> DRAFTING: approver approves CHALLENGE
+    REFERRED --> DRAFTING: approver approves CHALLENGE (may confirm proposed quotes)
     REFERRED --> CLOSED: approver handles outside Nirnaya
     note right of ASSESSED
       Amount changed within the stage before any write:
@@ -461,6 +462,8 @@ The engine then refers with `CONTRADICTORY_RECORDS` before any drafting. It reco
 
 Each record is compared with its own order: the order that shares the rule's `order_link` field with it (a carrier record's `tracking_number`); otherwise the disputed order, whose `order_id` is the dispute's `merchant_order_id` (login and policy facts are about the disputed charge, so they always use it); otherwise all orders on file, leniently (earliest for lower bounds, latest for upper). Only trusted, intact orders count, and with none the order bounds are skipped. An unreadable or out-of-range timestamp is a clash. Tampered records (hash mismatch) neither anchor nor clash. `derive.cross_check()` computes rule contradictions, date clashes and late notes in one pass per case.
 
+**Quoted facts (§8.8).** A fact a person confirmed from a note is in `verification.established` only if its quote claim verified, so the gateway's re-run above covers it like any other fact. The counterevidence sweep and the gateway's re-check (`counterevidence_lookups(..., also=...)`) include those facts, and so does the counterfactual decision shown with the proposal (`contradictions(..., also=...)`): a record contradicting a quote is shown to the approver, and confirming it would refer, not challenge.
+
 Evidence dated after the dispute opened still counts; it is listed in `VerificationResult.notes`. If the case is referred, the notes are in the referral. If it is submitted, `SUBMITTED_WITH_NOTES` records them with the `request_id` and the authority (`DELEGATED`, or `APPROVED` and the approver) for review afterwards. ASSUMPTION: expert policy, like the rest of the catalogue.
 
 ---
@@ -604,7 +607,35 @@ Model: chosen by configuration through the provider-neutral `LLMClient` (`nirnay
 
 The one route difference is A3, a fabrication case where the scripted side uses a careless fixture draft by design (it overstates the amount and is blocked); the model's own draft stated the amount correctly, so its challenge went through. On every other case the two agents fetched the same records and reached the same decision, and the model never drafted a claim the verifier had to block.
 
-That is expected here. The tools are few, their keys are enums derived from the dispute, and code recomputes the targets, so a deterministic agent covers the search space of these synthetic merchant systems. The model agent is for what they do not have: **real merchant systems**, where a lookup key may be missing, records are unstructured text, and the next useful lookup cannot be enumerated in advance. It is kept for that, behind the same gateway and verifier, so whichever agent runs, nothing it proposes is trusted.
+That is expected here. The tools are few, their keys are enums derived from the dispute, and code recomputes the targets, so a deterministic agent covers the search space of these synthetic merchant systems. The model agent is for what they do not have: **real merchant systems**, where a lookup key may be missing, records are unstructured text, and the next useful lookup cannot be enumerated in advance. It is kept for that, behind the same gateway and verifier, so whichever agent runs, nothing it proposes is trusted. §8.8 is the first such job: reading free-text notes, where the scripted agent finds nothing.
+
+### 8.8 Reading free-text notes (quoted evidence)
+
+Merchant evidence often sits in free text: a carrier driver's note, an order note, a support agent's note. The structured fields may show nothing while a note says "signature captured on the handheld device". Reading that is a model's job; trusting it is not. So the model only proposes, code screens, a person confirms, and the verifier checks again.
+
+**What a note may show** is data, not judgement: `TEXT_RULES` in the evidence catalogue (ASSUMPTION, Nirnaya policy):
+
+| Note | May state |
+|---|---|
+| carrier `driver_notes` | DELIVERY_CONFIRMED, DELIVERY_SIGNATURE |
+| order `internal_notes` | DELIVERY_CONFIRMED, DISTINCT_TRANSACTIONS |
+| helpdesk `agent_notes` (merchant-written) | DELIVERY_CONFIRMED |
+
+Only merchant and third-party records count. Customer-written text is never shown to the reader and establishes nothing.
+
+**Flow.**
+
+1. **When** (`machine._read_notes`, at `DECIDED`): the decision is not CHALLENGE; value of information names a missing fact that some note may state (`readable_facts`); this case's intact, trusted records hold such a note (`readable_records`); the cycle has not been read yet; tokens and time remain. Otherwise nothing is read.
+2. **The reader** (`Reader` port; `LLMReader` in `llm` mode, none in scripted mode) sees only those records, inside untrusted-data blocks, and a guide of which note may state which asked fact. It answers through one tool, `propose_quotes`, whose enums limit it to the records, note fields and facts it was given. Prompts are versioned assets (`reader_system`, `reader_user`, `reader_tools`); the run is stored as an `AgentRun` of kind `READ`.
+3. **Code screens** every proposal (`reading.screen`): a record the reader was shown, a fact it was asked about, a note `TEXT_RULES` allows for that fact, and the quote word for word in the note (whitespace-normalised, case-sensitive, at least 12 characters). Everything else is dropped and recorded with why.
+4. **The flip test:** the engine re-decides with the kept quotes' facts added (a counterfactual; the decision on record is unchanged). If the action would change, the case is `REFERRED` with `PROPOSED_EVIDENCE`. The referral detail holds each quote, its record and field, and the action, p, margin, referral reasons and contradictions now and if confirmed. The quotes are stored as `findings` (`PROPOSED`). If the action would not change, the reading is recorded and the case proceeds as decided.
+5. **A person decides** in the review queue, seeing the quote highlighted in its whole note. `approve(..., CHALLENGE, confirm_findings=[ids])` marks the named quotes `CONFIRMED` and the rest `REJECTED`; the approval binding records the confirmed quotes, and the evidence hash covers their records, so a changed note voids the approval (`APPROVAL_VOID`). `reject_findings` rejects quotes and leaves the case with the person.
+6. **Code builds the claims.** At `DRAFTING`, each confirmed quote becomes a claim with a `QuoteValue` (`reading.quote_claim`), beside the drafter's claims. The model never writes a quote claim.
+7. **The verifier checks it again** (`check_quote`): the note is allowed for the fact (`TEXT_NOT_ALLOWED`), the quote is word for word in the record (`QUOTE_NOT_IN_RECORD`), and a person confirmed exactly this record, field, fact and quote (`QUOTE_UNCONFIRMED`, from `verify(..., confirmed_quotes=...)`). Scope, hash and contradiction checks apply as for any claim. The evidence PDF marks the claim as quoted word for word from the note.
+
+**What this does and does not guarantee.** No quote is written, decided on or verified on the model's word: those outcomes are zero by construction. The verifier checks a quote's words, not its meaning. Whether "no signature obtained" shows a signature is the person's call, which is why confirmation is required rather than offered.
+
+**Measured** (§14, `eval/agentic/`): on 10 synthetic cases, Claude found all 6 note-only facts and proposed nothing on the 4 traps, identically on three runs. A keyword baseline also found all 6 but sent 3 traps to a person. The scripted agent found none.
 
 ---
 
@@ -740,6 +771,7 @@ erDiagram
     CYCLES ||--o{ CLAIMS : drafts
     CYCLES ||--o{ VERIFICATIONS : checks
     CYCLES ||--o{ AGENT_RUNS : runs
+    CYCLES ||--o{ FINDINGS : "proposes (§8.8)"
     CYCLES ||--o{ REFERRALS : raises
     CYCLES ||--o{ WRITES : sends
     CASES ||--o{ AUDIT_EVENTS : logs
@@ -816,6 +848,18 @@ erDiagram
         int tool_calls
         int tokens
     }
+    FINDINGS {
+        text finding_id PK
+        text merchant_id
+        text case_id
+        int cycle
+        text record_id
+        text field
+        text fact
+        text quote
+        text status
+        text resolved_by
+    }
     REFERRALS {
         text id PK
         text merchant_id
@@ -855,6 +899,7 @@ erDiagram
 - **Evidence records are immutable.** A changed source creates a new record id; it never updates the old one. `sha256` is the capture hash used as `expected_hashes` in `verify()`.
 - **The audit log is append-only and hash-chained:** `hash = sha256(prev_hash ‖ canonical(event))`. `verify_chain()` (`store/audit.py`) walks the chain; the sandbox runner and the pipeline tests check it.
 - **Money is stored as a string Decimal plus a currency, and times as ISO-8601 UTC.** No floats anywhere.
+- **Findings are resolved once.** A proposed quote becomes `CONFIRMED` or `REJECTED` exactly once, by a named person; only confirmed quotes reach a draft or the verifier. The table arrived with schema version 3.
 - **Schema migrations are step-wise.** `MIGRATIONS[n]` brings version n to n+1. Each step runs in its own `BEGIN IMMEDIATE` transaction that re-reads the version, and must be safe to re-run, so a crash or a second process opening the same file cannot leave it half-migrated. Opening an up-to-date database only reads the version and never takes the write lock.
 - **Every query is scoped by `merchant_id`,** including sequence numbers and ids (referral ids are `<merchant>:<case>:ref:<n>`). The one deliberate exception is `case_owner()`, the cross-tenant ownership check at ingestion.
 
@@ -895,7 +940,7 @@ Anything else gives `OWNERSHIP_UNRESOLVED` and a referral. `TODO(verify-airwalle
 
 ### 11.4 Prompt injection
 
-See §8.4. In short: no customer text in instructions, customer records establish nothing, tool arguments are schema-validated, and the agent has no write tools.
+See §8.4. In short: no customer text in instructions, customer records establish nothing, tool arguments are schema-validated, and the agent has no write tools. The note reader (§8.8) sees merchant and carrier notes only inside untrusted-data blocks; an instruction written into a note can at most become a proposed quote, which still has to be word for word in the note, confirmed by a person and verified. The console shows note text literally (markdown-escaped), never as markup.
 
 ---
 
@@ -976,6 +1021,7 @@ flowchart LR
     - *informed:* also the merchant's rules, rendered from the active policy: when to escalate, costs, win priors, FX, the stage formulas, whose records may be cited, and a field guide from the evidence catalogue applied to every non-customer record (not filtered by merchant or hash: applying those rules is the model's job). It measures how far prompting alone gets.
 
     Answers are cached as `eval/results/llm_only/<variant>-<system prompt version>.json` (repeat runs `.runN.json`), with the model, prompt versions and the case set they were given on. The report has one column per prompt version and a repeat-run section: each run's numbers, and every case whose decision or unsupported-claim count changed between runs.
+- **Agentic suite** (`eval/agentic/`, its own manifest; `python -m nirnaya.evaluation.agentic`): 10 SYNTHETIC cases for the note reader (§8.8), 6 where the deciding fact is only in a note and 4 traps. Every reader (none, a deterministic keyword baseline, cached LLM runs) goes through the full pipeline twice per case: a careful person confirms only labelled quotes, a careless one confirms every proposal. Reported: facts found, wrong proposals, traps sent to a person, challenges after review, traps challenged under careless review, unsafe outcomes (a write before a person acts or an unconfirmed quote verifying; zero for every reader) and tokens. Live runs: `NIRNAYA_LIVE_LLM=1 ... --live [--run N]`, cached in `eval/results/agentic/`.
 - **Nirnaya** is measured from real pipeline runs (dry run, scripted agent; the fabrication cases use their careless fixture drafter), never copied from the expectations.
 - **What 42/42 means.** The expected route of each case (`eval/EXPERT_POLICY.md`) was derived by hand, but by the same author as the engine, from the same rules. So 42/42 agreement measures **self-consistency** (the code does what the written policy says), not that the policy is right. The independent signals are: the LLM-only comparison (a different decider, the same cases and rules); the count of unsupported claims submitted, which the verifier checks against the records rather than against the policy; and, once prior calibration exists (§19), realised outcomes.
 - **Metrics**, reported separately (spec §9):
@@ -1002,7 +1048,7 @@ The kit demo tells each case as the guide's arc. The **initial plan** is the eng
 | Tab | Shows | Actions |
 |---|---|---|
 | Kit 4 demo | Kit cases 1, 1b, 2, 2-C and 3, each as goal → initial plan → new information → revised decision → status, with Airwallex's AI recommendation beside the decision (offline: labelled SIMULATED) and any `customer_info` sent | Run the kit · simulate the issuer's rejection |
-| Review queue | An Airwallex outage banner; disputes Nirnaya could not read (no case: handle in Airwallex); stalled writes; then referrals by urgency: reason, failed claims, counterevidence, time left | Approve accept · approve challenge (still verified) · handle manually |
+| Review queue | An Airwallex outage banner; disputes Nirnaya could not read (no case: handle in Airwallex); stalled writes; then referrals by urgency: reason, failed claims, counterevidence, time left; for `PROPOSED_EVIDENCE`, each quote highlighted in its whole note, its source, and what confirming would change (action, prior, margin, conflicting records) | Approve accept · approve challenge (still verified) · handle manually · confirm quotes and challenge · reject quotes |
 | Case detail | Timeline; the decision maths and priors (shown as priors, not predictions); VoI; evidence records with hashes; claims and verification results; **counterevidence** | none |
 | Evaluation | Nirnaya against the baselines on the five metrics, with the expected-loss chart and per-case table | none (the report is generated offline) |
 

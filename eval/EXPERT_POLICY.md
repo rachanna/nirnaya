@@ -94,6 +94,14 @@ Dates must be possible across records, or the records disagree and the case is r
 
 Evidence dated after the dispute opened (a late delivery, continued use) still counts; the approver is shown a note.
 
+A fact quoted from a free-text note counts only when all of these hold (architecture §8.8):
+
+- The note may state that fact: a carrier driver's note (delivery, signature), an order's internal note (delivery, separate purchase) or a merchant support agent's note (delivery).
+- The quote is word for word in the note and at least 12 characters long.
+- A person confirmed that exact quote for that fact.
+
+A note that mentions a fact only to deny it, hopes for it or reports an attempt does not state it. These rules label the agentic suite (`eval/agentic/`); the 42 cases have no notes.
+
 ## 7. Route
 
 The route is where the case ends up in the full pipeline:
