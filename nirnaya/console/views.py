@@ -7,6 +7,7 @@ Nirnaya then fetched from the merchant's systems; the revised decision is the on
 """
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -260,6 +261,67 @@ def case_detail(session: DemoSession, case_id: str) -> CaseDetail | None:
     )
 
 
+_MARKDOWN = re.compile(r"([\\`*_{}\[\]()#+\-.!|<>~])")
+
+
+def md_escape(text: str) -> str:
+    """Record text is untrusted: shown literally, never as markdown (no links, no emphasis)."""
+    return _MARKDOWN.sub(r"\\\1", text)
+
+
+@dataclass(frozen=True)
+class ProposedQuote:
+    """A quote the agent proposed from a note, as the approver sees it."""
+
+    finding_id: str
+    fact: str
+    source: str
+    quote: str
+    # The whole note, markdown-escaped, with the quote in bold; a person reads it in context.
+    note_markdown: str
+    # The quote is still word for word in the note as stored now.
+    found: bool
+
+
+def proposed_quotes(store: Store, case_id: str, cycle: int) -> tuple[ProposedQuote, ...]:
+    records = {r.id: r for r in store.evidence(M, case_id)}
+    out = []
+    for f in store.findings(M, case_id, cycle):
+        if f.status != "PROPOSED":
+            continue
+        record = records.get(f.record_id)
+        raw = record.fields.get(f.field) if record is not None else None
+        note = " ".join(raw.split()) if isinstance(raw, str) else ""
+        at = note.find(f.quote) if note else -1
+        if at < 0:
+            shown = md_escape(note)
+        else:
+            end = at + len(f.quote)
+            shown = md_escape(note[:at]) + "**" + md_escape(f.quote) + "**" + md_escape(note[end:])
+        system = f"{record.source_system}, {record.author}" if record is not None else "missing"
+        out.append(
+            ProposedQuote(
+                finding_id=f.finding_id,
+                fact=str(f.fact),
+                source=f"{f.record_id}.{f.field} ({system})",
+                quote=f.quote,
+                note_markdown=shown,
+                found=at >= 0,
+            )
+        )
+    return tuple(out)
+
+
+def _if_confirmed(detail: dict[str, Any]) -> str | None:
+    if "action_if_confirmed" not in detail:
+        return None
+    return (
+        f"If confirmed: {detail['action_now']} → {detail['action_if_confirmed']} · "
+        f"p {detail['p_now']} → {detail['p_if_confirmed']} · "
+        f"margin {detail['margin_now']} → {detail['margin_if_confirmed']} (prior, not a prediction)"
+    )
+
+
 @dataclass(frozen=True)
 class QueueItem:
     case_id: str
@@ -268,6 +330,8 @@ class QueueItem:
     detail: dict[str, Any]
     due_at: datetime
     hours_left: int
+    proposed: tuple[ProposedQuote, ...] = ()
+    if_confirmed: str | None = None
 
 
 def queue(session: DemoSession) -> list[QueueItem]:
@@ -276,14 +340,17 @@ def queue(session: DemoSession) -> list[QueueItem]:
         referral = session.store.open_referral_for(M, case.case_id)
         if referral is None:
             continue
+        detail = referral.detail or {}
         items.append(
             QueueItem(
                 case_id=case.case_id,
                 urgent=referral.urgent,
                 reasons=tuple(referral.reasons),
-                detail=referral.detail or {},
+                detail=detail,
                 due_at=case.due_at,
                 hours_left=int((case.due_at - session.now).total_seconds() // 3600),
+                proposed=proposed_quotes(session.store, case.case_id, case.cycle),
+                if_confirmed=_if_confirmed(detail),
             )
         )
     return sorted(items, key=lambda i: (not i.urgent, i.due_at, i.case_id))

@@ -47,3 +47,21 @@ def test_running_the_kit_then_the_rejection_and_an_approval(app):
     app.button(key="acc-K3").click().run()
     assert not app.exception
     assert "Nothing waiting for a person." in "\n".join(i.value for i in app.info)
+
+
+def test_a_proposed_quote_is_confirmed_from_the_review_queue(monkeypatch):
+    from tests.console.test_proposed_evidence import session
+
+    monkeypatch.setenv("NIRNAYA_AGENT", "scripted")
+    s = session()
+    finding = s.store.findings(s.store.merchant_ids()[0], "NOTED", 1)[0].finding_id
+    at = AppTest.from_file(APP, default_timeout=120)
+    at.session_state["session"] = s
+    at.run()
+    assert not at.exception
+    assert "Evidence the agent found in a note" in all_text(at)
+    assert at.button(key="qchal-NOTED").disabled  # nothing confirmed yet
+    at.checkbox(key=f"q-{finding}").check().run()
+    at.button(key="qchal-NOTED").click().run()
+    assert not at.exception
+    assert "Nothing waiting for a person." in "\n".join(i.value for i in at.info)

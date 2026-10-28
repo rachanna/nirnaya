@@ -17,6 +17,7 @@ from nirnaya.console.views import (
     evaluation,
     fabrication_check,
     kit_card,
+    md_escape,
     queue,
     stalled_writes,
     unreadable_disputes,
@@ -195,6 +196,36 @@ with review:
             flag = "🔴 URGENT · " if item.urgent else ""
             st.markdown(f"**{flag}{item.case_id}** · {', '.join(item.reasons)}")
             st.caption(f"Due {item.due_at:%Y-%m-%d %H:%M} UTC · {item.hours_left} h left")
+            if item.proposed:
+                st.markdown(
+                    "**Evidence the agent found in a note.** Confirm a quote only if it shows "
+                    "the fact; the verifier then checks it word for word. Nothing counts until "
+                    "you confirm it."
+                )
+                if item.if_confirmed:
+                    st.caption(item.if_confirmed)
+                confirmed = []
+                for q in item.proposed:
+                    st.markdown(f"`{q.fact}` · from {md_escape(q.source)}")
+                    st.markdown("> " + q.note_markdown)
+                    if not q.found:
+                        st.warning("The quote is no longer word for word in this note.")
+                    if st.checkbox("Confirm this quote", key=f"q-{q.finding_id}"):
+                        confirmed.append(q.finding_id)
+                qa, qb = st.columns(2)
+                if qa.button(
+                    "Confirm and challenge",
+                    key=f"qchal-{item.case_id}",
+                    disabled=not s.can_act or not confirmed,
+                ):
+                    s.approve(item.case_id, Action.CHALLENGE, approver, tuple(confirmed))
+                    st.rerun()
+                if qb.button(
+                    "Reject the quotes", key=f"qrej-{item.case_id}", disabled=not s.can_act
+                ):
+                    ids = tuple(q.finding_id for q in item.proposed)
+                    s.reject_quotes(item.case_id, ids, approver)
+                    st.rerun()
             with st.expander("Why it was referred"):
                 st.json(item.detail)
             st.caption(

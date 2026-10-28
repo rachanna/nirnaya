@@ -19,7 +19,7 @@ from nirnaya.integrations.mocks.airwallex_fake import FakeAirwallex
 from nirnaya.llm.base import LLMClient
 from nirnaya.models.enums import Action, Stage
 from nirnaya.orchestrator.machine import Orchestrator
-from nirnaya.orchestrator.referrals import approve, close_manually
+from nirnaya.orchestrator.referrals import approve, close_manually, reject_findings
 from nirnaya.orchestrator.settings import Settings
 from nirnaya.runtime import build_orchestrator
 from nirnaya.store import Store, connect
@@ -117,11 +117,28 @@ class DemoSession:
         self.rejected = True
         self.log.append("The issuer rejected K1's evidence; K1 escalated to chargeback.")
 
-    def approve(self, case_id: str, action: Action, approver: str) -> None:
+    def approve(
+        self, case_id: str, action: Action, approver: str, confirm: tuple[str, ...] = ()
+    ) -> None:
+        """Approve; `confirm` names the proposed quotes the approver confirms (a challenge)."""
         _, orch = self._require()
-        approve(self.store, M, case_id, action, approver=approver, now=self.now)
+        approve(
+            self.store,
+            M,
+            case_id,
+            action,
+            approver=approver,
+            now=self.now,
+            confirm_findings=confirm,
+        )
         orch.run_until_idle(self.now)
-        self.log.append(f"{approver} approved {action} on {case_id}.")
+        quoted = f", confirming {len(confirm)} quote(s)" if confirm else ""
+        self.log.append(f"{approver} approved {action} on {case_id}{quoted}.")
+
+    def reject_quotes(self, case_id: str, finding_ids: tuple[str, ...], approver: str) -> None:
+        self._require()
+        reject_findings(self.store, M, case_id, finding_ids, approver=approver, now=self.now)
+        self.log.append(f"{approver} rejected {len(finding_ids)} quote(s) on {case_id}.")
 
     def close(self, case_id: str, approver: str, note: str) -> None:
         self._require()
