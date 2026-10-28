@@ -1,43 +1,43 @@
 {
   "nirnaya": {
-    "fingerprint": "bf82d52a4d7d2e0f6bba293d8ba9b74c2e5c841a48125c7939b71e30d718825c",
-    "dataset": "nirnaya-eval-cases-v1",
+    "fingerprint": "b8b6df6c80c0f93df99eaf3f62d7cc4aa22d06cd7dfcee92ea440f52cff8a559",
+    "dataset": "nirnaya-eval-cases-v2",
     "metadata": {
       "policy": "Nirnaya",
-      "case_set": "v1",
+      "case_set": "v2",
       "merchant_policy": "merchant-demo@demo-2026-10#bd3f0c2ec782",
       "fx": "fx@demo-2026-10-01#a74fb42c5c16",
       "economics": "economics@v1#b0b04a506ede"
     }
   },
   "fight_all": {
-    "fingerprint": "1e964d6e28921e1255c2fff2e4574e8669d5ee398656b113e7eb1abbf688f230",
-    "dataset": "nirnaya-eval-cases-v1",
+    "fingerprint": "db950c77f098fbd43701ac531e89b81db853f89408c66c552d17885e5f84f5bd",
+    "dataset": "nirnaya-eval-cases-v2",
     "metadata": {
       "policy": "Fight everything",
-      "case_set": "v1",
+      "case_set": "v2",
       "merchant_policy": "merchant-demo@demo-2026-10#bd3f0c2ec782",
       "fx": "fx@demo-2026-10-01#a74fb42c5c16",
       "economics": "economics@v1#b0b04a506ede"
     }
   },
   "accept_all": {
-    "fingerprint": "7654784070ed7dca8bb20106e00240d563f75d30fe91c1d2e7f712541b1aa371",
-    "dataset": "nirnaya-eval-cases-v1",
+    "fingerprint": "497ca7e54a2332b8708f19bb27e6ec755c9f7e6995b24fde7f2abf136b9ca1b1",
+    "dataset": "nirnaya-eval-cases-v2",
     "metadata": {
       "policy": "Accept everything",
-      "case_set": "v1",
+      "case_set": "v2",
       "merchant_policy": "merchant-demo@demo-2026-10#bd3f0c2ec782",
       "fx": "fx@demo-2026-10-01#a74fb42c5c16",
       "economics": "economics@v1#b0b04a506ede"
     }
   },
   "llm_only_naive-v1": {
-    "fingerprint": "7fd3a46b320e82b0e4fcc22a6425c6e838bdb94c11f7baffc051534b3c4dea6b",
-    "dataset": "nirnaya-eval-cases-v1",
+    "fingerprint": "09d948915eff95463e245f500054e680cb4f3454c5100f6b62b300156accd6d1",
+    "dataset": "nirnaya-eval-cases-v2",
     "metadata": {
       "policy": "LLM only (naive v1)",
-      "case_set": "v1",
+      "case_set": "v2",
       "merchant_policy": "merchant-demo@demo-2026-10#bd3f0c2ec782",
       "fx": "fx@demo-2026-10-01#a74fb42c5c16",
       "economics": "economics@v1#b0b04a506ede",
@@ -51,11 +51,11 @@
     }
   },
   "llm_only_informed-v1": {
-    "fingerprint": "4f30b8089d42e535639cf1a4063a2fdf3d79f1496af5302e85521869e68be14f",
-    "dataset": "nirnaya-eval-cases-v1",
+    "fingerprint": "01c5735aeeb2e2f8f3fde1f3dbc5b1a590b4e44d706de2035c6cd2c6b32b3f48",
+    "dataset": "nirnaya-eval-cases-v2",
     "metadata": {
       "policy": "LLM only (informed v1)",
-      "case_set": "v1",
+      "case_set": "v2",
       "merchant_policy": "merchant-demo@demo-2026-10#bd3f0c2ec782",
       "fx": "fx@demo-2026-10-01#a74fb42c5c16",
       "economics": "economics@v1#b0b04a506ede",
@@ -69,11 +69,11 @@
     }
   },
   "llm_only_informed-v2": {
-    "fingerprint": "c5c45c3f6ff5166e0e0b85ea59a5b8d858113ab78a00cdcbc1e7387fe3cbf7dc",
-    "dataset": "nirnaya-eval-cases-v1",
+    "fingerprint": "3128dccb0af41521a0b00db4430c3a0c26e106e41aea9353ba419ebfd6aa11c4",
+    "dataset": "nirnaya-eval-cases-v2",
     "metadata": {
       "policy": "LLM only (informed v2)",
-      "case_set": "v1",
+      "case_set": "v2",
       "merchant_policy": "merchant-demo@demo-2026-10#bd3f0c2ec782",
       "fx": "fx@demo-2026-10-01#a74fb42c5c16",
       "economics": "economics@v1#b0b04a506ede",
