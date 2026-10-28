@@ -3,8 +3,9 @@
 import json
 from datetime import UTC, datetime
 
+from nirnaya import assets
 from nirnaya.evaluation.cases import load_cases
-from nirnaya.evaluation.llm_baseline import DECIDE, SYSTEM, Cache, llm_only, main, run
+from nirnaya.evaluation.llm_baseline import DECIDE, Cache, llm_only, main, run
 from nirnaya.evaluation.policies import Act
 from nirnaya.llm.fake import ScriptedLLM, reply
 from nirnaya.llm.types import ToolCall
@@ -40,8 +41,21 @@ def test_one_call_per_actionable_case_with_static_instructions():
     result = run(llm, cases, now=NOW, out=lambda _: None)
     assert list(result["cases"]) == ["K1"]
     (call,) = llm.calls
-    assert call["system"] == SYSTEM  # no case data or customer text in the system prompt
+    # no case data or customer text in the system prompt
+    assert call["system"] == assets.prompt("baseline_naive_system", {}).text
     assert call["force_tool"] == DECIDE
+    assert result["variant"] == "naive"
+    assert result["prompts"][0].startswith("baseline_naive_system@v1#")
+
+
+def test_the_fee_sentence_is_rendered_from_the_policy():
+    llm = ScriptedLLM([decision("ACCEPT")])
+    run(llm, [CASES["K2"]], now=NOW, out=lambda _: None)
+    text = llm.calls[0]["messages"][0].text
+    assert (
+        "Merchant costs: chargeback fee 25 USD, pre-chargeback resolution fee 15 USD, "
+        "pre-arbitration fee 500 USD, handling 20 USD per challenge.\nDecide."
+    ) in text
 
 
 def test_customer_text_reaches_the_model_only_inside_untrusted_blocks():

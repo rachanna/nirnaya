@@ -6,12 +6,14 @@ renders the text; an item code cannot build is dropped and recorded. Nothing her
 verify() decides what, if anything, may be submitted.
 """
 
+import os
+from collections.abc import Mapping
 from typing import Any
 
 from pydantic import ValidationError
 
+from nirnaya import assets
 from nirnaya.agent.context import facts_block, records_block
-from nirnaya.agent.prompts import DRAFTER_SYSTEM
 from nirnaya.agent.runs import AgentRun, DraftResult
 from nirnaya.agent.scripted import FIELD_KIND
 from nirnaya.evidence.catalogue import (
@@ -83,25 +85,31 @@ def field_guide(pairs: Supported) -> str:
     return "\n".join(lines)
 
 
-def submit_spec(record_ids: list[str], facts: list[str]) -> ToolSpec:
+def submit_spec(record_ids: list[str], facts: list[str], wording: dict[str, Any]) -> ToolSpec:
+    """The submit tool. Its structure is code; its wording (description and field notes) comes
+    from the versioned tools prompt."""
+    notes: dict[str, str] = wording.get("fields", {})
+
+    def string(name: str) -> dict[str, Any]:
+        if name in notes:
+            return {"type": "string", "description": notes[name]}
+        return {"type": "string"}
+
     item = {
         "type": "object",
         "properties": {
             "source_record_id": {"type": "string", "enum": record_ids},
-            "source_field": {"type": "string"},
+            "source_field": string("source_field"),
             "establishes": {"type": "string", "enum": facts},
-            "extracted_value": {
-                "type": "string",
-                "description": "the field's value exactly as it appears",
-            },
+            "extracted_value": string("extracted_value"),
             "value_kind": {"type": "string", "enum": VALUE_KINDS},
-            "text": {"type": "string", "description": "for NAME, IDENTIFIER or ENUM"},
-            "amount": {"type": "string", "description": "for MONEY, e.g. 200.00"},
-            "currency": {"type": "string", "description": "for MONEY, ISO-4217"},
+            "text": string("text"),
+            "amount": string("amount"),
+            "currency": string("currency"),
             "basis": {"type": "string", "enum": [b.value for b in AmountBasis]},
-            "at": {"type": "string", "description": "for DATETIME, ISO-8601 with offset"},
-            "date": {"type": "string", "description": "for DATE, YYYY-MM-DD"},
-            "tz": {"type": "string", "description": "for DATE, IANA time zone"},
+            "at": string("at"),
+            "date": string("date"),
+            "tz": string("tz"),
         },
         "required": [
             "source_record_id",
@@ -113,7 +121,7 @@ def submit_spec(record_ids: list[str], facts: list[str]) -> ToolSpec:
     }
     return ToolSpec(
         name=SUBMIT,
-        description="Submit every factual statement for this dispute response at once.",
+        description=wording["description"],
         input_schema={
             "type": "object",
             "properties": {"claims": {"type": "array", "items": item}},
@@ -168,9 +176,16 @@ def build_claims(
 
 
 class LLMDrafter:
-    def __init__(self, llm: LLMClient, *, max_tokens: int = 4096) -> None:
+    def __init__(
+        self, llm: LLMClient, *, max_tokens: int = 4096, env: Mapping[str, str] | None = None
+    ) -> None:
         self.llm = llm
         self.max_tokens = max_tokens
+        env = os.environ if env is None else env
+        self.system = assets.prompt("drafter_system", env)
+        self.user = assets.prompt("drafter_user", env)
+        self.tools_asset, tools = assets.prompt_table("tools", env)
+        self.wording: dict[str, Any] = tools["drafter"]["submit_claims"]
 
     def draft(self, dispute: Dispute, records: list[EvidenceRecord]) -> DraftResult:
         own = citable(dispute, records)
@@ -180,20 +195,22 @@ class LLMDrafter:
         if not pairs:
             return DraftResult(claims=())  # nothing these records can establish
         facts = sorted({fact.value for _, _, fact in pairs})
-        spec = submit_spec(sorted({record.id for record, _, _ in pairs}), facts)
-        prompt = (
-            "Case facts:\n"
-            + facts_block(dispute)
-            + "\n\nRecords you may cite:\n"
-            + records_block(own, source="citable-records")
-            + "\n\nThe facts these records establish (cite only these):\n"
-            + field_guide(pairs)
-            + "\n\nSubmit the statements these records support."
+        spec = submit_spec(sorted({record.id for record, _, _ in pairs}), facts, self.wording)
+        prompt = assets.render(
+            self.user,
+            facts=facts_block(dispute),
+            records=records_block(own, source="citable-records"),
+            field_guide=field_guide(pairs),
         )
-        run_base = {"kind": "DRAFT", "provider": self.llm.provider, "model": self.llm.model}
+        run_base = {
+            "kind": "DRAFT",
+            "provider": self.llm.provider,
+            "model": self.llm.model,
+            "prompts": (self.system.ref, self.user.ref, self.tools_asset.ref),
+        }
         try:
             resp = self.llm.complete(
-                system=DRAFTER_SYSTEM,
+                system=self.system.text,
                 messages=[Message.user(prompt)],
                 tools=[spec],
                 force_tool=SUBMIT,

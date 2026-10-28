@@ -33,8 +33,9 @@ def build_agents(
         client,
         max_calls_per_round=settings.max_calls_per_round,
         max_turns=settings.max_turns_per_round,
+        env=env,
     )
-    return investigator, LLMDrafter(client)
+    return investigator, LLMDrafter(client, env=env)
 
 
 def build_orchestrator(

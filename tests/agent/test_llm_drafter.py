@@ -1,5 +1,5 @@
+from nirnaya import assets
 from nirnaya.agent.llm_drafter import SUBMIT, LLMDrafter
-from nirnaya.agent.prompts import DRAFTER_SYSTEM
 from nirnaya.llm.fake import ScriptedLLM, reply
 from nirnaya.models import EvidenceRecord, EvidenceType
 from nirnaya.verifier import CheckName, VerificationOutcome, verify
@@ -40,7 +40,14 @@ def test_claims_are_built_by_code_with_rendered_text_and_code_ids():
         VerificationOutcome.PASSED
     )
     assert llm.calls[0]["force_tool"] == SUBMIT
-    assert llm.calls[0]["system"] == DRAFTER_SYSTEM
+    assert llm.calls[0]["system"] == assets.prompt("drafter_system", {}).text
+
+
+def test_a_draft_run_records_which_prompt_versions_produced_it():
+    _, _, result = draft("N1", DELIVERED)
+    refs = [assets.prompt(n, {}).ref for n in ("drafter_system", "drafter_user", "tools")]
+    assert result.run.prompts == tuple(refs)
+    assert refs[0].startswith("drafter_system@v1#")
 
 
 def test_items_code_cannot_build_are_dropped_and_recorded():

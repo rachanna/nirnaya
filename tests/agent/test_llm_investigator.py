@@ -1,5 +1,5 @@
+from nirnaya import assets
 from nirnaya.agent.llm_investigator import LLMInvestigator
-from nirnaya.agent.prompts import INVESTIGATOR_SYSTEM
 from nirnaya.agent.tools import Tool
 from nirnaya.llm.fake import ScriptedLLM, reply
 from nirnaya.llm.types import Role, StopReason
@@ -161,5 +161,21 @@ def test_the_system_prompt_is_static_and_holds_no_case_data():
         llm = ScriptedLLM([finish()])
         LLMInvestigator(llm).investigate(case.dispute, DELIVERY, tools)
         seen.add(llm.calls[0]["system"])
-    assert seen == {INVESTIGATOR_SYSTEM}
-    assert "N1" not in INVESTIGATOR_SYSTEM and "A1" not in INVESTIGATOR_SYSTEM
+    system = assets.prompt("investigator_system", {}).text
+    assert seen == {system}
+    assert "N1" not in system and "A1" not in system
+
+
+def test_an_investigation_run_records_which_prompt_versions_produced_it():
+    h, case, tools = investigation("N1")
+    result = LLMInvestigator(ScriptedLLM([finish()])).investigate(case.dispute, DELIVERY, tools)
+    names = ("investigator_system", "investigator_user", "tools")
+    assert result.run.prompts == tuple(assets.prompt(n, {}).ref for n in names)
+
+
+def test_a_prompt_override_selects_another_version():
+    """NIRNAYA_PROMPTS reaches the agent: an unknown version fails at construction."""
+    import pytest
+
+    with pytest.raises(assets.AssetError, match="no file"):
+        LLMInvestigator(ScriptedLLM([]), env={"NIRNAYA_PROMPTS": "investigator_system:v99"})

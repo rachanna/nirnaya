@@ -5,10 +5,12 @@ restricted to an enum of keys the case allows; the gateway checks again. Any pro
 round: the engine then decides on what was found.
 """
 
+import os
+from collections.abc import Mapping
 from typing import Any
 
+from nirnaya import assets
 from nirnaya.agent.context import facts_block, records_block
-from nirnaya.agent.prompts import FINISH_DESCRIPTION, INVESTIGATOR_SYSTEM, TOOL_DESCRIPTIONS
 from nirnaya.agent.runs import AgentRun, InvestigationResult, ToolCallRecord
 from nirnaya.agent.targets import tools_for
 from nirnaya.agent.tools import Tool, ToolGateway, ToolRefused
@@ -20,10 +22,10 @@ from nirnaya.models.enums import EvidenceType
 FINISH = "finish"
 
 
-def _spec(tool: Tool, keys: list[str]) -> ToolSpec:
+def _spec(tool: Tool, keys: list[str], description: str) -> ToolSpec:
     return ToolSpec(
         name=tool.value,
-        description=TOOL_DESCRIPTIONS[tool.value],
+        description=description,
         input_schema={
             "type": "object",
             "properties": {"key": {"type": "string", "enum": keys}},
@@ -33,16 +35,17 @@ def _spec(tool: Tool, keys: list[str]) -> ToolSpec:
     )
 
 
-FINISH_SPEC = ToolSpec(
-    name=FINISH,
-    description=FINISH_DESCRIPTION,
-    input_schema={
-        "type": "object",
-        "properties": {"reason": {"type": "string"}},
-        "required": ["reason"],
-        "additionalProperties": False,
-    },
-)
+def _finish_spec(description: str) -> ToolSpec:
+    return ToolSpec(
+        name=FINISH,
+        description=description,
+        input_schema={
+            "type": "object",
+            "properties": {"reason": {"type": "string"}},
+            "required": ["reason"],
+            "additionalProperties": False,
+        },
+    )
 
 
 class LLMInvestigator:
@@ -53,11 +56,17 @@ class LLMInvestigator:
         max_calls_per_round: int = 3,
         max_turns: int = 6,
         max_tokens: int = 1024,
+        env: Mapping[str, str] | None = None,
     ) -> None:
         self.llm = llm
         self.max_calls = max_calls_per_round
         self.max_turns = max_turns
         self.max_tokens = max_tokens
+        env = os.environ if env is None else env
+        self.system = assets.prompt("investigator_system", env)
+        self.user = assets.prompt("investigator_user", env)
+        self.tools_asset, tools = assets.prompt_table("tools", env)
+        self.descriptions: dict[str, str] = tools["investigator"]
 
     def offered(self, targets: list[EvidenceType], tools: ToolGateway) -> dict[str, list[str]]:
         """Tool name -> keys not yet called, for the tools the current targets need."""
@@ -75,17 +84,18 @@ class LLMInvestigator:
         offer = self.offered(targets, tools)
         if not offer:
             return InvestigationResult(calls=0)
-        specs = [_spec(Tool(name), keys) for name, keys in offer.items()] + [FINISH_SPEC]
+        specs = [
+            _spec(Tool(name), keys, self.descriptions[name]) for name, keys in offer.items()
+        ] + [_finish_spec(self.descriptions[FINISH])]
         records = tools.case_evidence()
         messages = [
             Message.user(
-                "Case facts:\n"
-                + facts_block(dispute)
-                + "\n\nEvidence worth finding: "
-                + ", ".join(sorted(targets))
-                + "\n\nRecords already on file:\n"
-                + records_block(records, source="case-records")
-                + "\n\nLook up what could provide the evidence worth finding, then call finish."
+                assets.render(
+                    self.user,
+                    facts=facts_block(dispute),
+                    targets=", ".join(sorted(targets)),
+                    records=records_block(records, source="case-records"),
+                )
             )
         ]
         calls: list[ToolCallRecord] = []
@@ -96,7 +106,7 @@ class LLMInvestigator:
             turns += 1
             try:
                 resp = self.llm.complete(
-                    system=INVESTIGATOR_SYSTEM,
+                    system=self.system.text,
                     messages=messages,
                     tools=specs,
                     max_tokens=self.max_tokens,
@@ -144,6 +154,7 @@ class LLMInvestigator:
             stop=stop,
             input_tokens=tokens_in,
             output_tokens=tokens_out,
+            prompts=(self.system.ref, self.user.ref, self.tools_asset.ref),
             tool_calls=tuple(calls),
             transcript=tuple(transcript),
         )

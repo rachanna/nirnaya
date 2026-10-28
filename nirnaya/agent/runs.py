@@ -24,6 +24,8 @@ class AgentRun(DomainModel):
     stop: str
     input_tokens: int = 0
     output_tokens: int = 0
+    # The prompt versions that produced this run: name@version#sha256 prefix (nirnaya/assets).
+    prompts: tuple[str, ...] = ()
     tool_calls: tuple[ToolCallRecord, ...] = ()
     # Draft items the model proposed that code could not turn into a claim.
     dropped: tuple[dict[str, Any], ...] = ()
