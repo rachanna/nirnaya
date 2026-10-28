@@ -80,6 +80,7 @@ All parameters are per-merchant config. Sunk costs are excluded.
 ## Verifier blocking checks
 
 Cited records belong to this case and merchant · amounts match after currency normalisation and partial refunds · dates match after timezone normalisation · names/IDs appear in the cited record · no claim exceeds what its record establishes · reason-code-required evidence present · no merchant record contradicts the claim · dates consistent across records (delivery after the order, terms before the charge, order before the dispute, nothing after capture) · evidence hashes unchanged.
+Counterevidence completeness: before any challenge is drafted, code (never the agent) fetches every key of each tool serving a fact the case relies on and of each system with a contradiction rule against it (`counterevidence_lookups`); out of budget → refer. The gateway re-checks it.
 Conflict handling: unsupported assertion → block; records contradict each other → refer to human; customer allegation vs merchant evidence → normal dispute (draft must not deny the complaint exists). Material counterevidence is always surfaced to the approver.
 
 ## Build order (milestones)

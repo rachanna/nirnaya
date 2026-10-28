@@ -29,6 +29,18 @@ class Tool(StrEnum):
     POLICY = "get_policy_acceptance"
 
 
+def allowed_keys(tool: Tool, dispute: Dispute, records: list[EvidenceRecord]) -> list[str]:
+    """The keys a case allows for a tool: the dispute's order id, or values found in the
+    case's own order records. Shared by the tool gateway, the counterevidence sweep and the
+    write gateway's check, so all three agree on what "every key" means."""
+    if tool is Tool.ORDER:
+        order_id = dispute.merchant_order_id
+        return [order_id] if order_id else []
+    orders = [r for r in records if r.source_system is SourceSystem.ORDER]
+    field = "tracking_number" if tool is Tool.CARRIER else "customer_id"
+    return sorted({v for r in orders if isinstance(v := r.fields.get(field), str) and v})
+
+
 class ToolRefused(RuntimeError):
     """The call was not allowed: unknown key, or the budget is spent."""
 
@@ -70,16 +82,7 @@ class ToolGateway:
     def lookup_keys(self, tool: Tool) -> list[str]:
         """The keys this case allows for a tool: the dispute's order id, or values found in
         the case's own order records. The investigator cannot invent a key."""
-        if tool is Tool.ORDER:
-            order_id = self._dispute.merchant_order_id
-            return [order_id] if order_id else []
-        orders = [
-            r
-            for r in self._store.evidence(self._merchant, self._dispute.id)
-            if r.source_system is SourceSystem.ORDER
-        ]
-        field = "tracking_number" if tool is Tool.CARRIER else "customer_id"
-        return sorted({v for r in orders if isinstance(v := r.fields.get(field), str) and v})
+        return allowed_keys(tool, self._dispute, self.case_evidence())
 
     def refuse(self, tool: str, key: object, why: str) -> None:
         """Audit a call the investigator asked for and was not allowed to make."""

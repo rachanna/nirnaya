@@ -487,6 +487,7 @@ It takes **ids, not objects**. The gateway reloads everything it needs from the 
 | 5 | The dispute's account matches the case's merchant, and the merchant has delegated authority or a human approval exists for this cycle | `NO_AUTHORITY` |
 | 6 | `decide()` re-run on the fresh dispute (and, for a challenge, on `established`) returns the same action (§6) | `DECISION_CHANGED` / `DECISION_NOT_SUPPORTED_BY_VERIFIED_CLAIMS` |
 | 7 | Challenge only: the stored `VerificationResult.outcome` is `PASSED`; every cited record's stored hash equals its capture hash; evidence files are uploaded and their `file_id`s recorded | `NOT_VERIFIED` / `EVIDENCE_CHANGED` / `FILES_MISSING` |
+| 7c | Challenge only: every record that could contradict the challenge was looked at: no lookup returned by `counterevidence_lookups()` is outstanding (§8.2). Read-only here; the drafting sweep does the fetching | `COUNTEREVIDENCE_INCOMPLETE` |
 | 8 | Challenge only: the request uses `challenge_method: STANDARD`, so Nirnaya's verified package is what is submitted. AI Dispute Automation is used only when explicitly requested ([Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md)); its `recommendation` is stored as a comparison input, never as the decision | `WRONG_CHALLENGE_METHOD` |
 | 9 | No ledger row exists for this `request_id` with status `SENT` or `CONFIRMED` | returns the earlier result (idempotent) |
 
@@ -531,6 +532,8 @@ flowchart LR
 ```
 
 Targets are **recomputed by code** after every tool result (`nirnaya/agent/targets.py`): every evidence set VoI reports as flipping the decision (whole sets, including pairs that only flip together; a set needing a payment-attempt fact is skipped), plus, when the maths favours a challenge, the reason's unmet evidence requirements. Without the second part a challenge could be decided but never verified (for example, a subscription case decided on accepted terms still needs usage after renewal or no prior contact). Types no tool can find (the payment-attempt facts) are dropped. The agent never adds a target of its own, and the tool gateway accepts only lookup keys that come from the dispute or the case's own order records.
+
+**Targets say what is worth finding; the counterevidence sweep says what must be checked.** Targets follow *missing* evidence, so on their own they let a challenge go out while a record that contradicts it sits unread: a model can stop after fetching the delivered parcel and never fetch the returned one, and a system nothing needed for the maths (a login record reporting the account compromised) is never queried. So at the start of `DRAFTING`, code (`counterevidence_lookups()` in `agent/targets.py`, run by `machine._counterevidence_sweep`) fetches, for every fact the case's records establish, every key of the tool that serves it and of every system with a contradiction rule against it, repeating while fetched records name new keys. It runs whichever agent is configured, for delegated and human-approved challenges alike. If the tool budget cannot cover it, the case is referred (`COUNTEREVIDENCE_INCOMPLETE`) and nothing is drafted. Any contradiction found is caught by the verifier's conflict check and the gateway's decision re-run, and the gateway checks again that nothing is outstanding (§7.2 check 7c). Found by an independent review (2026-10-29).
 
 ### 8.3 Tools
 
@@ -915,6 +918,7 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 | LLM error, refusal or timeout | Stop the agent; decide on stored evidence; a CHALLENGE without a verified draft → `REFERRED` |
 | LLM proposes an unlisted tool or arguments | Refused and audited |
 | Evidence hash mismatch | Verifier `HASH_MISMATCH` → BLOCKED |
+| A record that would contradict a challenge was never fetched (the agent stopped early, or no target needed that system) | The drafting sweep fetches it by code; a contradiction then refers the case. Out of tool budget: `COUNTEREVIDENCE_INCOMPLETE` → `REFERRED` (§8.2) |
 | Draft fails verification | `REFERRED` with the exact failed claims |
 | Decision not supported by verified claims | `REFERRED` (§6) |
 | Deadline buffer reached | Watchdog → `REFERRED` (urgent) |
@@ -1076,6 +1080,8 @@ What a model is told, and the configuration decisions depend on, live in files r
 | M7: Streamlit demo | `app/`, `nirnaya/console/` | Kit 4 cases in the kit's demo structure (with the issuer rejection and the 2-C fabrication), review queue with approver actions, case detail, baseline comparison | ✅ |
 
 Review and change notes, **newest first** (dates are commit dates, so test counts rise as you read upward):
+
+**Independent review, 2026-10-29** (in progress): before any challenge is drafted, code fetches every record that could contradict it, so neither the model nor an unqueried system can hide counterevidence; the gateway checks it again (§8.2, §7.2 7c).
 
 **External architecture review, 2026-10-28** ✅: a deferral is checked at the deadline buffer and referred if Airwallex has not acted (`DEFERRAL_UNCONFIRMED`, §4.3); a stalled write in `SUBMITTING` is flagged and made urgent, never interrupted (§4.2); the 42/42 agreement is qualified as self-consistency (§14); endpoints are checked against their citations (I7).
 

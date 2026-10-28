@@ -11,6 +11,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+from nirnaya.agent.targets import counterevidence_lookups
 from nirnaya.engine import decide
 from nirnaya.evidence.derive import (
     contradictory_record_ids,
@@ -51,6 +52,8 @@ class GuardFailure(StrEnum):
     FILES_MISSING = "FILES_MISSING"
     WRITE_REJECTED = "WRITE_REJECTED"
     OUTCOME_UNKNOWN = "OUTCOME_UNKNOWN"
+    # A record that could contradict the challenge was never looked at (architecture 6).
+    COUNTEREVIDENCE_INCOMPLETE = "COUNTEREVIDENCE_INCOMPLETE"
 
 
 class Ledger(StrEnum):
@@ -220,6 +223,13 @@ class WriteGateway:
         # before the decision re-run, which would otherwise hide tampering as a changed decision.
         if action is Action.CHALLENGE:
             ctx |= self._check_verified(merchant_id, case_id, cycle, records)
+            # 7c. Every record that could contradict the challenge was looked at. The drafting
+            # sweep does this; checked again here so no path can skip it. Never fetches.
+            called = store.tools_called(merchant_id, case_id, cycle)
+            if unchecked := counterevidence_lookups(fresh, records, called):
+                raise _Refused(
+                    GuardFailure.COUNTEREVIDENCE_INCOMPLETE, f"never looked at: {unchecked}"
+                )
 
         # 6. The decision, re-derived on the fresh dispute, still says this action.
         rerun = self._decide(fresh, policy, records, ownership)

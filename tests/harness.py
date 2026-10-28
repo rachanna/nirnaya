@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from nirnaya.agent.scripted import ScriptedDrafter
+from nirnaya.agent.targets import counterevidence_lookups
 from nirnaya.config.demo import DEMO_POLICY
 from nirnaya.engine import decide
 from nirnaya.evaluation.cases import EvalCase, load_cases, synthetic_world
@@ -57,10 +58,17 @@ class Harness:
         )
 
     def prepare(
-        self, case: EvalCase, *, claims: list[Claim] | None = None, render: bool = True
+        self,
+        case: EvalCase,
+        *,
+        claims: list[Claim] | None = None,
+        render: bool = True,
+        swept: bool = True,
     ) -> None:
         """Bring a case to the point of writing, without the state machine: ingested, all
-        evidence captured, decided, and (for a challenge) drafted, verified and rendered."""
+        evidence captured, decided, and (for a challenge) drafted, verified and rendered.
+        `swept` records the lookups a real run makes (the counterevidence sweep); False leaves
+        them out, to test that the gateway refuses a challenge nobody checked."""
         m, cid, now = case.dispute.merchant_id, case.dispute.id, self.now(case)
         self.stage(case)
         ingest(self.store, self.aw, m, now)
@@ -69,6 +77,9 @@ class Harness:
             self.store.set_ownership(m, cid, 1, case.ownership_resolved)
             for r in records:
                 self.store.put_evidence(m, r)
+            if swept:
+                for lookup in counterevidence_lookups(case.dispute, records, set()):
+                    self.store.record_tool_called(m, cid, 1, lookup)
             decision = decide(
                 case.dispute,
                 DEMO_POLICY,

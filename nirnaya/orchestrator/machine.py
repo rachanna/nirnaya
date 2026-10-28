@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from nirnaya.agent.runs import AgentRun
-from nirnaya.agent.targets import investigation_targets, tools_for
+from nirnaya.agent.targets import counterevidence_lookups, investigation_targets, tools_for
 from nirnaya.agent.tools import MerchantSystems, Tool, ToolGateway
 from nirnaya.engine import decide
 from nirnaya.evidence.derive import (
@@ -541,6 +541,14 @@ class Orchestrator:
 
     def _drafting(self, case: CaseRow, now: datetime) -> _Step:
         dispute = self._dispute(case)
+        unfetched = self._counterevidence_sweep(case, dispute, now)
+        if unfetched:
+            detail = {
+                "unfetched": unfetched,
+                "why": "the tool budget ran out before every record that could contradict "
+                "the challenge was looked at",
+            }
+            return _Step(S.REFERRED, detail, referral=["COUNTEREVIDENCE_INCOMPLETE"], detail=detail)
         records = self.store.evidence(case.merchant_id, case.case_id)
         result = self.drafter.draft(dispute, records)
         claims = list(result.claims)
@@ -556,6 +564,32 @@ class Orchestrator:
             self.store.put_claims(case.merchant_id, case.case_id, case.cycle, claims)
 
         return _Step(S.VERIFYING, {"claims": [c.id for c in claims]}, apply)
+
+    def _counterevidence_sweep(self, case: CaseRow, dispute: Dispute, now: datetime) -> list[str]:
+        """Before a challenge is drafted, code fetches every record that could contradict it
+        (every key of each tool serving a fact the case relies on, and of each system with a
+        contradiction rule against one), whatever the agent fetched. A fetched record can name
+        new keys (another parcel), so it repeats until nothing is left. Returns what could not
+        be fetched within the tool budget; the verifier and gateway then see the full record."""
+        tools = self._tools(case, dispute, now)
+        fetched: list[str] = []
+        while missing := counterevidence_lookups(dispute, tools.case_evidence(), tools.called()):
+            if tools.calls_used + len(missing) > self.settings.max_tool_calls:
+                return missing
+            for lookup in missing:
+                name, _, key = lookup.partition(":")
+                tools.fetch(Tool(name), key)
+                fetched.append(lookup)
+        if fetched:
+            with self.store.transaction():
+                self.store.audit(
+                    case.merchant_id,
+                    case.case_id,
+                    "COUNTEREVIDENCE_SWEEP",
+                    {"cycle": case.cycle, "fetched": fetched},
+                    now,
+                )
+        return []
 
     def _verifying(self, case: CaseRow, now: datetime) -> _Step:
         m, cid = case.merchant_id, case.case_id

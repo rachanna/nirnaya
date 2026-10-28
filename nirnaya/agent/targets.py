@@ -1,10 +1,14 @@
 """What the investigator may look for, decided by code (architecture section 8.2)."""
 
-from nirnaya.agent.tools import Tool
-from nirnaya.evidence.catalogue import REQUIRED_EVIDENCE
+from collections.abc import Iterable
+
+from nirnaya.agent.tools import Tool, allowed_keys
+from nirnaya.evidence.catalogue import CONTRADICTION_RULES, REQUIRED_EVIDENCE
+from nirnaya.evidence.derive import evidence_present
 from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
-from nirnaya.models.enums import Action, EvidenceType
+from nirnaya.models.enums import Action, EvidenceType, SourceSystem
+from nirnaya.models.evidence import EvidenceRecord
 
 E = EvidenceType
 
@@ -48,3 +52,37 @@ def investigation_targets(
 
 def tools_for(targets: list[EvidenceType]) -> list[Tool]:
     return sorted({tool for t in targets if (tool := TOOL_FOR[t]) is not None})
+
+
+# The tool that reads each merchant system. Payment attempts are ingested, not looked up.
+TOOL_OF_SOURCE: dict[SourceSystem, Tool] = {
+    SourceSystem.ORDER: Tool.ORDER,
+    SourceSystem.CARRIER: Tool.CARRIER,
+    SourceSystem.LOGIN: Tool.LOGIN,
+    SourceSystem.HELPDESK: Tool.HELPDESK,
+    SourceSystem.POLICY: Tool.POLICY,
+}
+
+
+def counterevidence_lookups(
+    dispute: Dispute, records: list[EvidenceRecord], called: Iterable[str]
+) -> list[str]:
+    """Lookups ("tool:key") a challenge still needs before it is drafted: for every fact the
+    case's records establish, every key of the tool that serves it (another parcel, another
+    order) and of every system holding a contradiction rule against it. Targets say what is
+    worth *finding*; this says what must be *checked*. Decided by code, whatever the agent did.
+    """
+    done = set(called)
+    tools: set[Tool] = set()
+    for fact in evidence_present(records, dispute):
+        if (tool := TOOL_FOR[fact]) is not None:
+            tools.add(tool)
+        for rule in CONTRADICTION_RULES:
+            if rule.contradicts is fact and (tool := TOOL_OF_SOURCE.get(rule.source_system)):
+                tools.add(tool)
+    return sorted(
+        lookup
+        for tool in tools
+        for key in allowed_keys(tool, dispute, records)
+        if (lookup := f"{tool}:{key}") not in done
+    )
