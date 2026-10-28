@@ -1,0 +1,860 @@
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-5-5",
+  "prompts": [
+    "investigator_system@v1#1a2f30db3506",
+    "investigator_user@v1#469b752adc64",
+    "drafter_system@v1#6c9a943c49ef",
+    "drafter_user@v1#56b395e94bd8",
+    "tools@v1#ba84dfdfa56a"
+  ],
+  "case_set": "v2",
+  "run_at": "2026-10-28T17:31:18.820028+00:00",
+  "fabrication_cases": [
+    "A3",
+    "K2C"
+  ],
+  "summary": {
+    "route_differs": [
+      "A3"
+    ],
+    "scripted": {
+      "unsupported": 0,
+      "blocked": 1,
+      "lookups": 102,
+      "tokens": 0
+    },
+    "llm": {
+      "unsupported": 0,
+      "blocked": 0,
+      "lookups": 102,
+      "tokens": 107779
+    }
+  },
+  "cases": {
+    "A1": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 3029,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "A2": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 2580,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "A3": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 1,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 5135,
+        "agent_stops": [
+          "FINISH",
+          "TOOL_USE"
+        ]
+      }
+    },
+    "A5": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 2707,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "D1": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 2446,
+        "agent_stops": [
+          "TOOL_USE"
+        ]
+      }
+    },
+    "D2": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "D3": {
+      "scripted": {
+        "action": "NONE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 0,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "NONE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 0,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "D4": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 2188,
+        "agent_stops": [
+          "TOOL_USE"
+        ]
+      }
+    },
+    "F1": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 2601,
+        "agent_stops": [
+          "TOOL_USE"
+        ]
+      }
+    },
+    "F10": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "F3": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 2952,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "F4": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 2939,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "F5": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 2960,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "F6": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 2371,
+        "agent_stops": [
+          "TOOL_USE"
+        ]
+      }
+    },
+    "F7": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "F8": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 3039,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "F9": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 2370,
+        "agent_stops": [
+          "TOOL_USE"
+        ]
+      }
+    },
+    "K1": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 2836,
+        "agent_stops": [
+          "TOOL_USE"
+        ]
+      }
+    },
+    "K1B": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 2604,
+        "agent_stops": [
+          "TOOL_USE"
+        ]
+      }
+    },
+    "K2": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "K2C": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "K3": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "N1": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 5135,
+        "agent_stops": [
+          "FINISH",
+          "TOOL_USE"
+        ]
+      }
+    },
+    "N2": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 2691,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "N3": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 5302,
+        "agent_stops": [
+          "FINISH",
+          "TOOL_USE"
+        ]
+      }
+    },
+    "N4": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 2846,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "N5": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 5391,
+        "agent_stops": [
+          "FINISH",
+          "TOOL_USE"
+        ]
+      }
+    },
+    "N6": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "N7": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 2708,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "N8": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 5573,
+        "agent_stops": [
+          "FINISH",
+          "TOOL_USE"
+        ]
+      }
+    },
+    "N9": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 5120,
+        "agent_stops": [
+          "FINISH",
+          "TOOL_USE"
+        ]
+      }
+    },
+    "S1": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 4,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 4,
+        "tokens": 8210,
+        "agent_stops": [
+          "FINISH",
+          "FINISH",
+          "TOOL_USE"
+        ]
+      }
+    },
+    "S2": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 4,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 4,
+        "tokens": 7831,
+        "agent_stops": [
+          "FINISH",
+          "FINISH",
+          "TOOL_USE"
+        ]
+      }
+    },
+    "S3": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 5424,
+        "agent_stops": [
+          "FINISH",
+          "TOOL_USE"
+        ]
+      }
+    },
+    "S4": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 3,
+        "tokens": 2964,
+        "agent_stops": [
+          "FINISH"
+        ]
+      }
+    },
+    "S5": {
+      "scripted": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 4,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "CHALLENGE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 4,
+        "tokens": 5827,
+        "agent_stops": [
+          "FINISH",
+          "TOOL_USE"
+        ]
+      }
+    },
+    "U1": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "U2": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "U3": {
+      "scripted": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "ACCEPT",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "U4": {
+      "scripted": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "REFER",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 2,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "X1": {
+      "scripted": {
+        "action": "NONE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 0,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "NONE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 0,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    },
+    "X2": {
+      "scripted": {
+        "action": "NONE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 0,
+        "tokens": 0,
+        "agent_stops": []
+      },
+      "model": {
+        "action": "NONE",
+        "unsupported": 0,
+        "blocked": 0,
+        "lookups": 0,
+        "tokens": 0,
+        "agent_stops": []
+      }
+    }
+  }
+}

@@ -583,6 +583,23 @@ The status and contradiction ids are left for `verify()`, which ignores any inco
 
 Model: chosen by configuration through the provider-neutral `LLMClient` (`nirnaya/llm/`): `NIRNAYA_LLM_PROVIDER` is `anthropic` (default) or `openai`, and `NIRNAYA_MODEL` sets the model (default `claude-sonnet-5-5` for Anthropic; required for OpenAI). Structured drafts ask for one named tool call (`force_tool`). The OpenAI adapter forces it with `tool_choice`. Current Claude models (Sonnet 5.5, Opus 5.5) reject a forced `tool_choice`, so the Anthropic adapter leaves it on auto, marks that tool `strict` (its schema closed with `additionalProperties: false`), names the tool in the system prompt and asks once more if the call is missing; after that the caller sees no tool call and fails closed. Data from records is passed only as tool results or messages wrapped by `untrusted()`; the system prompt is static.
 
+
+### 8.7 Does the model agent beat the scripted one? (measured)
+
+**Not on these cases: they are equivalent.** On 2026-10-28 all 42 evaluation cases ran through the same pipeline twice, once with the scripted investigator and drafter and once with `LLMInvestigator` and `LLMDrafter` on `claude-sonnet-5-5` (`python -m nirnaya.evaluation.llm_agent`, cached in `eval/results/llm_agent/claude-sonnet-5-5.json`):
+
+| | Scripted agent | Claude agent |
+|---|---|---|
+| Same route | 41 of 42 | 41 of 42 |
+| Lookups (code's intake lookups plus the agent's) | 102 | 102 |
+| Unsupported claims submitted | 0 | 0 |
+| Drafted claims the verifier blocked | 1 (A3's deliberately careless fixture draft) | 0 |
+| Model tokens | 0 | about 108,000 |
+
+The one route difference is A3, a fabrication case where the scripted side uses a careless fixture draft by design (it overstates the amount and is blocked); the model's own draft stated the amount correctly, so its challenge went through. On every other case the two agents fetched the same records and reached the same decision, and the model never drafted a claim the verifier had to block.
+
+That is expected here. The tools are few, their keys are enums derived from the dispute, and code recomputes the targets, so a deterministic agent covers the search space of these synthetic merchant systems. The model agent is for what they do not have: **real merchant systems**, where a lookup key may be missing, records are unstructured text, and the next useful lookup cannot be enumerated in advance. It is kept for that, behind the same gateway and verifier, so whichever agent runs, nothing it proposes is trusted.
+
 ---
 
 ## 9. Airwallex integration
