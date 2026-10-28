@@ -3,7 +3,7 @@
 **Audience:** the people and agents building Nirnaya (Milestones 2–7).
 **Read with:** [`docs/spec.md`](spec.md) (what and why) and [`CLAUDE.md`](../CLAUDE.md) (rules and conventions).
 **Status legend:** ✅ built and tested · 🔶 partly built · ⬜ planned.
-**Airwallex facts** cite the page they come from, checked 2026-10-23. Anything not confirmed is marked `TODO(verify-airwallex-docs)` and must not be implemented from memory.
+**Airwallex facts** cite the page they come from, checked 2026-10-23 (and 2026-10-28 for `customer_info` and `ai_dispute_automation`). Anything not confirmed is marked `TODO(verify-airwallex-docs)` and must not be implemented from memory.
 
 ---
 
@@ -40,12 +40,12 @@ These are the seven rules in `CLAUDE.md`, restated with **where each is enforced
 
 | # | Invariant | Enforced in | Proven by |
 |---|---|---|---|
-| I1 | The LLM authorises nothing. Only the engine decides; only the verifier clears a submission. | `nirnaya/engine/decide.py` `decide()`; `nirnaya/verifier/verify.py` `verify()`; ⬜ the write gateway refuses any write without both (§7) | ✅ engine and verifier tests; ⬜ `tests/guardrails/` |
+| I1 | The LLM authorises nothing. Only the engine decides; only the verifier clears a submission. | `nirnaya/engine/decide.py` `decide()`; `nirnaya/verifier/verify.py` `verify()`; the write gateway refuses any write without both (§7) | ✅ engine and verifier tests; `tests/guardrails/test_gateway.py` |
 | I2 | The engine and verifier are deterministic: no LLM, no randomness, no network, no clock. | Ruff `banned-api` on `nirnaya/{models,evidence,engine,verifier}`; `tests/test_determinism.py` (AST scan, identical output across `PYTHONHASHSEED`) | ✅ |
 | I3 | Every claim is bound to evidence. | `Claim.source_record_id` / `source_field` are required non-blank fields (`nirnaya/models/claim.py`) | ✅ `tests/models/test_claim.py` |
-| I4 | Customer and support text is untrusted data. | Customer-authored records establish nothing (`nirnaya/evidence/catalogue.py` `record_establishes`); ⬜ the agent prompt passes tool results only as delimited data (§8.4) | ✅ catalogue tests; ⬜ agent tests |
-| I5 | Writes are guarded: re-fetch, re-check, unique `request_id`, `DRY_RUN=true` by default. | ⬜ `nirnaya/guardrails/` write gateway (§7) | ⬜ |
-| I6 | Tenant isolation by `merchant_id`. | `TenantMismatchError` in `nirnaya/engine/core.py`; `case_records()` in `nirnaya/evidence/derive.py`; verifier scope checks; ⬜ the repository layer (§10.3) | ✅ partly; ⬜ store tests |
+| I4 | Customer and support text is untrusted data. | Customer-authored records establish nothing (`nirnaya/evidence/catalogue.py` `record_establishes`); the agent never sees customer-written content and passes records only as delimited data (§8.4) | ✅ catalogue tests; `tests/agent/` |
+| I5 | Writes are guarded: re-fetch, re-check, unique `request_id`, `DRY_RUN=true` by default. | `nirnaya/guardrails/` write gateway (§7); AST test that only the gateway calls write operations (§3.3) | ✅ `tests/guardrails/`, `tests/test_architecture.py` |
+| I6 | Tenant isolation by `merchant_id`. | `TenantMismatchError` in `nirnaya/engine/core.py`; `case_records()` in `nirnaya/evidence/derive.py`; verifier scope checks; the repository layer (§10.3); one Airwallex client per merchant (§11.1) | ✅ including `tests/store/test_store.py` |
 | I7 | Never invent Airwallex API details. | Enums carry documented values (`nirnaya/models/enums.py`); `TODO(verify-airwallex-docs)` markers | review |
 
 ### 1.2 In scope
@@ -150,16 +150,18 @@ flowchart TB
     end
 
     subgraph Integrations
-        AWR[Airwallex read client]
-        AWW[Airwallex write client]
+        AWC[Airwallex client<br/>integrations/airwallex/<br/>one per merchant]
+        SIM[Sandbox simulator]
         MCK[Merchant system mocks]
     end
 
+    LLM[LLM adapters<br/>llm/]
+    LS[(LangSmith<br/>optional)]
     STORE[(SQLite store<br/>+ audit log<br/>store/)]
-    UI[Streamlit UI<br/>app/]
-    EVAL[Eval harness<br/>eval/]
+    UI[Streamlit UI<br/>app/ + console/]
+    EVAL[Eval harness<br/>eval/ + evaluation/]
 
-    ING --> AWR
+    ING --> AWC
     ING --> STORE
     ORC --> ENG
     ORC --> VER
@@ -172,8 +174,7 @@ flowchart TB
     AGT --> TG
     TG --> MCK
     TG --> STORE
-    WG --> AWR
-    WG --> AWW
+    WG --> AWC
     WG --> ENG
     WG --> STORE
     REF --> ORC
@@ -181,37 +182,45 @@ flowchart TB
     UI --> REF
     EVAL --> ORC
     EVAL --> STORE
+    AGT --> LLM
+    LLM -.->|traces, if on| LS
+    ORC -.->|StepObserver, if on| LS
+    SIM --> AWC
 ```
 
 ### 3.2 Component responsibilities
 
 | Component | Package | Status | Responsibility | Authority | Depends on |
 |---|---|---|---|---|---|
-| Domain models | `nirnaya/models/` | ✅ | Pydantic types: `Dispute`, `PaymentAttempt`, `EvidenceRecord`, `Claim`, `MerchantPolicy`, `Decision`, `Money`, `FxTable`, `DisputeReason` | none | none |
+| Domain models | `nirnaya/models/` | ✅ | Pydantic types: `Dispute` (with Airwallex's `AiRecommendation`, display only), `PaymentAttempt`, `EvidenceRecord`, `Claim`, `MerchantPolicy`, `Decision`, `Money`, `FxTable`, `DisputeReason` | none | none |
 | Evidence catalogue | `nirnaya/evidence/` | ✅ | `FIELD_RULES`, `REQUIRED_EVIDENCE`, `CONTRADICTION_RULES`, `TEMPORAL_RULES`, `REASON_SPECIFIC`, `render_claim_text`; `evidence_present()`, `contradictory_record_ids()`, `late_evidence_notes()` | data | models |
 | Decision engine | `nirnaya/engine/` | ✅ | `decide()` → `Decision` with `voi`; `value_of_information()` | **sole decider** | models, evidence |
 | Verifier | `nirnaya/verifier/` | ✅ | `verify()` → `VerificationResult` | **sole clearer** | models, evidence |
-| Ingestion | `nirnaya/ingest/` *(new package)* | 🔶 (domain disputes; wire mapping in M5) | Poll and reconcile disputes; optional webhook receiver; snapshot disputes and payment attempts; map wire → domain | none | Airwallex read client, store |
+| Ingestion | `nirnaya/ingest/` *(new package)* | ✅ (polling; webhooks not built) | Poll and reconcile disputes; snapshot disputes and payment attempts; wire → domain mapping in `integrations/airwallex/mapping.py` (§9.3) | none | Airwallex client, store |
 | Case store | `nirnaya/store/` | ✅ | SQLite schema, repositories scoped by `merchant_id`, hash-chained audit log | none | models |
-| Orchestrator | `nirnaya/orchestrator/` | ✅ | Persistent case state machine, scheduler tick, deadline watchdog, command handling | routes only | everything inbound and outbound |
-| Review queue | `nirnaya/orchestrator/referrals.py` | ✅ (commands; UI in M7) | Referral records, approver commands | human | store |
-| Investigating agent | `nirnaya/agent/` | ✅ (`LLMInvestigator`, `LLMDrafter` on any `LLMClient`; scripted versions for tests and `NIRNAYA_AGENT=scripted`) | Model rounds: choose permitted lookups from VoI targets, stop, draft structured claims | none | `nirnaya/llm/`, tool gateway |
+| Orchestrator | `nirnaya/orchestrator/` | ✅ | Persistent case state machine, scheduler tick, deadline watchdog, command handling; a `StepObserver` port reports steps and committed transitions to an observer that cannot affect them (§13) | routes only | everything inbound and outbound |
+| Review queue | `nirnaya/orchestrator/referrals.py` | ✅ (commands and console) | Referral records, approver commands | human | store |
+| Investigating agent | `nirnaya/agent/` | ✅ (`LLMInvestigator`, `LLMDrafter` on any `LLMClient`; scripted versions for tests and `NIRNAYA_AGENT=scripted`) | Model rounds: choose permitted lookups from VoI targets, stop, draft structured claims; prompts from versioned assets (§16.1) | none | `nirnaya/llm/`, tool gateway, assets |
+| LLM layer | `nirnaya/llm/` | ✅ | Provider-neutral `LLMClient`; Anthropic and OpenAI adapters (§8.6); `ScriptedLLM` for tests; optional LangSmith tracing (`tracing.py`, §13) | none | provider SDKs |
 | Tool gateway | `nirnaya/agent/tools.py` | ✅ | Validate tool arguments, inject `merchant_id`, call mocks, wrap results as hashed `EvidenceRecord`s, persist them | none | mocks, store |
 | Evidence renderer | `nirnaya/render/` *(new package)* | ✅ | Verified claims → evidence files that meet card-brand format and size limits | none | models |
-| Write gateway | `nirnaya/guardrails/` | 🔶 (checklist, ledger, dry run against ports; wire request in M5) | Pre-write checklist, deterministic `request_id`, write ledger, dry-run; the only caller of write endpoints | **enforces** | engine, Airwallex clients, store |
-| Airwallex clients | `nirnaya/integrations/airwallex/` | ⬜ | Auth, typed read client, separate write client, simulation helpers | none | httpx |
+| Write gateway | `nirnaya/guardrails/` | ✅ | Pre-write checklist, deterministic `request_id`, write ledger, dry-run; the challenge request's reason, product type and `customer_info` (§9.5); the only caller of write endpoints | **enforces** | engine, Airwallex client, store |
+| Airwallex client | `nirnaya/integrations/airwallex/` | ✅ (live run waits on sandbox card payments) | `transport.py` (stdlib `urllib`), `http.py` (login, token refresh, 429 backoff, sandbox hosts only, Decimal JSON), `mapping.py` (wire → domain), `client.py` (one `AirwallexClient` per merchant: refuses calls for another merchant), `simulation.py` (sandbox payment intents and dispute simulation), `scoped.py` (limits the sandbox runner to the disputes it staged) | none | standard library |
+| Sandbox runner | `nirnaya/sandbox_demo.py` | ✅ | Stages the kit cases on the sandbox (intents, hosted checkout, simulated disputes), runs the pipeline, prints each case with Airwallex's AI recommendation; writes only with `DRY_RUN=false` and `--submit` | none | orchestrator, Airwallex client |
+| LangSmith integration | `nirnaya/integrations/langsmith/` | ✅ (optional) | Per-case traces (`cases.py`), read-only prompt mirror (`prompts.py`), eval experiments (`experiments.py`) (§13) | none | `langsmith`, `langchain-core` |
 | Merchant mocks | `nirnaya/integrations/mocks/` | ✅ (plus `FakeAirwallex` for tests) | SYNTHETIC order, carrier, login, helpdesk and policy systems behind `Protocol` interfaces | none | none |
 | Versioned assets | `nirnaya/assets/`, `nirnaya/assets.py` | ✅ | Prompts, demo policy and priors, FX snapshot, eval economics: one immutable file per version, pinned in `active.toml`, SHA-256 locked (§16.1) | data | none |
 | Demo config | `nirnaya/config/demo.py` | ✅ | `DEMO_POLICY`, `DEMO_FX` (labelled ASSUMPTION), loaded from the versioned assets | data | models, assets |
-| Eval harness | `eval/` (data), `nirnaya/evaluation/` (code) | 🔶 | Case fixtures and expert policy ✅; runner, baselines, metrics ⬜ | none | orchestrator, store |
-| UI | `app/` | ⬜ | Streamlit views and approver actions | none | store, review queue |
+| Eval harness | `eval/` (data), `nirnaya/evaluation/` (code) | ✅ | Versioned case set, expert policy, economics, policies (Nirnaya, fight-all, accept-all, LLM-only variants), metrics, repeat-run variance, report (§14) | none | orchestrator, store |
+| Console and UI | `nirnaya/console/` (view models), `app/` (Streamlit) | ✅ | Kit demo arc with Airwallex's AI recommendation beside each decision, review queue with approver actions, case detail, evaluation (§15) | none | store, review queue |
 
 `ingest/` and `render/` are additions to the layout in `CLAUDE.md`. They keep wire-format handling and file generation out of the orchestrator.
 
 ### 3.3 Dependency rules
 
 - `models`, `evidence`, `engine` and `verifier` import nothing outside themselves and the standard library plus Pydantic. This is enforced by ruff and the AST test.
-- Only `guardrails/` may construct the Airwallex **write** client. ⬜ An AST test (`tests/test_architecture.py`) will assert that no other package imports it.
+- Only the write gateway (`guardrails/gateway.py`) calls Airwallex's write operations (`accept`, `challenge`, `upload_file`). An AST test (`tests/test_architecture.py`) enforces it; the only other files allowed are the fake, which implements the calls, and `integrations/airwallex/scoped.py`, which forwards the gateway's own calls for staged disputes only.
+- The deterministic core never imports the Airwallex integration (AST test), and the orchestrator never imports LangSmith: it reports through the `StepObserver` port.
 - `app/` imports only `store` read models and orchestrator *commands*. It never calls `decide`, `verify` or a client directly.
 - The agent never receives a client or the store. It receives the tool gateway, which exposes typed read-only tools.
 
@@ -453,14 +462,13 @@ Evidence dated after the dispute opened still counts; it is listed in `Verificat
 
 ### 7.1 The only write path
 
-`nirnaya/guardrails/gateway.py` ⬜ exposes:
+`nirnaya/guardrails/gateway.py` exposes:
 
 ```python
-submit_accept(case_id, cycle, *, now) -> WriteResult
-submit_challenge(case_id, cycle, *, now) -> WriteResult
+WriteGateway.submit(merchant_id, case_id, cycle, action, *, now) -> WriteResult
 ```
 
-They take **ids, not objects**. The gateway reloads everything it needs from the store, so a caller cannot pass a doctored decision.
+It takes **ids, not objects**. The gateway reloads everything it needs from the store, so a caller cannot pass a doctored decision.
 
 ### 7.2 Pre-write checklist (all must pass; the first failure refers the case)
 
@@ -534,7 +542,7 @@ Every tool schema excludes `merchant_id` and `case_id`; the gateway injects them
 
 ### 8.4 Untrusted text
 
-- The system prompt is static and contains no case data.
+- The system prompt is static and contains no case data. Prompts are versioned files (§16.1), and every run records the versions it used.
 - Case facts and records are sent as tool results or user content inside explicit delimiters, labelled as data. They are never concatenated into instructions.
 - **Customer-authored records are never shown to the model**: they appear only as `{id, system, author: CUSTOMER, content: withheld}` (`nirnaya/agent/context.py`). The model doesn't need their content, because they establish nothing (`record_establishes`) and the engine uses only their existence (`unanswered_customer_contacts`). This removes the main injection path rather than labelling it.
 - The drafter can cite only the case's merchant and third-party records (a JSON-schema `enum` of ids), and only the facts allowed for the reason.
@@ -593,13 +601,15 @@ Model: chosen by configuration through the provider-neutral `LLMClient` (`nirnay
 | Retrieve dispute | `GET /api/v1/pa/payment_disputes/{dispute_id}` | read | same |
 | Challenge | `POST /api/v1/pa/payment_disputes/{dispute_id}/challenge`; allowed at `RFI` or `CHARGEBACK` with `REQUIRES_RESPONSE` | **write** | [Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md) |
 | Accept | `POST /api/v1/pa/payment_disputes/{dispute_id}/accept`; required `request_id`, `reason` from `AcceptReason` | **write** | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md); [API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve) |
-| Upload evidence file | `POST /files/upload` on `files.sandbox.airwallex.com` ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)), or `POST /api/v1/files/upload/{file_path}` (disputes guide) → `file_id`. **Conflict: `TODO(verify-airwallex-docs)`** | **write** | both |
+| Upload evidence file | `POST https://files.sandbox.airwallex.com/api/v1/files/upload` (multipart `file`, `notes`) → `file_id`; Nirnaya uploads PDF only | **write** | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) (settles §17 #14 for the sandbox) |
 | Create test payments | `POST /api/v1/pa/payment_intents/create`, then `/{id}/confirm` (test card `4035501000000008`) | sim | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
-| Payment attempt / intent read | `TODO(verify-airwallex-docs)` | read | n/a |
+| Payment attempt / intent read | `GET /api/v1/pa/payment_attempts/{id}` (3DS, AVS, CVC); `GET /api/v1/pa/payment_intents/{id}` (ownership check) | read | API reference |
 | Refunds | `GET /api/v1/pa/refunds` | read | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
 | Simulate create | `POST /api/v1/simulation/pa/payment_disputes/create` | sim | [Simulate payment disputes](https://www.airwallex.com/docs/developer-tools/sandbox-environment/payments/simulate-payment-disputes) |
 | Simulate resolve | `POST /api/v1/simulation/pa/payment_disputes/{id}/resolve` (`in_favor_of`: `MERCHANT` → WON or REVERSED; `CUSTOMER` → LOST) | sim | same |
 | Simulate escalate | `POST /api/v1/simulation/pa/payment_disputes/{id}/escalate` (declines evidence, moves to the next stage) | sim | same |
+
+Evidence file formats: the kit guide says JPG or PDF (PNG rejected for `STANDARD`); the challenge reference lists JPG, PNG and WEBP for evidence file ids. Nirnaya sends PDF until a live upload settles it (§17 #19).
 
 The simulation client is constructible only when the base URL is the sandbox host. In the sandbox, escalating from `CHARGEBACK` is not supported, so cases meant to be challenged and then rejected are created at `RFI` ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)).
 
@@ -612,7 +622,8 @@ The simulation client is constructible only when the base URL is the sandbox hos
 | `product_type` (required at `CHARGEBACK`: `PHYSICAL_GOODS`, `DIGITAL_PRODUCT_OR_SERVICE`, `OFFLINE_SERVICE`, `TRAVEL`, `RESERVE_OR_BOOKING`, `OTHERS`) | Merchant config or the order record |
 | `reason` (`CUSTOMER_WITHDRAWN`, `CUSTOMER_REFUNDED`, `PRODUCT_RECEIVED`, `PURCHASE_HISTORY`, `NOT_ENTITLED`, `SEPARATE_PRODUCT`, `AUTHENTIC_PRODUCT`, `OTHER_REASONS`) | Challenge-reason mapping (§9.5) |
 | `supporting_documents.documents[]` (`type`: `PRIMARY`, `ORDER`, `CUSTOMER`, `OTHER`; `file_ids`; `description`) | Rendered evidence files (§9.6); `description` is the rendered claim text |
-| `delivery_info`, `customer_info`, `duplicate_charge_info` and similar structured fields | **Only from verified claims.** Each structured value must equal the `normalised_value` of a `VERIFIED` claim, so nothing reaches Airwallex that the verifier did not clear |
+| `customer_info.device_id`, `customer_info.ip` (CHARGEBACK only) | The merchant's own ORDER record cited by the verified claims (§9.5) |
+| `delivery_info`, `duplicate_charge_info`, other `customer_info` fields | Not sent |
 
 ### 9.3 Wire → domain mapping (`ingest/`)
 
@@ -635,7 +646,7 @@ The simulation client is constructible only when the base URL is the sandbox hos
 ### 9.4 Ingestion: polling first, webhooks second
 
 - **Reconciliation poll (primary).** Each tick lists disputes `updated_at` after the stored cursor, per merchant. This catches everything, including missed webhooks.
-- **Webhooks (optional, M5+).** The events are `payment_dispute.requires_response`, `.challenged`, `.accepted`, `.won`, `.lost`, `.reversed`, `.expired`, `.pending_closure` and `.pending_decision` ([Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis)). A webhook only marks a dispute for immediate reconciliation; its payload is never used to decide or write.
+- **Webhooks (optional; not built).** The events are `payment_dispute.requires_response`, `.challenged`, `.accepted`, `.won`, `.lost`, `.reversed`, `.expired`, `.pending_closure` and `.pending_decision` ([Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis)). A webhook only marks a dispute for immediate reconciliation; its payload is never used to decide or write.
 - `TODO(verify-airwallex-docs)`: webhook signature verification before any webhook endpoint is exposed.
 
 ### 9.5 Mapping decisions to Airwallex actions
@@ -810,14 +821,14 @@ erDiagram
 - **SQLite via the standard-library `sqlite3`.** WAL mode. One file per environment.
 - **Domain objects are stored as their Pydantic JSON** (`model_dump_json()`), with indexed columns alongside for queries. Reading back uses `model_validate_json()`, so stored data is re-validated.
 - **Evidence records are immutable.** A changed source creates a new record id; it never updates the old one. `sha256` is the capture hash used as `expected_hashes` in `verify()`.
-- **The audit log is append-only and hash-chained:** `hash = sha256(prev_hash ‖ canonical(event))`. ⬜ A verification command walks the chain.
+- **The audit log is append-only and hash-chained:** `hash = sha256(prev_hash ‖ canonical(event))`. `verify_chain()` (`store/audit.py`) walks the chain; the sandbox runner and the pipeline tests check it.
 - **Money is stored as a string Decimal plus a currency, and times as ISO-8601 UTC.** No floats anywhere.
 - **Schema migrations are step-wise.** `MIGRATIONS[n]` brings version n to n+1. Each step runs in its own `BEGIN IMMEDIATE` transaction that re-reads the version, and must be safe to re-run, so a crash or a second process opening the same file cannot leave it half-migrated. Opening an up-to-date database only reads the version and never takes the write lock.
 - **Every query is scoped by `merchant_id`,** including sequence numbers and ids (referral ids are `<merchant>:<case>:ref:<n>`). The one deliberate exception is `case_owner()`, the cross-tenant ownership check at ingestion.
 
 ### 10.3 Repository layer
 
-Every repository method takes `merchant_id` as a required first argument and adds it to every `WHERE` clause. There is no "get by id" without a merchant. ⬜ A test seeds two merchants and asserts that no repository call returns the other merchant's rows.
+Every repository method takes `merchant_id` as a required first argument and adds it to every `WHERE` clause. There is no "get by id" without a merchant. Store tests seed two merchants and check that cases, evidence, snapshots, decisions and policies stay invisible to, and cannot be written for, the other merchant.
 
 ---
 
@@ -827,12 +838,13 @@ Every repository method takes `merchant_id` as a required first argument and add
 
 | Layer | Mechanism | Status |
 |---|---|---|
-| Store | Repositories scoped by `merchant_id` (§10.3) | ⬜ |
+| Store | Repositories scoped by `merchant_id` (§10.3) | ✅ |
 | Tool gateway | Injects `merchant_id`; the LLM cannot supply it | ✅ |
 | Evidence derivation | `case_records()` drops records from other cases or merchants | ✅ |
 | Engine | `TenantMismatchError` if the policy's merchant differs from the dispute's | ✅ |
 | Verifier | `CASE_MERCHANT_MISMATCH` blocks the claim, and nothing from the foreign record is echoed | ✅ |
-| Write gateway | Authority check (§7.2 #5); account mapping in M5 | 🔶 |
+| Write gateway | Authority check (§7.2 #5) | ✅ |
+| Airwallex client | One client per merchant's credentials; a call for another merchant fails `wrong_merchant`; payment-intent ownership checked at ingestion | ✅ |
 
 ### 11.2 Platforms and ownership
 
@@ -846,7 +858,7 @@ Anything else gives `OWNERSHIP_UNRESOLVED` and a referral. `TODO(verify-airwalle
 ### 11.3 Secrets and privilege
 
 - Secrets come only from env or `.env` (gitignored); `.env.example` lists the names.
-- The read and write clients are separate objects, and only `guardrails/` constructs the write client (§3.3).
+- One `AirwallexClient` per merchant; only the write gateway calls its write operations, enforced by an AST test (§3.3).
 - `TODO(verify-airwallex-docs)`: whether Airwallex supports scoped or restricted keys. If it does, use a read-only key outside the gateway.
 
 ### 11.4 Prompt injection
@@ -929,7 +941,7 @@ flowchart LR
     - *naive:* the task, the dispute, the records and the fees.
     - *informed:* also the merchant's rules, rendered from the active policy: when to escalate, costs, win priors, FX, the stage formulas, whose records may be cited, and a field guide from the evidence catalogue applied to every non-customer record (not filtered by merchant or hash: applying those rules is the model's job). It measures how far prompting alone gets.
 
-    Answers are cached per variant in `eval/results/llm_only/<variant>.json` with the model and prompt versions.
+    Answers are cached as `eval/results/llm_only/<variant>-<system prompt version>.json` (repeat runs `.runN.json`), with the model, prompt versions and the case set they were given on. The report has one column per prompt version and a repeat-run section: each run's numbers, and every case whose decision or unsupported-claim count changed between runs.
 - **Nirnaya** is measured from real pipeline runs (dry run, scripted agent; the fabrication cases use their careless fixture drafter), never copied from the expectations.
 - **Metrics**, reported separately (spec §9):
   1. Expected net dispute loss against the baselines, and agreement with the expert decisions.
@@ -940,7 +952,7 @@ flowchart LR
 
 **Expected loss** (`nirnaya/evaluation/economics.py`) prices each policy's action with the case's hand-derived prior and the policy's fees, from the current stage on (sunk costs excluded): accept costs A (+ F_pre or F_rfi); a chargeback challenge costs (1 − p)·A + h + q·F_pa; an RFI or pre-chargeback challenge costs its handling + F_cb + R plus the chargeback stage, where an expert then accepts or fights (whichever is cheaper) and fight-everything always fights. A referral costs the reviewer's expert action plus a 25 USD review (assumption). Accept minus challenge equals the engine's margin + m on every case, which a test checks. Deferred cases are excluded.
 
-Run it with `uv run python -m nirnaya.evaluation.report`, which writes `eval/results/report.json` and `report.md`. The LLM-only answers come from `NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline [--variant informed]`. Every report ends with the versions it was built from: git commit (and whether the tree was dirty), the case-set version (`eval/case_set.toml`), the policy, FX and economics files, and each LLM-only variant's model and prompts.
+Run it with `uv run python -m nirnaya.evaluation.report`, which writes `eval/results/report.json` and `report.md`. The LLM-only answers come from `NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline [--variant informed]`. Every report ends with the versions it was built from: git commit (and whether the tree was dirty), the case-set version (`eval/case_set.toml`), the policy, FX and economics files, and each LLM-only variant's model, prompts and case set (flagged when older than the current set).
 
 Sandbox runs are integration tests. Economic results are simulations on synthetic data.
 
@@ -952,13 +964,12 @@ Streamlit (`app/streamlit_app.py`, run with `uv run streamlit run app/streamlit_
 
 The kit demo tells each case as the guide's arc. The **initial plan** is the engine's decision on Airwallex's data alone (the dispute and payment attempt). The **new information** is what Nirnaya then fetched. The **revised decision** is the one on record, followed by the writes or the referral.
 
-| Page | Shows | Actions |
+| Tab | Shows | Actions |
 |---|---|---|
-| Cases | Merchant filter, state, stage, `due_at` countdown, action | Open a case |
-| Case detail | Timeline; the decision maths and priors (shown as priors, not predictions); VoI; evidence records with hashes; claims and verification results; **counterevidence** | none |
+| Kit 4 demo | Kit cases 1, 1b, 2, 2-C and 3, each as goal → initial plan → new information → revised decision → status, with Airwallex's AI recommendation beside the decision (offline: labelled SIMULATED) and any `customer_info` sent | Run the kit · simulate the issuer's rejection |
 | Review queue | Referrals by urgency: reason, failed claims, counterevidence, time left | Approve accept · approve challenge (still verified) · handle manually |
-| Demo | Run kit cases 1, 1b, 2, 2-C and 3 end to end against mocks or the sandbox, each shown as goal → initial plan → new information → revised decision → status | Run |
-| Evaluation | Baselines against Nirnaya on the five metrics | Run the eval |
+| Case detail | Timeline; the decision maths and priors (shown as priors, not predictions); VoI; evidence records with hashes; claims and verification results; **counterevidence** | none |
+| Evaluation | Nirnaya against the baselines on the five metrics, with the expected-loss chart and per-case table | none (the report is generated offline) |
 
 ---
 
@@ -966,7 +977,7 @@ The kit demo tells each case as the guide's arc. The **initial plan** is the eng
 
 - **Demo topology:** one Python process running the scheduler loop and a Streamlit server sharing one SQLite file. Optionally a small webhook receiver (§9.4).
 - **Configuration:**
-  - Env: `ANTHROPIC_API_KEY`, `NIRNAYA_MODEL`, `DRY_RUN` (default `true`), and the Airwallex credentials and base URL (`.env.example`).
+  - Env (`.env.example`): `DRY_RUN` (default `true`); `NIRNAYA_AGENT` (`scripted` or `llm`), `NIRNAYA_LLM_PROVIDER`, `NIRNAYA_MODEL`, `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`; `NIRNAYA_PROMPTS` (prompt-version override); the Airwallex credentials and base URL; `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_ENDPOINT`, `LANGSMITH_PROJECT`. Live tests are opt-in: `NIRNAYA_LIVE_LLM=1`, `NIRNAYA_LIVE_AIRWALLEX=1`.
   - Per-merchant `MerchantPolicy` (versioned in `policies`; the demo policy is a versioned asset, §16.1).
   - Deadline buffers and agent budgets (ASSUMPTION defaults in §4.4 and §8.5).
 - **Safety defaults:** `DRY_RUN=true`, sandbox base URL, simulation enabled only on the sandbox host.
@@ -999,10 +1010,11 @@ What a model is told, and the configuration decisions depend on, live in files r
 | # | Decision | Resolution (2026-10-23) | Why |
 |---|---|---|---|
 | 1 | **Pre-arbitration economics** | Keep `p*A − h − q*F_pa` and `G_cb` unchanged. Define **p** as the probability of *ultimately* keeping A (escalation losses are inside 1 − p) and **q** as the probability of escalation to pre-arbitration *and losing there*. `MerchantPolicy` enforces `p + q ≤ 1` for every prior. | Airwallex usually accepts pre-arbitration for the merchant, and after a chargeback response charges the fee only on a loss ([How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow)), so `q*F_pa` is the expected fee. Adding a separate q×A loss would double-count it, and stage-by-stage priors cannot be supplied. Recorded in `docs/spec.md` appendix item 5. |
-| 3 | **AI Dispute Automation** | Always challenge with `challenge_method: STANDARD`; store Airwallex's `ai_dispute_automation.recommendation` as a comparison input. | The automated method runs only when requested ([Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md)), so Nirnaya's verified package is what gets submitted. |
+| 3 | **AI Dispute Automation** | Always challenge with `challenge_method: STANDARD`; read Airwallex's `ai_dispute_automation` into `Dispute.ai_recommendation` and show it beside Nirnaya's decision (built 2026-10-28; the engine never reads it). | The automated method runs only when requested ([Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md)), so Nirnaya's verified package is what gets submitted. |
 | 4 | **Challenge `request_id`** | Required on challenge and accept; a deterministic UUIDv5 per operation (§7.3). | [Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md); [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md). |
 | 13 | **Kit 4 alignment** | RFI challenges automated; RFI accepts referred; `LOW_VALUE_TRANSACTION` accept reason; unanswered customer contact refers; new evidence type `PRIOR_UNDISPUTED_ORDERS_MATCH`; the demo is the kit's cases (§5). | The hackathon brief and its sandbox behaviour ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)). Recorded in `docs/spec.md` §5, §10 and appendix item 6. |
 | 17 | **Evidence that flips only jointly** | Value of information tests each unsatisfied prior entry's missing evidence as a set and reports the minimal flipping sets (`nirnaya/engine/voi.py`); the agent skips a set it cannot complete. | p changes only when an entry is completed, so this finds every possible flip, including pairs and triples, at one engine run per entry. A brute-force property test confirms it. Case S5 (terms + usage) now challenges through the pipeline. Recorded in `docs/spec.md` appendix item 4. |
+| 14 | **Evidence upload host** | `POST https://files.sandbox.airwallex.com/api/v1/files/upload` for the sandbox. | The kit 4 guide lists it (checked 2026-10-27). |
 | 2 | **Reason mapping** | `UNRECOGNIZED_CHARGE` and `NOT_RECOGNIZED` → FRAUD; `CANCELLED_PRODUCT` stays SUBSCRIPTION; every other type stays UNKNOWN (`nirnaya/models/reasons.py`). | An unrecognised charge is a known reason whose defence is fraud evidence. As UNKNOWN, the verifier would block exactly those claims. SUBSCRIPTION's requirements also fit a cancelled one-off order, and splitting the two by `original_code` needs an unverified code format. |
 
 ### 17.2 Still open
@@ -1016,9 +1028,10 @@ What a model is told, and the configuration decisions depend on, live in files r
 | 10 | Deadline-buffer and agent-budget defaults | §4.4, §8.5 | Automation coverage versus safety | M4 |
 | 11 | Polling interval and backoff | e.g. 60 s | API load versus latency | M5 |
 | 12 | Auto-accept threshold source | merchant config, or read from Airwallex if exposed | Deferral correctness | M5 |
-| 14 | Evidence upload host and path: `files.sandbox.airwallex.com` `POST /files/upload` (kit guide) or `/api/v1/files/upload/{file_path}` (disputes guide) | check with the Docs MCP | Whether uploads work at all | M5 |
 | 15 | Is there a fee for accepting at RFI (`fee_rfi_accept`, default 0)? | per Airwallex pricing | RFI economics | Before any real merchant |
 | 16 | Which `reason.type` does the sandbox assign to Visa codes 10.4, 13.1 and 13.6? | observe on simulated disputes | Whether the demo cases map to FRAUD, NON_RECEIPT and UNKNOWN as expected | M5 |
+| 19 | Evidence file formats: JPG or PDF (kit guide) or JPG, PNG, WEBP (challenge reference) | observe on a live upload | Whether PDF evidence is accepted | Live sandbox run |
+| 20 | Does the sandbox return an `AVAILABLE` AI recommendation? | observe on a simulated CHARGEBACK dispute | Whether the live demo shows a real recommendation | Live sandbox run |
 | 18 | Can a **pre-chargeback** be challenged? The disputes guide says yes (it escalates to chargeback); the Challenge API reference lists only RFI and CHARGEBACK | check with the Docs MCP | Pre-chargeback challenges (`FakeAirwallex` refuses them); sandbox pre-chargebacks auto-accept anyway | M5 |
 
 ---
@@ -1030,10 +1043,12 @@ What a model is told, and the configuration decisions depend on, live in files r
 | M1: Deterministic core | `models/`, `evidence/`, `engine/`, `verifier/`, `config/demo.py` | Formulas and boundaries, unknown reasons never challenged, every verifier check, the kit 4 cases end to end at unit level, determinism | ✅ (427 tests), plus Airwallex enum alignment and the decisions in §17.1 |
 | M2: Synthetic world | `integrations/mocks/`, `evaluation/cases.py`, `eval/cases/`, `eval/EXPERT_POLICY.md` | 42 cases with hand-derived expected decisions (the kit 4 cases, every reason at chargeback and an earlier stage, boundaries, deferrals, adversarial cases); the engine and verifier agree with every one; the lookup chain from `merchant_order_id` reaches exactly each case's records | ✅ (565 tests) |
 | M3: Orchestrator | `store/`, `orchestrator/`, `ingest/` (domain source), `agent/` tool gateway + scripted investigator and drafter, `render/`, and the write gateway (`guardrails/`, moved forward from M5 against ports) | All 42 cases through the real pipeline against `FakeAirwallex` land on their expected route; the kit rejection cycle; approvals; watchdog; crash-and-resume; timed-out write reconciliation; hash-chained audit verified | ✅ (925 tests) |
-| M4: Investigating agent | `agent/` (`LLMInvestigator`, `LLMDrafter`), `llm/` (Anthropic and OpenAI adapters), `runtime.py`, `demo.py` | With a scripted model through the real pipeline: VoI-driven rounds held to the offered tools and keys, budgets and stop conditions, customer text never shown to the model, structured drafts built by code, a fabricating model never gets a write, runs persisted with their step. Opt-in live tests for a real provider | 🔶 offline proof done (1016 tests); live run against a real model pending |
-| M5: Airwallex sandbox | `integrations/airwallex/`, real `ingest/` wire mapping, the wire-specific gateway parts (challenge body, `challenge_method: STANDARD`, file host) | The M3 pipeline against the real sandbox; simulation round-trips; closes the §9 TODOs | ⬜ |
-| M6: Evaluation | `nirnaya/evaluation/` economics, policies, metrics, LLM-only baseline, report | Five metrics against three baselines on 42 cases: Nirnaya has the lowest expected loss, 42/42 agreement with the expert, 0 unsupported claims, 0 violations and a clean ledger | ✅ offline (LLM-only run pending) |
+| M4: Investigating agent | `agent/` (`LLMInvestigator`, `LLMDrafter`), `llm/` (Anthropic and OpenAI adapters), `runtime.py`, `demo.py` | With a scripted model through the real pipeline: VoI-driven rounds held to the offered tools and keys, budgets and stop conditions, customer text never shown to the model, structured drafts built by code, a fabricating model never gets a write, runs persisted with their step. Opt-in live tests for a real provider | ✅ offline proof (1016 tests); live runs on gpt-5-mini and `claude-sonnet-5-5` land all 5 live cases on their expected route |
+| M5: Airwallex sandbox | `integrations/airwallex/`, real `ingest/` wire mapping, the wire-specific gateway parts (challenge body, `challenge_method: STANDARD`, file host) | The M3 pipeline against the real sandbox; simulation round-trips; closes the §9 TODOs | 🔶 built and tested offline; live login, disputes and payment intents work; the live card run waits on sandbox card payments (`provider_unavailable`, an open Airwallex sandbox incident) |
+| M6: Evaluation | `nirnaya/evaluation/` economics, policies, metrics, LLM-only baseline, report | Five metrics against three baselines on 42 cases: Nirnaya has the lowest expected loss, 42/42 agreement with the expert, 0 unsupported claims, 0 violations and a clean ledger | ✅, with LLM-only runs on `claude-sonnet-5-5` (naive, informed v1 and v2, informed v2 three times) |
 | M7: Streamlit demo | `app/`, `nirnaya/console/` | Kit 4 cases in the kit's demo structure (with the issuer rejection and the 2-C fabrication), review queue with approver actions, case detail, baseline comparison | ✅ |
+
+**After M7** ✅ (1431 tests): the Claude adapter uses strict tool calls (current models reject a forced `tool_choice`); versioned prompts and configuration with a SHA-256 lock and a versioned case set (§16.1); optional LangSmith tracing with one trace per case, a read-only prompt mirror and eval experiments (§13); Airwallex's AI recommendation beside each decision (§9.3); the customer's device ID and IP on chargeback challenges (§9.5).
 
 **Second code review** ✅ (1108 tests): out-of-range timestamps are unreadable rather than a crash, a new cycle closes the old cycle's referral, each record is dated against its own order, the note event states its authority, cross-tenant record ids fail as `StoreError`, referral descriptions come from the decision, one rule matcher and one date-only rule, and no write lock on opening an up-to-date database.
 
@@ -1041,6 +1056,6 @@ What a model is told, and the configuration decisions depend on, live in files r
 
 **Pre-submission audit, batch 2** ✅ (1073 tests): dates must be consistent across records, which also caught impossible dates in the S1/S5 fixtures (M3); a referral nearing the deadline becomes urgent (L3); the referral record carries why (L4).
 
-**Pre-submission audit, batch 1** ✅ (1047 tests): a changed source record is versioned instead of halting the scheduler, and a failing step is isolated per case (H1); a new attempt after a rejected write gets a new `request_id` (M1); the gateway compares against the decision's own dispute, and an amended amount re-decides the case and voids stale approvals (M2); no PNG for any brand (L1). Still open from the audit after batch 2: metrics and baselines with realised fees (M6, L2), the sandbox client (M5), and showing the model only catalogued fields (L5).
+**Pre-submission audit, batch 1** ✅ (1047 tests): a changed source record is versioned instead of halting the scheduler, and a failing step is isolated per case (H1); a new attempt after a rejected write gets a new `request_id` (M1); the gateway compares against the decision's own dispute, and an amended amount re-decides the case and voids stale approvals (M2); no PNG for any brand (L1). Since closed: metrics and baselines (M6; L2 by choosing expected values over realised fees, §14), the sandbox client (M5), and showing the model only the facts its records establish (L5).
 
 Each milestone is finished and tested before the next starts (`CLAUDE.md`).
