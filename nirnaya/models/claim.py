@@ -49,8 +49,17 @@ class TextValue(DomainModel):
     text: NonBlankStr
 
 
+class QuoteValue(DomainModel):
+    """Words quoted verbatim from a free-text note (a driver's or support agent's note). Only
+    code builds these, from findings a person has confirmed; the verifier checks the quote is
+    word for word in the note."""
+
+    kind: Literal["QUOTE"] = "QUOTE"
+    text: NonBlankStr
+
+
 NormalisedValue = Annotated[
-    MoneyValue | DateTimeValue | DateValue | TextValue, Field(discriminator="kind")
+    MoneyValue | DateTimeValue | DateValue | TextValue | QuoteValue, Field(discriminator="kind")
 ]
 
 

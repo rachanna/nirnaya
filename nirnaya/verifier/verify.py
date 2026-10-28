@@ -3,9 +3,9 @@
 from collections import Counter
 from collections.abc import Iterable, Mapping
 
-from nirnaya.evidence.catalogue import TRUSTED_AUTHORS
+from nirnaya.evidence.catalogue import TRUSTED_AUTHORS, Quote
 from nirnaya.evidence.derive import case_records, cross_check
-from nirnaya.models.claim import Claim
+from nirnaya.models.claim import Claim, QuoteValue
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import RecordAuthor, ValidationStatus
 from nirnaya.models.evidence import EvidenceRecord
@@ -16,6 +16,7 @@ from nirnaya.verifier.checks import (
     check_establishes,
     check_field,
     check_hash,
+    check_quote,
     check_reason_specific,
     check_record_scope,
     check_required_evidence,
@@ -40,6 +41,7 @@ def _claim_failures(
     dispute: Dispute,
     fx: FxTable | None,
     expected_hashes: Mapping[str, str],
+    confirmed_quotes: frozenset[Quote],
 ) -> list[Failure]:
     failures = check_claim_scope(claim, dispute)
     failures += check_text(claim)
@@ -62,6 +64,9 @@ def _claim_failures(
         return failures + scope
 
     failures += check_hash(record, expected_hashes)
+    if isinstance(claim.normalised_value, QuoteValue):
+        # A quote is part of a note, not the whole field: its own checks replace the value ones.
+        return failures + check_quote(claim, record, confirmed_quotes)
     field = check_field(claim, record)
     if field and field[0].check is CheckName.FIELD_MISSING:
         return failures + field
@@ -78,6 +83,7 @@ def verify(
     *,
     fx: FxTable | None = None,
     expected_hashes: Mapping[str, str] | None = None,
+    confirmed_quotes: frozenset[Quote] = frozenset(),
 ) -> VerificationResult:
     """Run every blocking check on every claim and the case-level checks.
 
@@ -105,7 +111,9 @@ def verify(
     # Keyed by (record, claim, description): one record can contradict a claim for two reasons.
     counterevidence: dict[tuple[str, str | None, str], Counterevidence] = {}
     for claim in claims:
-        failures = _claim_failures(claim, by_id, in_case, dispute, fx, expected_hashes)
+        failures = _claim_failures(
+            claim, by_id, in_case, dispute, fx, expected_hashes, confirmed_quotes
+        )
 
         contradicting: list[str] = []
         conflicting: list[str] = []

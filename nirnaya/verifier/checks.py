@@ -5,10 +5,14 @@ from zoneinfo import ZoneInfo
 
 from nirnaya.evidence.catalogue import (
     DENIAL_FACTS,
+    MIN_QUOTE_LENGTH,
     REASON_SPECIFIC,
     REQUIRED_EVIDENCE,
+    Quote,
+    quote_in_record,
     record_establishes,
     render_claim_text,
+    text_allows,
 )
 from nirnaya.models.claim import Claim, DateTimeValue, DateValue, MoneyValue, TextValue
 from nirnaya.models.dispute import Dispute
@@ -150,6 +154,32 @@ def _check_money(
             f"record amount normalises to {normalised} ({mv.basis}), not {mv.money}",
         )
     return []
+
+
+def check_quote(claim: Claim, record: EvidenceRecord, confirmed: frozenset[Quote]) -> list[Failure]:
+    """A quote claim: an allowed note of a trusted record, the quote word for word in it, and
+    confirmed by a person for exactly this record, field and fact."""
+    quote = claim.normalised_value.text
+    failures: list[Failure] = []
+    if claim.extracted_value != quote:
+        failures += _fail(
+            CheckName.EXTRACTED_VALUE_MISMATCH, "a quote claim's extracted value is the quote"
+        )
+    if not text_allows(record, claim.source_field, claim.establishes):
+        failures += _fail(
+            CheckName.TEXT_NOT_ALLOWED,
+            f"field {claim.source_field!r} of a {record.author} {record.source_system} record "
+            f"cannot be quoted as {claim.establishes}",
+        )
+    if not quote_in_record(record, claim.source_field, quote):
+        failures += _fail(
+            CheckName.QUOTE_NOT_IN_RECORD,
+            f"the quote is not word for word in {record.id}.{claim.source_field} "
+            f"(or is shorter than {MIN_QUOTE_LENGTH} characters)",
+        )
+    if Quote(record.id, claim.source_field, claim.establishes, quote) not in confirmed:
+        failures += _fail(CheckName.QUOTE_UNCONFIRMED, "no person has confirmed this quote")
+    return failures
 
 
 def check_establishes(claim: Claim, record: EvidenceRecord) -> list[Failure]:

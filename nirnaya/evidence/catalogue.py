@@ -12,8 +12,16 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
+from typing import NamedTuple
 
-from nirnaya.models.claim import DateTimeValue, DateValue, MoneyValue, NormalisedValue, TextValue
+from nirnaya.models.claim import (
+    DateTimeValue,
+    DateValue,
+    MoneyValue,
+    NormalisedValue,
+    QuoteValue,
+    TextValue,
+)
 from nirnaya.models.enums import AmountBasis, EvidenceType, ReasonCategory, RecordAuthor
 from nirnaya.models.enums import SourceSystem as S
 from nirnaya.models.evidence import EvidenceRecord, FieldValue
@@ -371,7 +379,50 @@ def format_value(value: NormalisedValue) -> str:
             return f"{date.isoformat()} ({tz})"
         case TextValue(text=text):
             return text
+        case QuoteValue(text=text):
+            return f'the note states "{text}"'
     raise TypeError(f"unhandled value {value!r}")
+
+
+# --- quoted evidence from free-text notes -----------------------------------------------------
+# Which facts a verbatim quote from a merchant or carrier note may support. ASSUMPTION: Nirnaya's
+# policy, not an Airwallex rule. A quote never counts by itself: the agent proposes it, code
+# checks it is word for word in the note, and a person confirms it (architecture section 8.8).
+TEXT_RULES: Mapping[tuple[S, str], frozenset[EvidenceType]] = {
+    (S.CARRIER, "driver_notes"): frozenset({E.DELIVERY_CONFIRMED, E.DELIVERY_SIGNATURE}),
+    (S.ORDER, "internal_notes"): frozenset({E.DELIVERY_CONFIRMED, E.DISTINCT_TRANSACTIONS}),
+    (S.HELPDESK, "agent_notes"): frozenset({E.DELIVERY_CONFIRMED}),
+}
+# Shorter quotes rarely mean anything on their own ("delivered", "signed").
+MIN_QUOTE_LENGTH = 12
+
+
+class Quote(NamedTuple):
+    """A quote a person confirmed: from this record's field, as evidence of this fact."""
+
+    record_id: str
+    field: str
+    fact: EvidenceType
+    quote: str
+
+
+def _squash(text: str) -> str:
+    return " ".join(text.split())
+
+
+def text_allows(record: EvidenceRecord, field: str, fact: EvidenceType) -> bool:
+    return record.author in TRUSTED_AUTHORS and fact in TEXT_RULES.get(
+        (record.source_system, field), frozenset()
+    )
+
+
+def quote_in_record(record: EvidenceRecord, field: str, quote: str) -> bool:
+    """The quote appears word for word in the field (whitespace-normalised, case-sensitive)."""
+    value = record.fields.get(field)
+    if not isinstance(value, str):
+        return False
+    q = _squash(quote)
+    return len(q) >= MIN_QUOTE_LENGTH and q in _squash(value)
 
 
 def render_claim_text(fact: EvidenceType, value: NormalisedValue) -> str:
