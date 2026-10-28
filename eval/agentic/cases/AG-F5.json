@@ -1,0 +1,69 @@
+{
+  "id": "AG-F5",
+  "kind": "FIND",
+  "rationale": "Duplicate-charge dispute. The order has no structured separate-purchase flag: p 0.10, accept. The note states a second, separate order: p 0.65, 195 - 80 = +115, challenge.",
+  "expected_findings": [
+    {
+      "fact": "DISTINCT_TRANSACTIONS",
+      "contains": [
+        "second, separate order"
+      ]
+    }
+  ],
+  "case": {
+    "id": "AG-F5",
+    "title": "Separate purchase only in the order note",
+    "tags": [
+      "agentic",
+      "find"
+    ],
+    "dispute": {
+      "id": "AG-F5",
+      "merchant_id": "merchant-demo",
+      "payment_intent_id": "int-AG-F5",
+      "payment_attempt_id": "att-AG-F5",
+      "merchant_order_id": "ORD-AG-F5",
+      "stage": "CHARGEBACK",
+      "status": "REQUIRES_RESPONSE",
+      "reason": {
+        "type": "DUPLICATE_CHARGE",
+        "original_code": "12.6.1"
+      },
+      "card_brand": "visa",
+      "amount": {
+        "amount": "300.00",
+        "currency": "USD"
+      },
+      "opened_at": "2026-03-01T12:00:00Z",
+      "due_at": "2026-03-16T12:00:00Z"
+    },
+    "payment_attempt": null,
+    "ownership_resolved": true,
+    "world": [
+      {
+        "id": "AG-F5-order",
+        "system": "ORDER",
+        "author": "MERCHANT",
+        "fields": {
+          "order_id": "ORD-AG-F5",
+          "customer_id": "CUST-AG-F5",
+          "customer_name": "J. Smith",
+          "placed_at": "2026-02-10T17:00:00+08:00",
+          "total_amount": "300.00",
+          "currency": "USD",
+          "fulfilment_status": "SHIPPED",
+          "tracking_number": "TRK-AG-F5",
+          "internal_notes": "Customer placed this as a second, separate order for a gift, shipped to a different address from their earlier order ORD-AG-F5-A."
+        }
+      }
+    ],
+    "claims": [],
+    "sandbox": null,
+    "expected": {
+      "route": "ACCEPT",
+      "engine": null,
+      "verification": null,
+      "rationale": "on its structured fields alone the case is accepted; see the label"
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "id": "AG-T2",
+  "kind": "TRAP",
+  "rationale": "No carrier status. The note mentions 'delivered' only to say the scan was wrong; the parcel is at the depot.",
+  "expected_findings": [],
+  "case": {
+    "id": "AG-T2",
+    "title": "The note says the delivered scan was a mistake",
+    "tags": [
+      "agentic",
+      "trap"
+    ],
+    "dispute": {
+      "id": "AG-T2",
+      "merchant_id": "merchant-demo",
+      "payment_intent_id": "int-AG-T2",
+      "payment_attempt_id": "att-AG-T2",
+      "merchant_order_id": "ORD-AG-T2",
+      "stage": "CHARGEBACK",
+      "status": "REQUIRES_RESPONSE",
+      "reason": {
+        "type": "PRODUCT_NOT_RECEIVED",
+        "original_code": "13.1"
+      },
+      "card_brand": "visa",
+      "amount": {
+        "amount": "200.00",
+        "currency": "USD"
+      },
+      "opened_at": "2026-03-01T12:00:00Z",
+      "due_at": "2026-03-16T12:00:00Z"
+    },
+    "payment_attempt": null,
+    "ownership_resolved": true,
+    "world": [
+      {
+        "id": "AG-T2-order",
+        "system": "ORDER",
+        "author": "MERCHANT",
+        "fields": {
+          "order_id": "ORD-AG-T2",
+          "customer_id": "CUST-AG-T2",
+          "customer_name": "J. Smith",
+          "placed_at": "2026-02-10T17:00:00+08:00",
+          "total_amount": "200.00",
+          "currency": "USD",
+          "fulfilment_status": "SHIPPED",
+          "tracking_number": "TRK-AG-T2"
+        }
+      },
+      {
+        "id": "AG-T2-carrier",
+        "system": "CARRIER",
+        "author": "THIRD_PARTY",
+        "fields": {
+          "tracking_number": "TRK-AG-T2",
+          "driver_notes": "Parcel marked delivered in error by the scanner. It is still at the depot awaiting collection."
+        }
+      }
+    ],
+    "claims": [],
+    "sandbox": null,
+    "expected": {
+      "route": "ACCEPT",
+      "engine": null,
+      "verification": null,
+      "rationale": "on its structured fields alone the case is accepted; see the label"
+    }
+  }
+}

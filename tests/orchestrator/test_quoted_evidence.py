@@ -207,3 +207,29 @@ def test_the_evidence_document_marks_a_quote_as_quoted_from_the_note():
     render = h.store.render(M, CID, 1, h.store.latest_draft(M, CID, 1))
     assert b"quoted word for word from the note" in render["content"]
     assert QUOTE.encode() in render["content"]
+
+
+def test_a_record_contradicting_the_quote_is_shown_and_confirming_would_refer():
+    conflict = noted_case(case_id="CONFLICT", carrier={"signature_status": "NOT_SIGNED"})
+    reader = Proposing(Quote("CONFLICT-carrier", "driver_notes", E.DELIVERY_SIGNATURE, QUOTE))
+    h, _ = run(reader, conflict)
+    referral = h.store.open_referral_for(M, "CONFLICT")
+    assert referral.reasons == ["PROPOSED_EVIDENCE"]
+    assert referral.detail["action_if_confirmed"] == "REFER"
+    assert referral.detail["referral_reasons_if_confirmed"] == ["CONTRADICTORY_RECORDS"]
+    (conflict_with,) = referral.detail["contradictions_if_confirmed"]
+    assert (conflict_with["record_id"], conflict_with["contradicts"]) == (
+        "CONFLICT-carrier",
+        "DELIVERY_SIGNATURE",
+    )
+    # A person who confirms anyway still cannot get it past the verifier.
+    (finding,) = h.store.findings(M, "CONFLICT", 1)
+    approve(h.store, M, "CONFLICT", Action.CHALLENGE, approver="ops@example.test",
+            now=h.now(conflict), confirm_findings=[finding.finding_id])  # fmt: skip
+    orch = Orchestrator(
+        h.store, h.aw, h.aw, synthetic_world([conflict]), ScriptedInvestigator(),
+        ScriptedDrafter(), h.settings,
+    )  # fmt: skip
+    orch.run_until_idle(h.now(conflict))
+    assert [w.action for w in h.store.writes(M, "CONFLICT")] == []
+    assert h.store.open_referral_for(M, "CONFLICT").reasons[0].startswith("VERIFICATION_")

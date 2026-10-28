@@ -52,6 +52,7 @@ uv run pytest           # about 1,470 offline tests; no network, no keys needed
 | Kit 4 in the terminal (offline) | `uv run python -m nirnaya.demo` |
 | **Evaluation report** (Nirnaya against three baselines) | `uv run python -m nirnaya.evaluation.report` |
 | LLM-only baseline (opt-in, about 40 model calls, cached) | `NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline` |
+| Agentic suite: reading notes (offline; cached model runs) | `uv run python -m nirnaya.evaluation.agentic` (live: `NIRNAYA_LIVE_LLM=1 ... --live`, 10 model calls) |
 | Kit 4 on the **Airwallex sandbox** | `uv run python -m nirnaya.sandbox_demo` (add `--checkout` to pay on Airwallex's hosted page, `--offline` for the fake, `--submit` for real writes) |
 | Read-only sandbox checks | `NIRNAYA_LIVE_AIRWALLEX=1 uv run pytest -m live_airwallex -s` |
 
@@ -116,6 +117,23 @@ Answers are cached in `eval/results/llm_only/<variant>-<version>.json` (repeat r
 **On the 42/42:** the expected routes were derived by hand from the written expert policy, by the same author as the engine, so this measures self-consistency (the code follows its policy), not that the policy is right. The independent evidence is the comparison with the LLM-only baseline and the unsupported-claim counts.
 
 These are expected values under the expert policy's assumed priors and fees ([`eval/EXPERT_POLICY.md`](eval/EXPERT_POLICY.md)) on **synthetic** cases, not real issuer outcomes. The full report is `eval/results/report.md`.
+
+## The agent reads notes (agentic suite, 10 synthetic cases)
+
+On the 42 cases every fact sits in a structured field, so the Claude agent and the scripted one decide identically. Real merchant evidence often sits in free text instead: a driver's note, an order note, a support agent's note. In `llm` mode the agent reads those notes (merchant and carrier only; customer text is never shown) whenever value of information says a fact a note could state would change the decision, and proposes **exact quotes**. Code keeps a quote only if it is word for word in an allowed note. The case then goes to a person with the quote highlighted in its note and what confirming it would change; only a confirmed quote becomes a claim, and the verifier checks it word for word again (architecture §8.8).
+
+`eval/agentic/` holds 6 cases where the deciding fact is only in a note and 4 traps (a near miss, a delivery scan the note calls a mistake, an off-topic note, an injected instruction):
+
+| | No reader (scripted agent) | Keyword baseline | claude-sonnet-5-5 (3 runs) |
+|---|---|---|---|
+| Deciding facts found | 0/6 | 6/6 | 6/6 |
+| Wrong proposals (a person rejects) | 0 | 3 | 0 |
+| Traps sent to a person | 0/4 | 3/4 | 0/4 |
+| Challenged after careful review | 0 | 6 | 6 |
+| Traps challenged if every quote is confirmed | 0 | 3 | 0 |
+| Unsafe outcomes | 0 | 0 | 0 |
+
+What it shows: reading adds decisions the scripted agent cannot reach (six disputes it would have conceded), and the model's value over a phrase list is precision on the traps, identical across three runs. What it does not show: the cases and labels are the rule author's own, and the suite is small and fairly easy. The verifier checks a quote's words, not its meaning, so a person confirming every keyword proposal would have challenged three traps: confirmation is a real control. Unsafe outcomes (a write before a person acts, an unconfirmed quote verifying) are zero by construction for every reader.
 
 ## Versioned prompts and configuration
 

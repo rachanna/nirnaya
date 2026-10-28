@@ -1,0 +1,78 @@
+{
+  "id": "AG-F6",
+  "kind": "FIND",
+  "rationale": "The carrier record has no status or scan, only the driver's note. p 0.10 to 0.60 at 200 USD. Only delivery is asked about (the smallest set that changes the decision).",
+  "expected_findings": [
+    {
+      "fact": "DELIVERY_CONFIRMED",
+      "contains": [
+        "Delivered 14 Feb at 15:30",
+        "handed to J. Smith"
+      ]
+    }
+  ],
+  "case": {
+    "id": "AG-F6",
+    "title": "Delivery only in the driver's note, no scan",
+    "tags": [
+      "agentic",
+      "find"
+    ],
+    "dispute": {
+      "id": "AG-F6",
+      "merchant_id": "merchant-demo",
+      "payment_intent_id": "int-AG-F6",
+      "payment_attempt_id": "att-AG-F6",
+      "merchant_order_id": "ORD-AG-F6",
+      "stage": "CHARGEBACK",
+      "status": "REQUIRES_RESPONSE",
+      "reason": {
+        "type": "PRODUCT_NOT_RECEIVED",
+        "original_code": "13.1"
+      },
+      "card_brand": "visa",
+      "amount": {
+        "amount": "200.00",
+        "currency": "USD"
+      },
+      "opened_at": "2026-03-01T12:00:00Z",
+      "due_at": "2026-03-16T12:00:00Z"
+    },
+    "payment_attempt": null,
+    "ownership_resolved": true,
+    "world": [
+      {
+        "id": "AG-F6-order",
+        "system": "ORDER",
+        "author": "MERCHANT",
+        "fields": {
+          "order_id": "ORD-AG-F6",
+          "customer_id": "CUST-AG-F6",
+          "customer_name": "J. Smith",
+          "placed_at": "2026-02-10T17:00:00+08:00",
+          "total_amount": "200.00",
+          "currency": "USD",
+          "fulfilment_status": "SHIPPED",
+          "tracking_number": "TRK-AG-F6"
+        }
+      },
+      {
+        "id": "AG-F6-carrier",
+        "system": "CARRIER",
+        "author": "THIRD_PARTY",
+        "fields": {
+          "tracking_number": "TRK-AG-F6",
+          "driver_notes": "Delivered 14 Feb at 15:30. Parcel handed to J. Smith, who signed for it."
+        }
+      }
+    ],
+    "claims": [],
+    "sandbox": null,
+    "expected": {
+      "route": "ACCEPT",
+      "engine": null,
+      "verification": null,
+      "rationale": "on its structured fields alone the case is accepted; see the label"
+    }
+  }
+}

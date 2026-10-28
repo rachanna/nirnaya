@@ -16,7 +16,11 @@ QUOTE = "signature captured on the handheld device"
 
 
 def noted_case(
-    *, case_id: str = "NOTED", amount: str = "120.00", driver_notes: str = NOTE
+    *,
+    case_id: str = "NOTED",
+    amount: str = "120.00",
+    driver_notes: str = NOTE,
+    carrier: dict | None = None,
 ) -> EvalCase:
     src = json.loads((ROOT / "eval" / "cases" / "N1.json").read_text(encoding="utf-8"))
     src["id"] = src["dispute"]["id"] = case_id
@@ -26,6 +30,7 @@ def noted_case(
         r["id"] = r["id"].replace("N1", case_id)
         if r["system"] == "CARRIER":
             r["fields"]["driver_notes"] = driver_notes
+            r["fields"].update(carrier or {})
         if r["system"] == "ORDER":
             r["fields"]["total_amount"] = amount
     for c in src["claims"]:

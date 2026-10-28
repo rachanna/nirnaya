@@ -407,7 +407,7 @@ class Orchestrator:
         cycle = self.store.cycle(case.merchant_id, case.case_id, case.cycle)
         policy = self.store.policy(case.merchant_id, cycle.policy_version)
         records = self.store.evidence(case.merchant_id, case.case_id)
-        found = contradictions(records, dispute)
+        found = contradictions(records, dispute, also)
         return decide(
             dispute,
             policy,
@@ -647,6 +647,8 @@ class Orchestrator:
             "p_if_confirmed": None if would.p is None else str(would.p),
             "margin_now": None if decision.margin is None else str(decision.margin),
             "margin_if_confirmed": None if would.margin is None else str(would.margin),
+            "referral_reasons_if_confirmed": [r.value for r in would.referral_reasons],
+            "contradictions_if_confirmed": list(would.inputs.get("contradictions", [])),
             "note": "The agent read these words in a merchant or carrier note. Confirm a quote "
             "only if it shows the fact; the verifier then checks it word for word.",
         }

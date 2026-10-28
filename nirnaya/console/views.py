@@ -315,11 +315,17 @@ def proposed_quotes(store: Store, case_id: str, cycle: int) -> tuple[ProposedQuo
 def _if_confirmed(detail: dict[str, Any]) -> str | None:
     if "action_if_confirmed" not in detail:
         return None
-    return (
+    text = (
         f"If confirmed: {detail['action_now']} → {detail['action_if_confirmed']} · "
         f"p {detail['p_now']} → {detail['p_if_confirmed']} · "
         f"margin {detail['margin_now']} → {detail['margin_if_confirmed']} (prior, not a prediction)"
     )
+    conflicts = detail.get("contradictions_if_confirmed") or []
+    if conflicts:
+        text += " · conflicts with " + ", ".join(
+            f"{c['record_id']} ({c['description']})" for c in conflicts
+        )
+    return text
 
 
 @dataclass(frozen=True)

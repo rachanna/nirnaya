@@ -97,15 +97,19 @@ def cross_check(records: Iterable[EvidenceRecord], dispute: Dispute) -> CrossChe
 
 
 def contradictions(
-    records: Iterable[EvidenceRecord], dispute: Dispute
+    records: Iterable[EvidenceRecord],
+    dispute: Dispute,
+    also: frozenset[EvidenceType] = frozenset(),
 ) -> tuple[Contradiction, ...]:
     """Merchant or third-party records contradicting evidence the case's records establish.
 
     These are records that disagree with each other, so the engine refers the case.
     Customer allegations are not included: they make a normal dispute, not a conflict.
+    `also`: facts relied on beyond the structured fields (a quote from a note), so a record
+    contradicting a quoted fact is found too.
     """
     records = list(records)
-    present = evidence_present(records, dispute)
+    present = evidence_present(records, dispute) | also
     return tuple(
         c
         for c in cross_check(records, dispute).contradictions

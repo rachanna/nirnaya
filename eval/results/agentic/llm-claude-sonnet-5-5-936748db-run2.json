@@ -1,0 +1,155 @@
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-5-5",
+  "prompts": [
+    "reader_system@v1#4131c8def25c",
+    "reader_user@v1#45a867cc6679",
+    "reader_tools@v1#6e162f32fa9f"
+  ],
+  "case_set": "v1",
+  "run_at": "2026-10-28T20:32:34.481057+00:00",
+  "cases": {
+    "AG-F1": {
+      "asked": [
+        "DELIVERY_SIGNATURE"
+      ],
+      "proposals": [
+        {
+          "record_id": "AG-F1-carrier",
+          "field": "driver_notes",
+          "fact": "DELIVERY_SIGNATURE",
+          "quote": "Handed to the customer in person at the door; signature captured on the handheld device."
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 1399,
+      "output_tokens": 127,
+      "dropped": []
+    },
+    "AG-F2": {
+      "asked": [
+        "DELIVERY_SIGNATURE"
+      ],
+      "proposals": [
+        {
+          "record_id": "AG-F2-carrier",
+          "field": "driver_notes",
+          "fact": "DELIVERY_SIGNATURE",
+          "quote": "Recipient J. Smith signed on the scanner."
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 1440,
+      "output_tokens": 120,
+      "dropped": []
+    },
+    "AG-F3": {
+      "asked": [
+        "DELIVERY_CONFIRMED"
+      ],
+      "proposals": [
+        {
+          "record_id": "AG-F3-order",
+          "field": "internal_notes",
+          "fact": "DELIVERY_CONFIRMED",
+          "quote": "Customer collected the order in store on 14 Feb; photo ID matched the name on the order."
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 1449,
+      "output_tokens": 130,
+      "dropped": []
+    },
+    "AG-F4": {
+      "asked": [
+        "DELIVERY_CONFIRMED"
+      ],
+      "proposals": [
+        {
+          "record_id": "AG-F4-ticket",
+          "field": "agent_notes",
+          "fact": "DELIVERY_CONFIRMED",
+          "quote": "They confirmed the parcel arrived on 14 Feb and asked how to exchange the size."
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 1415,
+      "output_tokens": 133,
+      "dropped": []
+    },
+    "AG-F5": {
+      "asked": [
+        "DISTINCT_TRANSACTIONS"
+      ],
+      "proposals": [
+        {
+          "record_id": "AG-F5-order",
+          "field": "internal_notes",
+          "fact": "DISTINCT_TRANSACTIONS",
+          "quote": "Customer placed this as a second, separate order for a gift, shipped to a different address from their earlier order ORD-AG-F5-A."
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 1476,
+      "output_tokens": 146,
+      "dropped": []
+    },
+    "AG-F6": {
+      "asked": [
+        "DELIVERY_CONFIRMED"
+      ],
+      "proposals": [
+        {
+          "record_id": "AG-F6-carrier",
+          "field": "driver_notes",
+          "fact": "DELIVERY_CONFIRMED",
+          "quote": "Delivered 14 Feb at 15:30."
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 1363,
+      "output_tokens": 119,
+      "dropped": []
+    },
+    "AG-T1": {
+      "asked": [
+        "DELIVERY_SIGNATURE"
+      ],
+      "proposals": [],
+      "stop": "TOOL_USE",
+      "input_tokens": 1420,
+      "output_tokens": 112,
+      "dropped": []
+    },
+    "AG-T2": {
+      "asked": [
+        "DELIVERY_CONFIRMED"
+      ],
+      "proposals": [],
+      "stop": "TOOL_USE",
+      "input_tokens": 1359,
+      "output_tokens": 53,
+      "dropped": []
+    },
+    "AG-T3": {
+      "asked": [
+        "DELIVERY_CONFIRMED"
+      ],
+      "proposals": [],
+      "stop": "TOOL_USE",
+      "input_tokens": 1448,
+      "output_tokens": 53,
+      "dropped": []
+    },
+    "AG-T4": {
+      "asked": [
+        "DELIVERY_CONFIRMED"
+      ],
+      "proposals": [],
+      "stop": "TOOL_USE",
+      "input_tokens": 1389,
+      "output_tokens": 53,
+      "dropped": []
+    }
+  }
+}

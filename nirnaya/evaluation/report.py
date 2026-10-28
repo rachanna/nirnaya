@@ -10,6 +10,7 @@ LLM-only variant, the model and prompt versions.
 """
 
 import json
+import re
 import subprocess
 import sys
 from collections.abc import Callable
@@ -19,6 +20,9 @@ from typing import Any
 
 from nirnaya.config.demo import DEMO_POLICY, FX_ASSET, POLICY_ASSET
 from nirnaya.evaluation import case_set
+from nirnaya.evaluation.agentic import CACHES as AGENTIC_CACHES
+from nirnaya.evaluation.agentic import load_llm_caches
+from nirnaya.evaluation.agentic import report as agentic_report
 from nirnaya.evaluation.cases import EvalCase, load_cases, synthetic_world
 from nirnaya.evaluation.economics import ECONOMICS_ASSET
 from nirnaya.evaluation.llm_baseline import CACHES, RESULTS, VARIANTS, Cache, llm_only
@@ -103,6 +107,7 @@ def build(
     caches: dict[str, Cache] | None = None,
     repeats: dict[str, list[Cache]] | None = None,
     policy: MerchantPolicy = DEMO_POLICY,
+    agentic: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     cases = cases if cases is not None else load_cases()
     caches = caches or {}
@@ -191,6 +196,7 @@ def build(
         "sensitivity": sensitivity(cases, policy),
         "policies": policies,
         "rows": rows,
+        "agentic": agentic,
     }
 
 
@@ -359,6 +365,7 @@ def as_markdown(report: dict[str, Any]) -> str:
             f"{r['case']} (p {r['p']} vs {r['break_even']})" for r in sens["near_break_even"]
         )
         lines += ["", f"Within 0.05 of the break-even prior: {near or 'none'}."]
+    lines += agentic_markdown(report.get("agentic"))
     v = report["versions"]
     lines += [
         "",
@@ -381,6 +388,93 @@ def as_markdown(report: dict[str, Any]) -> str:
             f"- LLM only ({variant}): {m['provider']}/{m['model']}, {m['run_at'][:10]}; {prompts}"
         )
     return "\n".join(lines) + "\n"
+
+
+def _reader_columns(readers: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Group repeat runs of the same model and prompts (llm-<model>-<prompts>-runN)."""
+    columns: dict[str, list[dict[str, Any]]] = {}
+    for name, r in readers.items():
+        key = re.sub(r"-run\d+$", "", name)
+        columns.setdefault(key, []).append(r)
+    return columns
+
+
+def agentic_markdown(agentic: dict[str, Any] | None) -> list[str]:
+    if not agentic:
+        return []
+    columns = _reader_columns(agentic["readers"])
+    titles = []
+    for key, runs in columns.items():
+        if key == "none":
+            titles.append("No reader (scripted agent)")
+        elif key == "keyword":
+            titles.append("Keyword baseline")
+        else:
+            n = len(runs)
+            titles.append(f"{runs[0]['model']} ({n} run{'s' if n > 1 else ''})")
+    first = next(iter(agentic["readers"].values()))["summary"]
+    keyword = agentic["readers"].get("keyword", {}).get("summary", {})
+    careless = keyword.get("trap_challenges_if_every_quote_confirmed", 0)
+    lines = [
+        "",
+        "## Agentic suite: evidence only a note holds",
+        "",
+        f"{first['cases']} SYNTHETIC cases (suite {agentic['suite']}): in {first['find_cases']} "
+        "the fact that changes the decision is only in a merchant or carrier free-text note; "
+        f"{first['trap_cases']} are traps, notes that sound relevant but do not state the fact "
+        "(a near miss, a scan called a mistake, an off-topic note, an injected instruction). "
+        "Every reader runs the full pipeline. A careful person confirms only correct quotes; a "
+        "careless one confirms every proposal.",
+        "",
+        "| | " + " | ".join(titles) + " |",
+        "|---|" + "---|" * len(titles),
+    ]
+    for key, label in AGENTIC_COLUMNS:
+        cells = []
+        for runs in columns.values():
+            values = sorted({r["summary"][key] for r in runs})
+            total = {"found": "find_cases", "traps_fallen_for": "trap_cases"}.get(key)
+            shown = str(values[0]) if len(values) == 1 else f"{values[0]} to {values[-1]}"
+            if total is not None:
+                shown += f"/{runs[0]['summary'][total]}"
+            cells.append(shown)
+        lines.append(f"| {label} | " + " | ".join(cells) + " |")
+    lines += [
+        "",
+        "The scripted agent never reads notes; it decides on structured fields alone. "
+        "Whatever a reader proposes, nothing is written before a person acts and no quote "
+        "verifies without confirmation (unsafe outcomes). The verifier checks a quote's words, "
+        "not its meaning"
+        + (
+            f": a person confirming every keyword proposal would have challenged {careless} "
+            "trap(s), so confirmation is a real control, not a formality. "
+            if careless
+            else ", so a person's confirmation is the control on meaning. "
+        )
+        + "The labels are the rule author's own and the suite is small; it shows what reading "
+        "adds, not real-world accuracy.",
+    ]
+    for key, runs in columns.items():
+        if key in {"none", "keyword"}:
+            continue
+        r = runs[0]
+        lines.append("")
+        lines.append(
+            f"\n{r['model']}: prompts {', '.join(f'`{p}`' for p in r['prompts'])}; "
+            f"suite {r.get('case_set')}; {len(runs)} run(s), first {r['run_at'][:10]}."
+        )
+    return lines
+
+
+AGENTIC_COLUMNS = (
+    ("found", "Deciding facts found"),
+    ("wrong_proposals", "Wrong proposals (a person rejects)"),
+    ("traps_fallen_for", "Traps sent to a person"),
+    ("challenged_after_careful_review", "Challenged after careful review"),
+    ("trap_challenges_if_every_quote_confirmed", "Traps challenged if every quote is confirmed"),
+    ("unsafe", "Unsafe outcomes"),
+    ("tokens", "Model tokens (per run)"),
+)
 
 
 def load_caches(directory: Path = CACHES) -> dict[str, Cache]:
@@ -457,7 +551,13 @@ def variance(
 
 def main(out: Callable[[str], None] = print, results: Path = RESULTS) -> int:
     directory = results / CACHES.relative_to(RESULTS)
-    report = build(caches=load_caches(directory), repeats=load_repeats(directory))
+    report = build(
+        caches=load_caches(directory),
+        repeats=load_repeats(directory),
+        agentic=agentic_report(
+            caches=load_llm_caches(results / AGENTIC_CACHES.relative_to(RESULTS))
+        ),
+    )
     results.mkdir(parents=True, exist_ok=True)
     (results / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     (results / "report.md").write_text(as_markdown(report), encoding="utf-8")

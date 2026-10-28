@@ -1,0 +1,7 @@
+# The evaluation case set: count and SHA-256 over every case file (name + text hash,
+# newlines normalised, in name order). Written by: python -m nirnaya.evaluation.case_set
+# bump <version>. A changed set gets a new version.
+
+version = "v1"
+count = 10
+sha256 = "5cd4a4a23a8a3b8efa6d01630a28e7317486567a2c20a71017cae55bdde7c013"

@@ -99,9 +99,28 @@ Maths actions on the 40 cases that have one, re-evaluated with one assumption ch
 
 Within 0.05 of the break-even prior: F3 (p 0.30 vs 0.320), F4 (p 0.30 vs 0.301), F5 (p 0.10 vs 0.140), N7 (p 0.60 vs 0.567), U2 (p 0.10 vs 0.053).
 
+## Agentic suite: evidence only a note holds
+
+10 SYNTHETIC cases (suite v1): in 6 the fact that changes the decision is only in a merchant or carrier free-text note; 4 are traps, notes that sound relevant but do not state the fact (a near miss, a scan called a mistake, an off-topic note, an injected instruction). Every reader runs the full pipeline. A careful person confirms only correct quotes; a careless one confirms every proposal.
+
+| | No reader (scripted agent) | Keyword baseline | claude-sonnet-5-5 (3 runs) |
+|---|---|---|---|
+| Deciding facts found | 0/6 | 6/6 | 6/6 |
+| Wrong proposals (a person rejects) | 0 | 3 | 0 |
+| Traps sent to a person | 0/4 | 3/4 | 0/4 |
+| Challenged after careful review | 0 | 6 | 6 |
+| Traps challenged if every quote is confirmed | 0 | 3 | 0 |
+| Unsafe outcomes | 0 | 0 | 0 |
+| Model tokens (per run) | 0 | 0 | 15186 to 15204 |
+
+The scripted agent never reads notes; it decides on structured fields alone. Whatever a reader proposes, nothing is written before a person acts and no quote verifies without confirmation (unsafe outcomes). The verifier checks a quote's words, not its meaning: a person confirming every keyword proposal would have challenged 3 trap(s), so confirmation is a real control, not a formality. The labels are the rule author's own and the suite is small; it shows what reading adds, not real-world accuracy.
+
+
+claude-sonnet-5-5: prompts `reader_system@v1#4131c8def25c`, `reader_user@v1#45a867cc6679`, `reader_tools@v1#6e162f32fa9f`; suite v1; 3 run(s), first 2026-10-28.
+
 ## Versions
 
-- Code: git `7b8fcf95482b30bc8f517f289c42d57f20195760` (uncommitted changes)
+- Code: git `ee0dcd6c4102fb47cb0be153db93ce0ba2805632` (uncommitted changes)
 - Case set: v2 (42 cases, sha256 `a1e698b4a20c`)
 - Policy: `merchant-demo@demo-2026-10#bd3f0c2ec782`; FX: `fx@demo-2026-10-01#a74fb42c5c16`; economics: `economics@v1#b0b04a506ede`
 - LLM only (naive-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_naive_system@v1#1e33f22c05c7`, `baseline_naive_user@v1#86578a4c5f93`, `tools@v1#ba84dfdfa56a`; answered on case set v1; current is v2
