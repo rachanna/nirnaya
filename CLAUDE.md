@@ -29,28 +29,37 @@ These are the product. Never weaken them for convenience, and stop and ask if a 
 - LangSmith (optional): `LANGSMITH_TRACING=true` traces every model call via `nirnaya/llm/tracing.py` (agent code labels calls with `annotate()`, never imports the SDK). `uv run python -m nirnaya.integrations.langsmith prompts|experiments` mirrors prompt versions (read-only) and uploads the eval report as experiments.
 - Secrets only from env / `.env` (gitignored). Never commit keys.
 
-## Repository layout (target)
+## Repository layout
 
 ```
 nirnaya/
-  models/        # Pydantic: Dispute, PaymentAttempt, EvidenceRecord, Claim, Decision, MerchantPolicy
+  models/        # Pydantic: Dispute (+ Airwallex AiRecommendation, display only), PaymentAttempt, EvidenceRecord, Claim, Decision, MerchantPolicy
+  evidence/      # evidence catalogue: which record field establishes which fact; contradiction and date rules
   engine/        # deterministic decision engine + value-of-information ("what evidence would flip this")
   verifier/      # deterministic blocking checks on claims
-  agent/         # investigating agent: typed tools, budget, stop conditions
-  llm/           # LLMClient interface + Anthropic and OpenAI adapters, scripted fake
-  orchestrator/  # Python state machine: ingest → plan → investigate → decide → draft → verify → act/refer
+  agent/         # investigating agent: typed tools, budget, stop conditions; LLM drafter
+  llm/           # LLMClient interface + Anthropic and OpenAI adapters, scripted fake, LangSmith tracing
+  orchestrator/  # Python state machine: ingest → plan → investigate → decide → draft → verify → act/refer; StepObserver port
   integrations/
-    airwallex/   # sandbox client (disputes, payment intents/attempts, files, simulation)
-    mocks/       # synthetic order, carrier, login, helpdesk, policy store (labelled SYNTHETIC)
-  guardrails/    # pre-write checklist, idempotency, dry-run
+    airwallex/   # sandbox client (disputes, payment intents/attempts, files, simulation), wire mapping
+    mocks/       # synthetic order, carrier, login, helpdesk, policy store, fake Airwallex (labelled SYNTHETIC)
+    langsmith/   # optional: per-case traces, read-only prompt mirror, eval experiments
+  guardrails/    # write gateway: pre-write checklist, idempotency, dry-run, challenge reason and customer_info
   ingest/        # dispute ingestion and snapshots
   render/        # deterministic evidence PDF within card-brand limits
   store/         # SQLite audit log + evidence hashing
-  evaluation/    # case schema + loader (cases.py); baselines and metrics in M6
-eval/            # cases/*.json (42 SYNTHETIC cases) + EXPERT_POLICY.md (how expectations are derived)
-app/             # Streamlit demo
+  evaluation/    # case set, economics, policies, metrics, LLM-only baseline, report
+  console/       # view models the Streamlit UI renders (no business logic in app/)
+  assets/        # versioned prompts and config (policy, priors, FX, eval economics) + active.toml + assets.lock
+  config/        # demo policy and FX, loaded from assets
+  assets.py      # load, pin, render and lock versioned assets
+  airwallex_ai.py # Airwallex AI recommendation vs Nirnaya's decision, in words
+  runtime.py     # wiring: agent choice, orchestrator, tracing observer
+  demo.py, sandbox_demo.py, trace.py  # offline demo, kit 4 sandbox runner, case trace
+eval/            # cases/*.json (42 SYNTHETIC cases), case_set.toml, EXPERT_POLICY.md, results/
+app/             # Streamlit console
 tests/
-docs/spec.md
+docs/            # spec.md, architecture.md
 ```
 
 ## Decision model (engine)
