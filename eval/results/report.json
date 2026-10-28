@@ -2,9 +2,9 @@
   "caveat": "Expected values under the expert policy's assumed priors and fees on SYNTHETIC cases (eval/EXPERT_POLICY.md); not real issuer or network outcomes.",
   "cases": 42,
   "llm_only": {
-    "provider": "openai",
-    "model": "gpt-5-mini",
-    "run_at": "2026-10-27T17:57:38.409231+00:00"
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "run_at": "2026-10-28T01:21:26.449942+00:00"
   },
   "policies": {
     "nirnaya": {
@@ -165,37 +165,36 @@
     "llm_only": {
       "name": "LLM only",
       "financial": {
-        "expected_loss": "11687.60",
+        "expected_loss": "11495.60",
         "by_part": {
-          "amount_lost": "8827.60",
-          "handling": "620.00",
-          "fees": "1790.00",
-          "counted_chargeback": "450.00",
-          "review": "0.00"
+          "amount_lost": "8725.60",
+          "handling": "580.00",
+          "fees": "1665.00",
+          "counted_chargeback": "400.00",
+          "review": "125.00"
         },
         "priced_cases": 39,
-        "agreement": 22,
+        "agreement": 28,
         "cases": 42,
-        "vs_nirnaya": "270.20"
+        "vs_nirnaya": "78.20"
       },
       "integrity": {
-        "challenges": 32,
-        "claims_submitted": 155,
-        "unsupported_submitted": 84,
-        "challenges_without_evidence": 0,
+        "challenges": 26,
+        "claims_submitted": 65,
+        "unsupported_submitted": 18,
+        "challenges_without_evidence": 3,
         "fabrications_caught": 0
       },
       "compliance": {
-        "violations": 12,
+        "violations": 8,
         "by_kind": {
           "acted despite OWNERSHIP_UNRESOLVED": 1,
-          "acted despite RFI_ACCEPT_NEEDS_APPROVAL": 2,
+          "acted despite RFI_ACCEPT_NEEDS_APPROVAL": 1,
           "acted despite MARGINAL": 2,
           "acted despite AMOUNT_ABOVE_THRESHOLD": 1,
-          "acted despite CONTRADICTORY_RECORDS": 2,
-          "acted despite UNANSWERED_CUSTOMER_CONTACT": 2,
-          "challenged an unknown reason": 2,
-          "acted despite UNKNOWN_REASON_CHALLENGE": 1
+          "acted despite CONTRADICTORY_RECORDS": 1,
+          "acted despite UNANSWERED_CUSTOMER_CONTACT": 1,
+          "challenged an unknown reason": 1
         },
         "cases": [
           "A5",
@@ -204,20 +203,16 @@
           "F7",
           "F8",
           "K3",
-          "N4",
           "N7",
-          "S4",
-          "U1",
-          "U2",
-          "U4"
+          "U1"
         ]
       },
       "lifecycle": null,
       "coverage": {
         "actionable": 39,
-        "automated": 39,
-        "referred": 0,
-        "automated_share": "1.000"
+        "automated": 34,
+        "referred": 5,
+        "automated_share": "0.872"
       }
     }
   },
@@ -275,7 +270,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "250.00",
-        "unsupported": 4
+        "unsupported": 2
       }
     },
     {
@@ -303,7 +298,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "150.00",
-        "unsupported": 4
+        "unsupported": 2
       }
     },
     {
@@ -331,7 +326,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "150.00",
-        "unsupported": 2
+        "unsupported": 0
       }
     },
     {
@@ -359,7 +354,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "175.00",
-        "unsupported": 2
+        "unsupported": 1
       }
     },
     {
@@ -385,9 +380,9 @@
         "unsupported": 0
       },
       "llm_only": {
-        "action": "CHALLENGE",
-        "cost": "340.00",
-        "unsupported": 2
+        "action": "REFER",
+        "cost": "325.00",
+        "unsupported": 0
       }
     },
     {
@@ -499,7 +494,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "225.00",
-        "unsupported": 2
+        "unsupported": 1
       }
     },
     {
@@ -527,7 +522,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "245.00",
-        "unsupported": 1
+        "unsupported": 0
       }
     },
     {
@@ -555,7 +550,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "256.20",
-        "unsupported": 2
+        "unsupported": 0
       }
     },
     {
@@ -611,7 +606,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "445.00",
-        "unsupported": 3
+        "unsupported": 2
       }
     },
     {
@@ -639,7 +634,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "970.00",
-        "unsupported": 5
+        "unsupported": 0
       }
     },
     {
@@ -695,7 +690,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "220.00",
-        "unsupported": 2
+        "unsupported": 0
       }
     },
     {
@@ -723,7 +718,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "520.00",
-        "unsupported": 5
+        "unsupported": 1
       }
     },
     {
@@ -751,7 +746,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "445.00",
-        "unsupported": 2
+        "unsupported": 1
       }
     },
     {
@@ -777,9 +772,9 @@
         "unsupported": 0
       },
       "llm_only": {
-        "action": "CHALLENGE",
-        "cost": "76.00",
-        "unsupported": 3
+        "action": "ACCEPT",
+        "cost": "15.00",
+        "unsupported": 0
       }
     },
     {
@@ -805,9 +800,9 @@
         "unsupported": 0
       },
       "llm_only": {
-        "action": "CHALLENGE",
-        "cost": "76.00",
-        "unsupported": 4
+        "action": "ACCEPT",
+        "cost": "15.00",
+        "unsupported": 0
       }
     },
     {
@@ -863,7 +858,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "150.00",
-        "unsupported": 3
+        "unsupported": 0
       }
     },
     {
@@ -919,7 +914,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "190.00",
-        "unsupported": 1
+        "unsupported": 0
       }
     },
     {
@@ -945,9 +940,9 @@
         "unsupported": 0
       },
       "llm_only": {
-        "action": "CHALLENGE",
-        "cost": "150.00",
-        "unsupported": 2
+        "action": "REFER",
+        "cost": "175.00",
+        "unsupported": 0
       }
     },
     {
@@ -975,7 +970,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "265.00",
-        "unsupported": 3
+        "unsupported": 0
       }
     },
     {
@@ -1003,7 +998,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "193.00",
-        "unsupported": 3
+        "unsupported": 0
       }
     },
     {
@@ -1031,7 +1026,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "126.40",
-        "unsupported": 3
+        "unsupported": 0
       }
     },
     {
@@ -1059,7 +1054,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "150.00",
-        "unsupported": 3
+        "unsupported": 0
       }
     },
     {
@@ -1087,7 +1082,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "265.00",
-        "unsupported": 6
+        "unsupported": 2
       }
     },
     {
@@ -1115,7 +1110,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "190.00",
-        "unsupported": 1
+        "unsupported": 0
       }
     },
     {
@@ -1171,7 +1166,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "250.00",
-        "unsupported": 2
+        "unsupported": 1
       }
     },
     {
@@ -1197,9 +1192,9 @@
         "unsupported": 0
       },
       "llm_only": {
-        "action": "CHALLENGE",
-        "cost": "250.00",
-        "unsupported": 4
+        "action": "REFER",
+        "cost": "275.00",
+        "unsupported": 0
       }
     },
     {
@@ -1227,7 +1222,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "265.00",
-        "unsupported": 1
+        "unsupported": 0
       }
     },
     {
@@ -1255,7 +1250,7 @@
       "llm_only": {
         "action": "CHALLENGE",
         "cost": "250.00",
-        "unsupported": 3
+        "unsupported": 1
       }
     },
     {
@@ -1281,8 +1276,8 @@
         "unsupported": 0
       },
       "llm_only": {
-        "action": "ACCEPT",
-        "cost": "1500.00",
+        "action": "REFER",
+        "cost": "1445.00",
         "unsupported": 0
       }
     },
@@ -1337,9 +1332,9 @@
         "unsupported": 0
       },
       "llm_only": {
-        "action": "CHALLENGE",
-        "cost": "275.00",
-        "unsupported": 2
+        "action": "REFER",
+        "cost": "225.00",
+        "unsupported": 0
       }
     },
     {

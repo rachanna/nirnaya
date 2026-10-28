@@ -67,12 +67,14 @@ uv run pytest           # about 1,300 offline tests; no network, no keys needed
 
 ## Evaluation (42 synthetic cases)
 
-| | Nirnaya | Fight everything | Accept everything | LLM only (gpt-5-mini) |
-|---|---|---|---|---|
-| Expected net loss (USD) | **11,417.40** | 11,800.60 | 17,652.00 | 11,687.60 |
-| Agrees with the expert decision | **42/42** | 18/42 | 14/42 | 22/42 |
-| Unsupported claims submitted | **0** | 6 | 0 | 84 |
-| Merchant-policy violations | **0** | 13 | 11 | 12 |
+| | Nirnaya | Fight everything | Accept everything | LLM only (claude-sonnet-5-5) | LLM only (gpt-5-mini) |
+|---|---|---|---|---|---|
+| Expected net loss (USD) | **11,417.40** | 11,800.60 | 17,652.00 | 11,495.60 | 11,687.60 |
+| Agrees with the expert decision | **42/42** | 18/42 | 14/42 | 28/42 | 22/42 |
+| Unsupported claims submitted | **0** | 6 | 0 | 18 | 84 |
+| Merchant-policy violations | **0** | 13 | 11 | 8 | 12 |
+
+The LLM-only baseline gives the model the dispute and every record and lets it decide and draft alone, with no engine or verifier. The report uses the Claude run (`eval/results/llm_only.json`); the earlier gpt-5-mini answers are kept in `eval/results/llm_only.gpt-5-mini.json`.
 
 These are expected values under the expert policy's assumed priors and fees ([`eval/EXPERT_POLICY.md`](eval/EXPERT_POLICY.md)) on **synthetic** cases, not real issuer outcomes. The full report is `eval/results/report.md`.
 
