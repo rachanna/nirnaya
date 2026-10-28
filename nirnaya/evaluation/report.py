@@ -21,7 +21,7 @@ from nirnaya.config.demo import DEMO_POLICY, FX_ASSET, POLICY_ASSET
 from nirnaya.evaluation import case_set
 from nirnaya.evaluation.cases import EvalCase, load_cases, synthetic_world
 from nirnaya.evaluation.economics import ECONOMICS_ASSET
-from nirnaya.evaluation.llm_baseline import RESULTS, VARIANTS, Cache, cache_path, llm_only
+from nirnaya.evaluation.llm_baseline import CACHES, RESULTS, VARIANTS, Cache, llm_only
 from nirnaya.evaluation.metrics import (
     case_cost,
     compliance,
@@ -42,8 +42,6 @@ NAMES = {
     "nirnaya": "Nirnaya",
     "fight_all": "Fight everything",
     "accept_all": "Accept everything",
-    "llm_only_naive": "LLM only (naive)",
-    "llm_only_informed": "LLM only (informed)",
 }
 REPO = Path(__file__).resolve().parents[2]
 
@@ -114,7 +112,8 @@ def build(
         cov = coverage(cases, res)
         life = lifecycle(cases, res) if key == "nirnaya" else None
         policies[key] = {
-            "name": NAMES[key],
+            "name": NAMES.get(key)
+            or f"LLM only ({key.removeprefix('llm_only_').replace('-', ' ')})",
             "financial": {
                 "expected_loss": _money(fin.expected_loss),
                 "by_part": {k: _money(v) for k, v in fin.by_part.items()},
@@ -312,13 +311,25 @@ def as_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def main(out: Callable[[str], None] = print, results: Path = RESULTS) -> int:
+def load_caches(directory: Path = CACHES) -> dict[str, Cache]:
+    """Every cached LLM-only run (<variant>-<version>.json), in variant order, then version.
+    Subfolders (an archive of other models' runs) are not loaded."""
+    order = {v: i for i, v in enumerate(VARIANTS)}
+
+    def key(path: Path) -> tuple[int, str]:
+        variant = path.stem.split("-", 1)[0]
+        return order.get(variant, len(order)), path.stem
+
     caches = {}
-    for variant in VARIANTS:
-        cache = Cache.load(results / cache_path(variant).relative_to(RESULTS))
+    for path in sorted(directory.glob("*.json"), key=key):
+        cache = Cache.load(path)
         if cache is not None:
-            caches[variant] = cache
-    report = build(caches=caches)
+            caches[path.stem] = cache
+    return caches
+
+
+def main(out: Callable[[str], None] = print, results: Path = RESULTS) -> int:
+    report = build(caches=load_caches(results / CACHES.relative_to(RESULTS)))
     results.mkdir(parents=True, exist_ok=True)
     (results / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     (results / "report.md").write_text(as_markdown(report), encoding="utf-8")

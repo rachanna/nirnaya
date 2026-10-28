@@ -41,6 +41,7 @@ from nirnaya.llm.untrusted import untrusted
 from nirnaya.models.enums import AmountBasis, EvidenceType, RecordAuthor
 from nirnaya.models.money import FxTable
 from nirnaya.models.policy import MerchantPolicy
+from nirnaya.models.reasons import REASON_TYPE_CATEGORY
 
 RESULTS = Path(__file__).resolve().parents[2] / "eval" / "results"
 CACHES = RESULTS / "llm_only"
@@ -50,8 +51,9 @@ DECIDE = "decide"
 VARIANTS = {"naive": "baseline_naive", "informed": "baseline_informed"}
 
 
-def cache_path(variant: str) -> Path:
-    return CACHES / f"{variant}.json"
+def cache_path(prompts: "BaselinePrompts") -> Path:
+    """One cache per variant and system-prompt version, so versions sit side by side."""
+    return CACHES / f"{prompts.label}.json"
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,11 @@ class BaselinePrompts:
     @property
     def refs(self) -> tuple[str, ...]:
         return (self.system.ref, self.user.ref, self.tools.ref)
+
+    @property
+    def label(self) -> str:
+        """variant-version, named after the system prompt's version (all refs are recorded)."""
+        return f"{self.variant}-{self.system.version}"
 
 
 def load_prompts(variant: str = "naive", env: Mapping[str, str] | None = None) -> BaselinePrompts:
@@ -163,8 +170,14 @@ def _fx(fx: FxTable) -> str:
     return "\n".join(f"- 1 {r.base} = {r.rate} {r.quote}" for r in fx.rates)
 
 
+def _reasons() -> str:
+    return "\n".join(f"- {t}: {c}" for t, c in sorted(REASON_TYPE_CATEGORY.items()))
+
+
 def _policy_values(policy: MerchantPolicy, fx: FxTable) -> dict[str, str]:
+    """Every value any informed system-prompt version may use; each takes what it names."""
     return {
+        "reasons": _reasons(),
         "merchant_id": policy.merchant_id,
         "currency": policy.currency,
         "referral_threshold": str(policy.referral_amount_threshold),
@@ -192,7 +205,7 @@ def system_prompt(
     merchant's configuration, which is not case data."""
     if prompts.variant == "naive":
         return assets.render(prompts.system)
-    return assets.render(prompts.system, **_policy_values(policy, fx))
+    return assets.render_from(prompts.system, _policy_values(policy, fx))
 
 
 def _guide(case: EvalCase) -> str:
@@ -381,7 +394,7 @@ def main(
     prompts = load_prompts(variant, env)
     out(f"LLM-only baseline ({variant}) with {llm.provider}/{llm.model}: {', '.join(prompts.refs)}")
     result = run(llm, load_cases(), now=datetime.now(UTC), out=out, prompts=prompts)
-    path = cache_path(variant)
+    path = cache_path(prompts)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
     out(f"Saved {len(result['cases'])} answers to {path}")

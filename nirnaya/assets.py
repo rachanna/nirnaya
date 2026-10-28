@@ -178,6 +178,13 @@ def render(asset: Asset, **values: str) -> str:
     return template.substitute(values)
 
 
+def render_from(asset: Asset, pool: Mapping[str, str]) -> str:
+    """Fill a template from a pool of values that serves every version of a prompt: each
+    version takes the values it names. A value the template needs and the pool lacks fails."""
+    wanted = set(Template(asset.text).get_identifiers())
+    return render(asset, **{k: v for k, v in pool.items() if k in wanted})
+
+
 def _published(root: Path) -> dict[str, str]:
     return {
         p.relative_to(root).as_posix(): digest(_read(p))

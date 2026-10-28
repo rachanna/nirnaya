@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -46,13 +47,27 @@ def test_each_cached_llm_only_variant_is_its_own_column():
     informed = Cache("fake", "fake-model", at, {"N1": {"action": "ACCEPT"}}, "informed",
                      ("baseline_informed_system@v1#abc",))  # fmt: skip
     report = build([c for c in CASES if c.id in {"N1", "K2"}],
-                   caches={"naive": naive, "informed": informed})  # fmt: skip
+                   caches={"naive-v1": naive, "informed-v1": informed})  # fmt: skip
     pol = report["policies"]
-    assert pol["llm_only_naive"]["integrity"]["challenges_without_evidence"] == 1
-    assert pol["llm_only_informed"]["name"] == "LLM only (informed)"
-    assert report["llm_only"]["informed"]["prompts"] == ["baseline_informed_system@v1#abc"]
+    assert pol["llm_only_naive-v1"]["integrity"]["challenges_without_evidence"] == 1
+    assert pol["llm_only_informed-v1"]["name"] == "LLM only (informed v1)"
+    assert report["llm_only"]["informed-v1"]["prompts"] == ["baseline_informed_system@v1#abc"]
     n1 = next(r for r in report["rows"] if r["id"] == "N1")
-    assert n1["llm_only_informed"]["action"] == "ACCEPT"
+    assert n1["llm_only_informed-v1"]["action"] == "ACCEPT"
+
+
+def test_the_report_loads_every_cached_version_in_variant_order(tmp_path):
+    import shutil
+
+    from nirnaya.evaluation.report import load_caches
+
+    src = Path(__file__).resolve().parents[2] / "eval" / "results" / "llm_only"
+    for name in ("naive-v1.json", "informed-v1.json"):
+        shutil.copy(src / name, tmp_path / name)
+    shutil.copy(src / "informed-v1.json", tmp_path / "informed-v2.json")
+    (tmp_path / "archive").mkdir()
+    shutil.copy(src / "naive-v1.json", tmp_path / "archive" / "naive-v1.json")  # not loaded
+    assert list(load_caches(tmp_path)) == ["naive-v1", "informed-v1", "informed-v2"]
 
 
 def test_the_report_states_the_versions_it_was_built_from(report):

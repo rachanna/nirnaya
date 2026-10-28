@@ -2,7 +2,7 @@
   "caveat": "Expected values under the expert policy's assumed priors and fees on SYNTHETIC cases (eval/EXPERT_POLICY.md); not real issuer or network outcomes.",
   "cases": 42,
   "llm_only": {
-    "naive": {
+    "naive-v1": {
       "provider": "anthropic",
       "model": "claude-sonnet-5-5",
       "run_at": "2026-10-28T01:21:26.449942+00:00",
@@ -12,7 +12,7 @@
         "tools@v1#ba84dfdfa56a"
       ]
     },
-    "informed": {
+    "informed-v1": {
       "provider": "anthropic",
       "model": "claude-sonnet-5-5",
       "run_at": "2026-10-28T01:59:32.084908+00:00",
@@ -25,7 +25,7 @@
   },
   "versions": {
     "git": {
-      "commit": "b59a7f89613e44c405d8715964774cc421676d9a",
+      "commit": "98b74c11419d41f94476513629aa0290f8e2213f",
       "dirty": true
     },
     "case_set": {
@@ -193,8 +193,8 @@
         "automated_share": "1.000"
       }
     },
-    "llm_only_naive": {
-      "name": "LLM only (naive)",
+    "llm_only_naive-v1": {
+      "name": "LLM only (naive v1)",
       "financial": {
         "expected_loss": "11495.60",
         "by_part": {
@@ -246,8 +246,8 @@
         "automated_share": "0.872"
       }
     },
-    "llm_only_informed": {
-      "name": "LLM only (informed)",
+    "llm_only_informed-v1": {
+      "name": "LLM only (informed v1)",
       "financial": {
         "expected_loss": "11882.40",
         "by_part": {
@@ -310,12 +310,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
@@ -343,12 +343,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "250.00",
         "unsupported": 2
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
@@ -376,12 +376,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 2
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 1
@@ -409,12 +409,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 2
@@ -442,12 +442,12 @@
         "cost": "300.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "175.00",
         "unsupported": 1
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "175.00",
         "unsupported": 1
@@ -475,12 +475,12 @@
         "cost": "300.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "REFER",
         "cost": "325.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
@@ -508,12 +508,12 @@
         "cost": null,
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "NONE",
         "cost": null,
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "NONE",
         "cost": null,
         "unsupported": 0
@@ -541,12 +541,12 @@
         "cost": "315.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "250.00",
         "unsupported": 2
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "250.00",
         "unsupported": 1
@@ -574,12 +574,12 @@
         "cost": "400.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "190.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "190.00",
         "unsupported": 3
@@ -607,12 +607,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "225.00",
         "unsupported": 1
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "225.00",
         "unsupported": 0
@@ -640,12 +640,12 @@
         "cost": "250.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "245.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "275.00",
         "unsupported": 0
@@ -673,12 +673,12 @@
         "cost": "266.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "256.20",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "291.00",
         "unsupported": 0
@@ -706,12 +706,12 @@
         "cost": "1015.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "ACCEPT",
         "cost": "1015.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "1015.00",
         "unsupported": 0
@@ -739,12 +739,12 @@
         "cost": "1015.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "445.00",
         "unsupported": 2
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "445.00",
         "unsupported": 0
@@ -772,12 +772,12 @@
         "cost": "3000.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "970.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "995.00",
         "unsupported": 0
@@ -805,12 +805,12 @@
         "cost": "400.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "ACCEPT",
         "cost": "400.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "315.00",
         "unsupported": 0
@@ -838,12 +838,12 @@
         "cost": "500.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "220.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "500.00",
         "unsupported": 0
@@ -871,12 +871,12 @@
         "cost": "1500.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "520.00",
         "unsupported": 1
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "520.00",
         "unsupported": 0
@@ -904,12 +904,12 @@
         "cost": "1500.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "445.00",
         "unsupported": 1
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "445.00",
         "unsupported": 0
@@ -937,12 +937,12 @@
         "cost": "15.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "ACCEPT",
         "cost": "15.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "15.00",
         "unsupported": 0
@@ -970,12 +970,12 @@
         "cost": "15.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "ACCEPT",
         "cost": "15.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "15.00",
         "unsupported": 0
@@ -1003,12 +1003,12 @@
         "cost": "120.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "ACCEPT",
         "cost": "120.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "145.00",
         "unsupported": 0
@@ -1036,12 +1036,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 0
@@ -1069,12 +1069,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
@@ -1102,12 +1102,12 @@
         "cost": "600.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "190.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "190.00",
         "unsupported": 0
@@ -1135,12 +1135,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "REFER",
         "cost": "175.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "175.00",
         "unsupported": 0
@@ -1168,12 +1168,12 @@
         "cost": "315.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "265.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "265.00",
         "unsupported": 2
@@ -1201,12 +1201,12 @@
         "cost": "135.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "193.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "135.00",
         "unsupported": 0
@@ -1234,12 +1234,12 @@
         "cost": "141.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "126.40",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "151.40",
         "unsupported": 0
@@ -1267,12 +1267,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 0
@@ -1300,12 +1300,12 @@
         "cost": "300.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "265.00",
         "unsupported": 2
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "CHALLENGE",
         "cost": "265.00",
         "unsupported": 0
@@ -1333,12 +1333,12 @@
         "cost": "300.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "190.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
@@ -1366,12 +1366,12 @@
         "cost": "300.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "250.00",
         "unsupported": 2
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
@@ -1399,12 +1399,12 @@
         "cost": "300.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "250.00",
         "unsupported": 1
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
@@ -1432,12 +1432,12 @@
         "cost": "300.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "REFER",
         "cost": "275.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "275.00",
         "unsupported": 0
@@ -1465,12 +1465,12 @@
         "cost": "300.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "265.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "290.00",
         "unsupported": 0
@@ -1498,12 +1498,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "CHALLENGE",
         "cost": "250.00",
         "unsupported": 1
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
@@ -1531,12 +1531,12 @@
         "cost": "1500.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "REFER",
         "cost": "1445.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "1445.00",
         "unsupported": 0
@@ -1564,12 +1564,12 @@
         "cost": "50.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "ACCEPT",
         "cost": "50.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "50.00",
         "unsupported": 0
@@ -1597,12 +1597,12 @@
         "cost": "200.00",
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "REFER",
         "cost": "225.00",
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "REFER",
         "cost": "225.00",
         "unsupported": 0
@@ -1630,12 +1630,12 @@
         "cost": null,
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "NONE",
         "cost": null,
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "NONE",
         "cost": null,
         "unsupported": 0
@@ -1663,12 +1663,12 @@
         "cost": null,
         "unsupported": 0
       },
-      "llm_only_naive": {
+      "llm_only_naive-v1": {
         "action": "NONE",
         "cost": null,
         "unsupported": 0
       },
-      "llm_only_informed": {
+      "llm_only_informed-v1": {
         "action": "NONE",
         "cost": null,
         "unsupported": 0

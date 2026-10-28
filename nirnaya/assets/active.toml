@@ -10,7 +10,7 @@ drafter_user = "v1"
 tools = "v1"
 baseline_naive_system = "v1"
 baseline_naive_user = "v1"
-baseline_informed_system = "v1"
+baseline_informed_system = "v2"
 baseline_informed_user = "v1"
 
 [config]

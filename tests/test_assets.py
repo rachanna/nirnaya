@@ -91,6 +91,17 @@ def test_render_needs_exactly_the_template_placeholders(root):
         assets.render(a, merchant="m-1", extra="x")
 
 
+def test_render_from_a_pool_takes_what_each_version_needs(root):
+    """One pool of values serves every version of a prompt; a missing value still fails."""
+    v1 = assets.prompt("drafter_system", {}, root=root)
+    v2 = assets.prompt("drafter_system", {"NIRNAYA_PROMPTS": "drafter_system:v2"}, root=root)
+    pool = {"merchant": "m-1", "other": "unused"}
+    assert assets.render_from(v1, pool) == "Draft for m-1.\n"
+    assert assets.render_from(v2, pool) == "Draft carefully.\n"
+    with pytest.raises(AssetError, match="missing"):
+        assets.render_from(v1, {"other": "x"})
+
+
 def test_a_substituted_value_is_never_parsed_as_a_template(root):
     a = assets.prompt("drafter_system", {}, root=root)
     assert assets.render(a, merchant="$merchant ${x}") == "Draft for $merchant ${x}.\n"

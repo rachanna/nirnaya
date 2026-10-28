@@ -7,6 +7,7 @@
 "fx/demo-2026-10-01.toml" = "a74fb42c5c1696ef9dfc9b022a943e15072ddd780f7add763304910e555f34c0"
 "policies/merchant-demo/demo-2026-10.toml" = "bd3f0c2ec7820ab5c2bc9285ecbf072e22cf6b7d77a46ee843a55794a6732507"
 "prompts/baseline_informed_system/v1.md" = "794edcb55f4612daa5663d2b7c9a2bfc7189c6dff0af0ce4172b4ad3804933b1"
+"prompts/baseline_informed_system/v2.md" = "76083047b918e5a6be6001c36b16e89726f7680ed3fa32964b1ca7672551ec0f"
 "prompts/baseline_informed_user/v1.md" = "01b77866ab2e9de440000665b3f39911b8f6f621c81b479689456143a20df02b"
 "prompts/baseline_naive_system/v1.md" = "1e33f22c05c7bfa09ecc74aeaf2e4082cf74fcdd2c334f177f0573e88a13e3ef"
 "prompts/baseline_naive_user/v1.md" = "86578a4c5f93347447f67e8e8d84753664d147098c91fdf83e05bcd7f0427dc3"

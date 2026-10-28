@@ -171,13 +171,33 @@ def test_informed_customer_text_stays_inside_untrusted_blocks():
 def test_each_variant_has_its_own_cache_and_records_its_prompts():
     from nirnaya.evaluation.llm_baseline import cache_path, load_prompts
 
-    assert cache_path("naive").name == "naive.json"
-    assert cache_path("informed").name == "informed.json"
+    assert cache_path(load_prompts("naive", {})).name == "naive-v1.json"
+    assert cache_path(informed()).name == f"informed-{informed().system.version}.json"
     llm = ScriptedLLM([decision("ACCEPT")])
     result = run(llm, [CASES["K2"]], now=NOW, out=lambda _: None, prompts=informed())
     assert result["variant"] == "informed"
-    assert result["prompts"][0].startswith("baseline_informed_system@v1#")
+    assert result["prompts"][0] == informed().system.ref
     import pytest
 
     with pytest.raises(ValueError, match="unknown variant"):
         load_prompts("clever", {})
+
+
+def test_informed_v2_maps_airwallex_reason_types_and_states_the_strict_band():
+    from nirnaya.evaluation.llm_baseline import load_prompts, system_prompt
+
+    p = load_prompts("informed", {"NIRNAYA_PROMPTS": "baseline_informed_system:v2"})
+    text = system_prompt(p)
+    assert "- CANCELLED_PRODUCT: SUBSCRIPTION" in text
+    assert "- UNRECOGNIZED_CHARGE: FRAUD" in text
+    assert "less than 5 USD" in text and "exactly 5 USD" in text
+    assert "$" not in text
+
+
+def test_informed_v1_still_renders_unchanged():
+    """Old versions stay usable: v1 renders from the same pool and has no reason table."""
+    from nirnaya.evaluation.llm_baseline import load_prompts, system_prompt
+
+    p = load_prompts("informed", {"NIRNAYA_PROMPTS": "baseline_informed_system:v1"})
+    text = system_prompt(p)
+    assert "CANCELLED_PRODUCT" not in text and "within 5 USD of zero" in text

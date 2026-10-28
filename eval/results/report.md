@@ -2,7 +2,7 @@
 
 42 SYNTHETIC cases. Expected values under the expert policy's assumed priors and fees on SYNTHETIC cases (eval/EXPERT_POLICY.md); not real issuer or network outcomes.
 
-| Metric | Nirnaya | Fight everything | Accept everything | LLM only (naive) | LLM only (informed) |
+| Metric | Nirnaya | Fight everything | Accept everything | LLM only (naive v1) | LLM only (informed v1) |
 |---|---|---|---|---|---|
 | Expected net loss (USD) | 11417.40 | 11800.60 | 17652.00 | 11495.60 | 11882.40 |
 | vs Nirnaya (USD) | 0.00 | 383.20 | 6234.60 | 78.20 | 465.00 |
@@ -16,7 +16,7 @@
 
 ## Per case
 
-| Case | Stage | Amount | Expert | Nirnaya | Fight everything | Accept everything | LLM only (naive) | LLM only (informed) |
+| Case | Stage | Amount | Expert | Nirnaya | Fight everything | Accept everything | LLM only (naive v1) | LLM only (informed v1) |
 |---|---|---|---|---|---|---|---|---|
 | A1 | CHARGEBACK | 200.00 USD | ACCEPT | ACCEPT (200.00) | CHALLENGE (250.00) | ACCEPT (200.00) | ACCEPT (200.00) | ACCEPT (200.00) |
 | A2 | CHARGEBACK | 200.00 USD | ACCEPT | ACCEPT (200.00) | CHALLENGE (250.00) | ACCEPT (200.00) | CHALLENGE (250.00) | ACCEPT (200.00) |
@@ -63,8 +63,8 @@
 
 ## Versions
 
-- Code: git `b59a7f89613e44c405d8715964774cc421676d9a` (uncommitted changes)
+- Code: git `98b74c11419d41f94476513629aa0290f8e2213f` (uncommitted changes)
 - Case set: v1 (42 cases, sha256 `22fb03b56b3b`)
 - Policy: `merchant-demo@demo-2026-10#bd3f0c2ec782`; FX: `fx@demo-2026-10-01#a74fb42c5c16`; economics: `economics@v1#b0b04a506ede`
-- LLM only (naive): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_naive_system@v1#1e33f22c05c7`, `baseline_naive_user@v1#86578a4c5f93`, `tools@v1#ba84dfdfa56a`
-- LLM only (informed): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_informed_system@v1#794edcb55f46`, `baseline_informed_user@v1#01b77866ab2e`, `tools@v1#ba84dfdfa56a`
+- LLM only (naive-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_naive_system@v1#1e33f22c05c7`, `baseline_naive_user@v1#86578a4c5f93`, `tools@v1#ba84dfdfa56a`
+- LLM only (informed-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_informed_system@v1#794edcb55f46`, `baseline_informed_user@v1#01b77866ab2e`, `tools@v1#ba84dfdfa56a`
