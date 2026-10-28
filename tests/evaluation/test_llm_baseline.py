@@ -219,3 +219,15 @@ def test_a_run_records_the_case_set_it_answered():
     llm = ScriptedLLM([decision("ACCEPT")])
     result = run(llm, [CASES["K2"]], now=NOW, out=lambda _: None)
     assert result["case_set"] == case_set.check()["version"]
+
+
+def test_informed_v3_asks_for_exact_values_and_the_decide_tool_carries_field_notes():
+    from nirnaya.evaluation.llm_baseline import decide_spec, load_prompts, system_prompt
+
+    p = load_prompts("informed", {"NIRNAYA_PROMPTS": "baseline_informed_system:v3,tools:v2"})
+    assert "exactly as it appears in the record" in system_prompt(p)
+    item = decide_spec(["r1"], p.decide_description, p.decide_fields).input_schema
+    fields = item["properties"]["claims"]["items"]["properties"]
+    assert fields["extracted_value"]["description"] == "the field's value exactly as it appears"
+    old = load_prompts("informed", {"NIRNAYA_PROMPTS": "baseline_informed_system:v2,tools:v1"})
+    assert old.decide_fields == {}  # v1 had none: the earlier runs are reproducible as they were

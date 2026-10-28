@@ -22,7 +22,7 @@ import json
 import os
 import sys
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -72,6 +72,8 @@ class BaselinePrompts:
     user: assets.Asset
     tools: assets.Asset
     decide_description: str
+    # Notes on the decide tool's claim fields (none before tools v2).
+    decide_fields: dict[str, str] = field(default_factory=dict)
 
     @property
     def refs(self) -> tuple[str, ...]:
@@ -95,14 +97,18 @@ def load_prompts(variant: str = "naive", env: Mapping[str, str] | None = None) -
         assets.prompt(f"{stem}_user", env),
         tools_asset,
         tools["baseline"]["decide"]["description"],
+        dict(tools["baseline"]["decide"].get("fields", {})),
     )
 
 
 _ACTS = {"ACCEPT": Act.ACCEPT, "CHALLENGE": Act.CHALLENGE, "ESCALATE": Act.REFER}
 
 
-def decide_spec(record_ids: list[str], description: str) -> ToolSpec:
-    item = {
+def decide_spec(
+    record_ids: list[str], description: str, fields: dict[str, str] | None = None
+) -> ToolSpec:
+    notes = fields or {}
+    item: dict[str, Any] = {
         "type": "object",
         "properties": {
             "source_record_id": {"type": "string", "enum": record_ids},
@@ -126,6 +132,9 @@ def decide_spec(record_ids: list[str], description: str) -> ToolSpec:
             "value_kind",
         ],
     }
+    for name, note in notes.items():
+        if name in item["properties"]:
+            item["properties"][name] = {**item["properties"][name], "description": note}
     return ToolSpec(
         name=DECIDE,
         description=description,
@@ -282,7 +291,7 @@ def ask(llm: LLMClient, case: EvalCase, prompts: BaselinePrompts | None = None) 
             resp = llm.complete(
                 system=system_prompt(prompts),
                 messages=[Message.user(case_prompt(case, prompts))],
-                tools=[decide_spec(ids, prompts.decide_description)],
+                tools=[decide_spec(ids, prompts.decide_description, prompts.decide_fields)],
                 force_tool=DECIDE,
                 # Reasoning models spend part of this on thinking; leave room for the answer.
                 max_tokens=8192,

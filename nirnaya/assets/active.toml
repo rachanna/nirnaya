@@ -7,10 +7,10 @@ investigator_system = "v1"
 investigator_user = "v1"
 drafter_system = "v1"
 drafter_user = "v1"
-tools = "v1"
+tools = "v2"
 baseline_naive_system = "v1"
 baseline_naive_user = "v1"
-baseline_informed_system = "v2"
+baseline_informed_system = "v3"
 baseline_informed_user = "v1"
 
 [config]

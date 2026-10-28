@@ -8,6 +8,7 @@
 "policies/merchant-demo/demo-2026-10.toml" = "bd3f0c2ec7820ab5c2bc9285ecbf072e22cf6b7d77a46ee843a55794a6732507"
 "prompts/baseline_informed_system/v1.md" = "794edcb55f4612daa5663d2b7c9a2bfc7189c6dff0af0ce4172b4ad3804933b1"
 "prompts/baseline_informed_system/v2.md" = "76083047b918e5a6be6001c36b16e89726f7680ed3fa32964b1ca7672551ec0f"
+"prompts/baseline_informed_system/v3.md" = "99620d0fe147399d03eb8a4001ccf497d33fa74b06370369be3c3cfdf257c6a5"
 "prompts/baseline_informed_user/v1.md" = "01b77866ab2e9de440000665b3f39911b8f6f621c81b479689456143a20df02b"
 "prompts/baseline_naive_system/v1.md" = "1e33f22c05c7bfa09ecc74aeaf2e4082cf74fcdd2c334f177f0573e88a13e3ef"
 "prompts/baseline_naive_user/v1.md" = "86578a4c5f93347447f67e8e8d84753664d147098c91fdf83e05bcd7f0427dc3"
@@ -16,3 +17,4 @@
 "prompts/investigator_system/v1.md" = "1a2f30db35063afc2bcf7ba9032fb6dad63b51153d96ca44172abded14ab7ded"
 "prompts/investigator_user/v1.md" = "469b752adc643b72106f443b287d6072c3a8d27b5589f2db0dd219ba274c4a64"
 "prompts/tools/v1.toml" = "ba84dfdfa56ae467d18b43c2badcb32fe26b45b325ede1e16344bcc206cbca8a"
+"prompts/tools/v2.toml" = "ea497525e622cccb35e9e8671936df3d5e28d2602233e1235e618d1cbbdbdd29"

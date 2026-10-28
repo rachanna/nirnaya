@@ -70,7 +70,7 @@ def test_every_locked_prompt_version_is_mirrored_once_in_version_order():
     informed = [
         k["commit_tags"] for i, k in client.pushed if i == "nirnaya-baseline-informed-system"
     ]
-    assert informed == [["v1"], ["v2"]]  # history in version order
+    assert informed == [["v1"], ["v2"], ["v3"]]  # history in version order
 
     again = prompts.mirror(client)  # nothing new: nothing pushed
     assert all(status == "unchanged" for _, status in again)
