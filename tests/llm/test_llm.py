@@ -86,11 +86,19 @@ def test_anthropic_request_translation():
         max_tokens=500,
     )
     k = rec.kwargs
-    assert (k["model"], k["system"], k["max_tokens"]) == ("claude-sonnet-5-5", "Static rules.", 500)
+    assert (k["model"], k["max_tokens"]) == ("claude-sonnet-5-5", 500)
+    assert k["system"].startswith("Static rules.") and "get_order" in k["system"]
+    # Current models reject a forced tool_choice: the tool is named in the prompt instead and
+    # its schema is enforced with strict mode, which needs additionalProperties: false.
+    assert "tool_choice" not in k
     assert k["tools"] == [
-        {"name": "get_order", "description": "Look up an order.", "input_schema": TOOL.input_schema}
+        {
+            "name": "get_order",
+            "description": "Look up an order.",
+            "input_schema": {**TOOL.input_schema, "additionalProperties": False},
+            "strict": True,
+        }
     ]
-    assert k["tool_choice"] == {"type": "tool", "name": "get_order"}
     user, assistant, result = k["messages"]
     assert user == {"role": "user", "content": "Case facts here."}
     assert assistant["content"][1] == {
@@ -105,6 +113,68 @@ def test_anthropic_request_translation():
             {"type": "tool_result", "tool_use_id": "call_1", "content": '{"order_id": "O-1"}'}
         ],
     }
+
+
+def test_anthropic_tools_are_not_strict_unless_forced():
+    client, rec = anthropic(anthropic_response([{"type": "text", "text": "ok"}]))
+    client.complete(system="Static rules.", messages=CONVERSATION[:1], tools=[TOOL])
+    assert rec.kwargs["system"] == "Static rules."
+    assert rec.kwargs["tools"] == [
+        {"name": "get_order", "description": "Look up an order.", "input_schema": TOOL.input_schema}
+    ]
+
+
+def test_anthropic_strict_schema_closes_every_nested_object_without_mutating_the_spec():
+    from nirnaya.llm.anthropic_client import strict_schema
+
+    schema = {
+        "type": "object",
+        "properties": {
+            "claims": {
+                "type": "array",
+                "items": {"type": "object", "properties": {"x": {"type": "string"}}},
+            }
+        },
+        "required": ["claims"],
+    }
+    out = strict_schema(schema)
+    assert out["additionalProperties"] is False
+    assert out["properties"]["claims"]["items"]["additionalProperties"] is False
+    assert "additionalProperties" not in schema  # the provider-neutral spec is untouched
+
+
+class Sequenced:
+    """Returns its responses in order, recording every request."""
+
+    def __init__(self, *responses):
+        self.responses, self.calls = list(responses), []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return self.responses.pop(0)
+
+
+def test_anthropic_asks_once_more_when_a_forced_tool_is_not_called():
+    rec = Sequenced(
+        anthropic_response([{"type": "text", "text": "Here is my answer in prose."}]),
+        anthropic_response(
+            [{"type": "tool_use", "id": "tu_1", "name": "get_order", "input": {"order_id": "O-1"}}],
+            stop="tool_use",
+        ),
+    )
+    client = AnthropicClient("claude-sonnet-5-5", client=SimpleNamespace(messages=rec))
+    r = client.complete(system="s", messages=CONVERSATION[:1], tools=[TOOL], force_tool="get_order")
+    assert len(rec.calls) == 2 and rec.calls[0] == rec.calls[1]
+    assert [c.name for c in r.tool_calls] == ["get_order"]
+    assert (r.usage.input_tokens, r.usage.output_tokens) == (240, 60)  # both calls counted
+
+
+def test_anthropic_gives_up_after_the_second_miss():
+    prose = anthropic_response([{"type": "text", "text": "prose"}])
+    rec = Sequenced(prose, prose)
+    client = AnthropicClient("claude-sonnet-5-5", client=SimpleNamespace(messages=rec))
+    r = client.complete(system="s", messages=CONVERSATION[:1], tools=[TOOL], force_tool="get_order")
+    assert len(rec.calls) == 2 and r.tool_calls == ()  # the caller records NO_SUBMISSION
 
 
 def test_anthropic_consecutive_tool_results_share_one_user_turn():

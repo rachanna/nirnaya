@@ -566,7 +566,7 @@ Code then:
 
 The status and contradiction ids are left for `verify()`, which ignores any incoming values.
 
-Model: chosen by configuration through the provider-neutral `LLMClient` (`nirnaya/llm/`): `NIRNAYA_LLM_PROVIDER` is `anthropic` (default) or `openai`, and `NIRNAYA_MODEL` sets the model (default `claude-sonnet-5-5` for Anthropic; required for OpenAI). Structured drafts use a forced tool call, which both providers support, rather than a provider-specific structured-output feature. Data from records is passed only as tool results or messages wrapped by `untrusted()`; the system prompt is static.
+Model: chosen by configuration through the provider-neutral `LLMClient` (`nirnaya/llm/`): `NIRNAYA_LLM_PROVIDER` is `anthropic` (default) or `openai`, and `NIRNAYA_MODEL` sets the model (default `claude-sonnet-5-5` for Anthropic; required for OpenAI). Structured drafts ask for one named tool call (`force_tool`). The OpenAI adapter forces it with `tool_choice`. Current Claude models (Sonnet 5.5, Opus 5.5) reject a forced `tool_choice`, so the Anthropic adapter leaves it on auto, marks that tool `strict` (its schema closed with `additionalProperties: false`), names the tool in the system prompt and asks once more if the call is missing; after that the caller sees no tool call and fails closed. Data from records is passed only as tool results or messages wrapped by `untrusted()`; the system prompt is static.
 
 ---
 

@@ -20,7 +20,7 @@ These are the product. Never weaken them for convenience, and stop and ask if a 
 - Money: `decimal.Decimal` only, never float. Always paired with an ISO-4217 currency code.
 - Time: timezone-aware `datetime` (UTC internally). Deadlines computed in UTC.
 - Storage: SQLite via stdlib `sqlite3` (audit log, cases, evidence snapshots with SHA-256 hashes).
-- LLM: provider-neutral interface in `nirnaya/llm/` (tool use; structured output via a forced tool call). `NIRNAYA_LLM_PROVIDER` = `anthropic` (default) or `openai`; model from `NIRNAYA_MODEL` (default `claude-sonnet-5-5` for Anthropic, required for OpenAI). Agent code depends only on `LLMClient`, never on an SDK.
+- LLM: provider-neutral interface in `nirnaya/llm/` (tool use; structured output via one named tool call: forced on OpenAI, strict tool + prompt on Claude, which rejects forced tool_choice). `NIRNAYA_LLM_PROVIDER` = `anthropic` (default) or `openai`; model from `NIRNAYA_MODEL` (default `claude-sonnet-5-5` for Anthropic, required for OpenAI). Agent code depends only on `LLMClient`, never on an SDK.
 - Agent: `NIRNAYA_AGENT=scripted` (default, no model) or `llm`. Try it with `uv run python -m nirnaya.demo`. Live model tests are opt-in: `NIRNAYA_LIVE_LLM=1 uv run pytest -m live -s`.
 - Evaluation: `uv run python -m nirnaya.evaluation.report` (offline; writes `eval/results/report.json`). The LLM-only baseline is opt-in and cached: `NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline`.
 - Sandbox: `uv run python -m nirnaya.sandbox_demo` (`--offline`, `--checkout`, `--submit`); read-only live checks: `NIRNAYA_LIVE_AIRWALLEX=1 uv run pytest -m live_airwallex -s`.
