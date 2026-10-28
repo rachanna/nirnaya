@@ -16,5 +16,8 @@
 "prompts/drafter_user/v1.md" = "56b395e94bd8a39a793139021503b8846e2763332719ac7d06b63d02e4281368"
 "prompts/investigator_system/v1.md" = "1a2f30db35063afc2bcf7ba9032fb6dad63b51153d96ca44172abded14ab7ded"
 "prompts/investigator_user/v1.md" = "469b752adc643b72106f443b287d6072c3a8d27b5589f2db0dd219ba274c4a64"
+"prompts/reader_system/v1.md" = "4131c8def25ca67567ced8c8ce9bd6ce94040b230fb53224ab6d04f1eea5d887"
+"prompts/reader_tools/v1.toml" = "6e162f32fa9fb3e1db2f6079587b32f9d2a94ad5e88e66e68a6b4386f146c64a"
+"prompts/reader_user/v1.md" = "45a867cc6679c742528f5a85a54ce31ed3d38fe6781779c37c141f8e122b3951"
 "prompts/tools/v1.toml" = "ba84dfdfa56ae467d18b43c2badcb32fe26b45b325ede1e16344bcc206cbca8a"
 "prompts/tools/v2.toml" = "ea497525e622cccb35e9e8671936df3d5e28d2602233e1235e618d1cbbdbdd29"

@@ -12,6 +12,9 @@ baseline_naive_system = "v1"
 baseline_naive_user = "v1"
 baseline_informed_system = "v3"
 baseline_informed_user = "v1"
+reader_system = "v1"
+reader_user = "v1"
+reader_tools = "v1"
 
 [config]
 policy = "policies/merchant-demo/demo-2026-10.toml"

@@ -1,10 +1,14 @@
 """What a human approval is bound to (architecture 7.2): the action, the money, the dispute,
-the merchant, the evidence the approver saw, and the referral reasons they accepted."""
+the merchant, the evidence the approver saw, the referral reasons they accepted and any quotes
+they confirmed. A confirmed quote's record is covered by the evidence hash: if it changes, the
+approval is void."""
 
 import hashlib
 import json
+from collections.abc import Sequence
 from typing import Any
 
+from nirnaya.evidence.catalogue import Quote
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import Action
 from nirnaya.models.money import quantize_amount
@@ -23,8 +27,9 @@ def binding(
     action: Action,
     referral_reasons: list[str],
     approver: str,
+    confirmed_quotes: Sequence[Quote] = (),
 ) -> dict[str, Any]:
-    return {
+    bound: dict[str, Any] = {
         "action": action.value,
         "amount": str(quantize_amount(dispute.amount.amount, dispute.amount.currency)),
         "currency": dispute.amount.currency,
@@ -34,6 +39,12 @@ def binding(
         "referral_reasons": sorted(referral_reasons),
         "approver": approver,
     }
+    if confirmed_quotes:
+        bound["confirmed_quotes"] = [
+            {"record_id": q.record_id, "field": q.field, "fact": q.fact.value, "quote": q.quote}
+            for q in confirmed_quotes
+        ]
+    return bound
 
 
 def binding_still_holds(

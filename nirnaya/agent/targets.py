@@ -65,16 +65,20 @@ TOOL_OF_SOURCE: dict[SourceSystem, Tool] = {
 
 
 def counterevidence_lookups(
-    dispute: Dispute, records: list[EvidenceRecord], called: Iterable[str]
+    dispute: Dispute,
+    records: list[EvidenceRecord],
+    called: Iterable[str],
+    also: Iterable[EvidenceType] = (),
 ) -> list[str]:
     """Lookups ("tool:key") a challenge still needs before it is drafted: for every fact the
     case's records establish, every key of the tool that serves it (another parcel, another
     order) and of every system holding a contradiction rule against it. Targets say what is
     worth *finding*; this says what must be *checked*. Decided by code, whatever the agent did.
+    `also`: facts the case relies on beyond its structured fields (a confirmed quote's fact).
     """
     done = set(called)
     tools: set[Tool] = set()
-    for fact in evidence_present(records, dispute):
+    for fact in evidence_present(records, dispute) | frozenset(also):
         if (tool := TOOL_FOR[fact]) is not None:
             tools.add(tool)
         for rule in CONTRADICTION_RULES:

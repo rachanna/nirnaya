@@ -177,7 +177,7 @@ def test_4_a_migration_interrupted_after_the_alter_still_completes(tmp_path):
     conn.close()
     conn = connect(path)
     versions, columns = version_and_columns(conn)
-    assert versions == [2] and "detail_json" in columns
+    assert versions == [store_db.SCHEMA_VERSION] and "detail_json" in columns
     conn.close()
 
 
@@ -187,7 +187,7 @@ def test_4_successive_openers_of_a_v1_database_both_succeed(tmp_path):
     first, second = connect(path), connect(path)
     for conn in (first, second):
         versions, columns = version_and_columns(conn)
-        assert versions == [2] and "detail_json" in columns
+        assert versions == [store_db.SCHEMA_VERSION] and "detail_json" in columns
     first.close()
     second.close()
 
@@ -199,11 +199,12 @@ def test_4_migrations_run_one_version_at_a_time(tmp_path, monkeypatch):
     def to_v3(conn):
         conn.execute("CREATE TABLE future_table (x INTEGER)")
 
-    monkeypatch.setattr(store_db, "SCHEMA_VERSION", 3)
-    monkeypatch.setitem(store_db.MIGRATIONS, 2, to_v3)
+    future = store_db.SCHEMA_VERSION + 1
+    monkeypatch.setattr(store_db, "SCHEMA_VERSION", future)
+    monkeypatch.setitem(store_db.MIGRATIONS, future - 1, to_v3)
     conn = connect(path)
     versions, columns = version_and_columns(conn)
-    assert versions == [3] and "detail_json" in columns
+    assert versions == [future] and "detail_json" in columns
     assert conn.execute("SELECT name FROM sqlite_master WHERE name = 'future_table'").fetchone()
     conn.close()
 

@@ -1,7 +1,8 @@
-"""What an investigator or drafter returns. The machine persists runs with its step."""
+"""What an investigator, drafter or reader returns. The machine persists runs with its step."""
 
 from typing import Any, Literal
 
+from nirnaya.evidence.catalogue import Quote
 from nirnaya.models.base import DomainModel
 from nirnaya.models.claim import Claim
 
@@ -15,9 +16,9 @@ class ToolCallRecord(DomainModel):
 
 
 class AgentRun(DomainModel):
-    """One model-backed investigation round or drafting call."""
+    """One model-backed investigation round, drafting call or reading of notes."""
 
-    kind: Literal["INVESTIGATE", "DRAFT"]
+    kind: Literal["INVESTIGATE", "DRAFT", "READ"]
     provider: str
     model: str
     turns: int
@@ -27,7 +28,7 @@ class AgentRun(DomainModel):
     # The prompt versions that produced this run: name@version#sha256 prefix (nirnaya/assets).
     prompts: tuple[str, ...] = ()
     tool_calls: tuple[ToolCallRecord, ...] = ()
-    # Draft items the model proposed that code could not turn into a claim.
+    # Items the model proposed that code could not use (a claim, a quote), with why.
     dropped: tuple[dict[str, Any], ...] = ()
     transcript: tuple[dict[str, Any], ...] = ()
 
@@ -43,4 +44,12 @@ class InvestigationResult(DomainModel):
 
 class DraftResult(DomainModel):
     claims: tuple[Claim, ...]
+    run: AgentRun | None = None
+
+
+class ReadResult(DomainModel):
+    """Quotes a reader proposes from merchant and carrier notes. Never trusted: code keeps only
+    those word for word in an allowed note (agent.reading.screen), and a person confirms them."""
+
+    proposals: tuple[Quote, ...] = ()
     run: AgentRun | None = None

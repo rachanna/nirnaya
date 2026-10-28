@@ -13,10 +13,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from nirnaya.agent.reading import quote_claim, readable_facts, readable_records, screen
 from nirnaya.agent.runs import AgentRun
 from nirnaya.agent.targets import counterevidence_lookups, investigation_targets, tools_for
 from nirnaya.agent.tools import MerchantSystems, Tool, ToolGateway
 from nirnaya.engine import decide
+from nirnaya.evidence.catalogue import Quote
 from nirnaya.evidence.derive import (
     contradictions,
     evidence_present,
@@ -26,7 +28,13 @@ from nirnaya.guardrails.gateway import GuardFailure, WriteGateway
 from nirnaya.ingest import ingest
 from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
-from nirnaya.models.enums import ACTIONABLE_STATUS, Action, Stage, ValidationStatus
+from nirnaya.models.enums import (
+    ACTIONABLE_STATUS,
+    Action,
+    EvidenceType,
+    Stage,
+    ValidationStatus,
+)
 from nirnaya.models.money import FxTable, Money
 from nirnaya.orchestrator import states
 from nirnaya.orchestrator.deferral import closed_reason, deferral_reason
@@ -36,6 +44,7 @@ from nirnaya.orchestrator.ports import (
     DisputeSource,
     Drafter,
     Investigator,
+    Reader,
     StepObserver,
 )
 from nirnaya.orchestrator.settings import Settings
@@ -70,8 +79,10 @@ class Orchestrator:
         fx: FxTable | None = None,
         synthetic: bool = True,
         observer: StepObserver = NULL_OBSERVER,
+        reader: Reader | None = None,
     ) -> None:
         self.store = store
+        self.reader = reader  # None: notes are not read (the scripted default)
         self.observer = observer
         self._ingest_failing: set[str] = set()
         self.source = source
@@ -388,7 +399,11 @@ class Orchestrator:
             max_calls=self.settings.max_tool_calls,
         )
 
-    def _decide(self, case: CaseRow, dispute: Dispute) -> Decision:
+    def _decide(
+        self, case: CaseRow, dispute: Dispute, also: frozenset[EvidenceType] = frozenset()
+    ) -> Decision:
+        """The engine's decision on the case's records. `also` adds facts for a counterfactual
+        (what the decision would be if proposed quotes were confirmed); it never decides."""
         cycle = self.store.cycle(case.merchant_id, case.case_id, case.cycle)
         policy = self.store.policy(case.merchant_id, cycle.policy_version)
         records = self.store.evidence(case.merchant_id, case.case_id)
@@ -396,7 +411,7 @@ class Orchestrator:
         return decide(
             dispute,
             policy,
-            evidence_present(records, dispute),
+            evidence_present(records, dispute) | also,
             ownership_resolved=bool(cycle.ownership_resolved),
             contradictory_record_ids=sorted({c.record_id for c in found}),
             unanswered_contact_ids=unanswered_customer_contacts(records, dispute),
@@ -552,23 +567,106 @@ class Orchestrator:
         latest = self.store.latest_decision(case.merchant_id, case.case_id, case.cycle)
         assert latest is not None
         decision = latest[1]
+        read = self._read_notes(case, decision, now)
+        if read is not None and read.if_confirmed is not None:
+            return self._proposed_evidence(case, decision, read, now)
+        step = self._decided_step(decision)
+        if read is not None:  # nothing that would change the decision: the reading is recorded
+            assert step.apply is None
+            run = read.run
+            step.apply = lambda: self._record_run(case, run, now)
+        return step
+
+    @staticmethod
+    def _decided_step(decision: Decision) -> _Step:
         if decision.action is Action.ACCEPT:
             return _Step(S.PRE_WRITE_CHECK, {"action": Action.ACCEPT})
         if decision.action is Action.CHALLENGE:
             return _Step(S.DRAFTING, {"action": Action.CHALLENGE})
         reasons = [r.value for r in decision.referral_reasons]
-        # Everything comes from the decision itself, so the referral matches what was decided.
-        detail = {
+        return _Step(
+            S.REFERRED, {"reasons": reasons}, referral=reasons, detail=_referral_detail(decision)
+        )
+
+    def _read_notes(self, case: CaseRow, decision: Decision, now: datetime) -> "_Read | None":
+        """Ask the reader for quotes from merchant and carrier notes that would show a fact
+        value of information says could change the decision (architecture 8.8). Code screens
+        what it proposes; the reading never decides. Once per cycle, within the budget."""
+        if self.reader is None or decision.action is Action.CHALLENGE:
+            return None
+        m, cid = case.merchant_id, case.case_id
+        if any(r["kind"] == "READ" for r in self.store.agent_runs(m, cid, case.cycle)):
+            return None
+        dispute = self._dispute(case)
+        records = self.store.evidence(m, cid)
+        facts = readable_facts(decision, evidence_present(records, dispute))
+        readable = readable_records(dispute, records, facts)
+        tokens = self.store.agent_tokens(m, cid, case.cycle)
+        buffer = self.settings.investigation_buffer[dispute.stage]
+        if (
+            not facts
+            or not readable
+            or tokens >= self.settings.max_tokens_per_cycle
+            or now >= dispute.due_at - buffer
+        ):
+            return None
+        result = self.reader.read(dispute, facts, readable)
+        kept, dropped = screen(result.proposals, readable, facts)
+        run = result.run or AgentRun(kind="READ", provider="none", model="none", turns=0, stop="-")
+        run = run.model_copy(
+            update={
+                "dropped": run.dropped + tuple(dropped),
+                "transcript": run.transcript
+                + ({"asked": sorted(facts), "kept": [q._asdict() for q in kept]},),
+            }
+        )
+        if_confirmed = None
+        if kept:
+            would = self._decide(case, dispute, also=frozenset(q.fact for q in kept))
+            if would.action is not decision.action:
+                if_confirmed = would
+        return _Read(run=run, kept=kept, if_confirmed=if_confirmed)
+
+    def _proposed_evidence(
+        self, case: CaseRow, decision: Decision, read: "_Read", now: datetime
+    ) -> _Step:
+        """Quotes that would change the decision go to a person. Nothing is decided on them."""
+        would = read.if_confirmed
+        assert would is not None
+        reasons = [r.value for r in decision.referral_reasons] + ["PROPOSED_EVIDENCE"]
+        proposed = [
+            {"record_id": q.record_id, "field": q.field, "fact": q.fact.value, "quote": q.quote}
+            for q in read.kept
+        ]
+        detail = _referral_detail(decision) | {
             "reasons": reasons,
-            "contradictory_record_ids": list(decision.inputs.get("contradictory_record_ids", [])),
-            "contradictions": list(decision.inputs.get("contradictions", [])),
-            "unanswered_contact_ids": list(decision.inputs.get("unanswered_contact_ids", [])),
+            "proposed_evidence": proposed,
+            "action_now": decision.action.value,
+            "action_if_confirmed": would.action.value,
+            "p_now": None if decision.p is None else str(decision.p),
+            "p_if_confirmed": None if would.p is None else str(would.p),
+            "margin_now": None if decision.margin is None else str(decision.margin),
+            "margin_if_confirmed": None if would.margin is None else str(would.margin),
+            "note": "The agent read these words in a merchant or carrier note. Confirm a quote "
+            "only if it shows the fact; the verifier then checks it word for word.",
         }
-        return _Step(S.REFERRED, {"reasons": reasons}, referral=reasons, detail=detail)
+
+        def apply() -> None:
+            self._record_run(case, read.run, now)
+            for item, q in zip(proposed, read.kept, strict=True):
+                # Ids exist only once stored; the referral (opened next, same transaction)
+                # carries them so the approver can confirm by id.
+                item["finding_id"] = self.store.add_finding(
+                    case.merchant_id, case.case_id, case.cycle, q, now
+                )
+
+        body = {"reasons": reasons, "proposed": len(proposed)}
+        return _Step(S.REFERRED, body, apply, referral=reasons, detail=detail)
 
     def _drafting(self, case: CaseRow, now: datetime) -> _Step:
         dispute = self._dispute(case)
-        unfetched = self._counterevidence_sweep(case, dispute, now)
+        confirmed = sorted(self.store.confirmed_quotes(case.merchant_id, case.case_id, case.cycle))
+        unfetched = self._counterevidence_sweep(case, dispute, now, {q.fact for q in confirmed})
         if unfetched:
             detail = {
                 "unfetched": unfetched,
@@ -578,7 +676,10 @@ class Orchestrator:
             return _Step(S.REFERRED, detail, referral=["COUNTEREVIDENCE_INCOMPLETE"], detail=detail)
         records = self.store.evidence(case.merchant_id, case.case_id)
         result = self.drafter.draft(dispute, records)
-        claims = list(result.claims)
+        # Quotes a person confirmed become claims built by code (architecture 8.8).
+        claims = list(result.claims) + [
+            quote_claim(dispute, q, n) for n, q in enumerate(confirmed, start=1)
+        ]
         if not claims:
 
             def record() -> None:
@@ -592,15 +693,24 @@ class Orchestrator:
 
         return _Step(S.VERIFYING, {"claims": [c.id for c in claims]}, apply)
 
-    def _counterevidence_sweep(self, case: CaseRow, dispute: Dispute, now: datetime) -> list[str]:
+    def _counterevidence_sweep(
+        self,
+        case: CaseRow,
+        dispute: Dispute,
+        now: datetime,
+        also: set[EvidenceType] | None = None,
+    ) -> list[str]:
         """Before a challenge is drafted, code fetches every record that could contradict it
         (every key of each tool serving a fact the case relies on, and of each system with a
         contradiction rule against one), whatever the agent fetched. A fetched record can name
         new keys (another parcel), so it repeats until nothing is left. Returns what could not
-        be fetched within the tool budget; the verifier and gateway then see the full record."""
+        be fetched within the tool budget; the verifier and gateway then see the full record.
+        `also`: facts confirmed quotes establish, which the challenge relies on too."""
         tools = self._tools(case, dispute, now)
         fetched: list[str] = []
-        while missing := counterevidence_lookups(dispute, tools.case_evidence(), tools.called()):
+        while missing := counterevidence_lookups(
+            dispute, tools.case_evidence(), tools.called(), also or ()
+        ):
             if tools.calls_used + len(missing) > self.settings.max_tool_calls:
                 return missing
             for lookup in missing:
@@ -629,6 +739,7 @@ class Orchestrator:
             self.store.evidence(m, cid),
             fx=self.fx,
             expected_hashes=self.store.capture_hashes(m, cid),
+            confirmed_quotes=self.store.confirmed_quotes(m, cid, case.cycle),
         )
 
         def apply() -> None:
@@ -748,6 +859,26 @@ class Orchestrator:
                 "note": "a write may have landed: check Airwallex before acting",
             }
         return _Step(S.REFERRED, body, referral=[f"GUARD_{result.failure}"])
+
+
+@dataclass
+class _Read:
+    """One reading of notes: the run, the quotes code kept, and the decision they would give
+    if a person confirmed them (None when they would not change it)."""
+
+    run: AgentRun
+    kept: list[Quote]
+    if_confirmed: Decision | None
+
+
+def _referral_detail(decision: Decision) -> dict[str, Any]:
+    """Everything comes from the decision itself, so the referral matches what was decided."""
+    return {
+        "reasons": [r.value for r in decision.referral_reasons],
+        "contradictory_record_ids": list(decision.inputs.get("contradictory_record_ids", [])),
+        "contradictions": list(decision.inputs.get("contradictions", [])),
+        "unanswered_contact_ids": list(decision.inputs.get("unanswered_contact_ids", [])),
+    }
 
 
 def _verification_detail(draft: str, result: VerificationResult) -> dict[str, Any]:

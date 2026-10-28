@@ -94,10 +94,16 @@ def render_evidence(
     ]
     for n, claim in enumerate(verified, start=1):
         record = by_id[claim.source_record_id]
+        source = f"   Source: {record.source_system} record {record.id}"
+        source += f", field {claim.source_field},"
+        if claim.value_kind == "QUOTE":
+            # A free-text note: quoted word for word, confirmed by a person (architecture 8.8).
+            source += " quoted word for word from the note"
+        else:
+            source += f" value {claim.extracted_value!r}"
         lines += [
             f"{n}. {claim.text}",
-            f"   Source: {record.source_system} record {record.id}, field {claim.source_field},"
-            f" value {claim.extracted_value!r}",
+            source,
             f"   Captured {record.captured_at.isoformat()}; SHA-256 {record.sha256}",
             "",
         ]

@@ -1,0 +1,14 @@
+# Wording the note reader sees. The tool's structure (names, enums, required fields) stays in
+# code (nirnaya/agent/llm_reader.py); only the words are here.
+
+[reader.propose_quotes]
+description = "Propose exact quotes from the notes that plainly state one of the facts asked about."
+
+[reader.propose_quotes.fields]
+quote = "copied character for character from the note; one sentence at most"
+
+# What each fact means, in the words the reader is given.
+[reader.facts]
+DELIVERY_CONFIRMED = "the order was delivered to, or collected by, the customer"
+DELIVERY_SIGNATURE = "the person receiving the delivery signed for it"
+DISTINCT_TRANSACTIONS = "the disputed payment and another payment were for separate purchases, not one purchase charged twice"

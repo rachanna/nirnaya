@@ -229,7 +229,8 @@ class WriteGateway:
             # 7c. Every record that could contradict the challenge was looked at. The drafting
             # sweep does this; checked again here so no path can skip it. Never fetches.
             called = store.tools_called(merchant_id, case_id, cycle)
-            if unchecked := counterevidence_lookups(fresh, records, called):
+            relied_on = ctx["verification"].established
+            if unchecked := counterevidence_lookups(fresh, records, called, relied_on):
                 raise _Refused(
                     GuardFailure.COUNTEREVIDENCE_INCOMPLETE, f"never looked at: {unchecked}"
                 )

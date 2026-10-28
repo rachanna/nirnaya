@@ -68,6 +68,15 @@ class Drafter(Protocol):
         ...
 
 
+class Reader(Protocol):
+    def read(
+        self, dispute: Dispute, facts: frozenset[EvidenceType], records: list[EvidenceRecord]
+    ) -> Any:
+        """Propose exact quotes from these records' notes that show one of these facts.
+        Returns a ReadResult (nirnaya.agent.runs); never trusted (architecture 8.8)."""
+        ...
+
+
 class StepObserver(Protocol):
     """Watches the state machine without taking part: told when a case's step runs and when
     the case changes state. Used for tracing; the machine ignores anything it raises."""

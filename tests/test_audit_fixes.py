@@ -19,6 +19,7 @@ from nirnaya.orchestrator.referrals import approve
 from nirnaya.orchestrator.states import CaseState, check
 from nirnaya.render.evidence_doc import RenderError, check_limits
 from nirnaya.store import verify_chain
+from nirnaya.store.schema import SCHEMA_VERSION
 from tests.factories import carrier_record, make_dispute
 from tests.harness import CASES, Harness
 
@@ -345,5 +346,7 @@ def test_l4_schema_v1_databases_are_migrated(tmp_path):
     conn = connect(path)
     columns = {r["name"] for r in conn.execute("PRAGMA table_info(referrals)")}
     assert "detail_json" in columns
-    assert conn.execute("SELECT version FROM schema_version").fetchone()["version"] == 2
+    assert conn.execute("SELECT version FROM schema_version").fetchone()["version"] == (
+        SCHEMA_VERSION
+    )
     conn.close()

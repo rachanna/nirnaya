@@ -1,6 +1,6 @@
 """SQLite schema. Every table carries merchant_id; every query filters on it."""
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);
@@ -150,6 +150,24 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     run_json       TEXT NOT NULL,
     created_at     TEXT NOT NULL
 );
+
+-- Quotes the reader proposed from a note (architecture 8.8): PROPOSED until a person confirms
+-- or rejects them. Only CONFIRMED quotes reach a draft or the verifier.
+CREATE TABLE IF NOT EXISTS findings (
+    finding_id   TEXT PRIMARY KEY,
+    merchant_id  TEXT NOT NULL,
+    case_id      TEXT NOT NULL,
+    cycle        INTEGER NOT NULL,
+    record_id    TEXT NOT NULL,
+    field        TEXT NOT NULL,
+    fact         TEXT NOT NULL,
+    quote        TEXT NOT NULL,
+    status       TEXT NOT NULL,
+    proposed_at  TEXT NOT NULL,
+    resolved_by  TEXT,
+    resolved_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS findings_by_case ON findings (merchant_id, case_id, cycle);
 
 CREATE TABLE IF NOT EXISTS audit_events (
     seq          INTEGER PRIMARY KEY AUTOINCREMENT,

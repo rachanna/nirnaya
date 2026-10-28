@@ -10,13 +10,14 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
+from nirnaya.evidence.catalogue import Quote
 from nirnaya.models.base import DomainModel, UtcDatetime
 from nirnaya.models.claim import Claim
 from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
-from nirnaya.models.enums import Stage
+from nirnaya.models.enums import EvidenceType, Stage
 from nirnaya.models.evidence import EvidenceRecord
 from nirnaya.models.policy import MerchantPolicy
 from nirnaya.store import audit
@@ -79,6 +80,29 @@ class ReferralRow(DomainModel):
     resolved_at: UtcDatetime | None
     # Why the case was referred: failing claims, conflicting records or the guard failure.
     detail: dict[str, Any] | None = None
+
+
+FindingStatus = Literal["PROPOSED", "CONFIRMED", "REJECTED"]
+
+
+class Finding(DomainModel):
+    """A quote the reader proposed from a note. It counts only once a person confirms it."""
+
+    finding_id: str
+    merchant_id: str
+    case_id: str
+    cycle: int
+    record_id: str
+    field: str
+    fact: EvidenceType
+    quote: str
+    status: FindingStatus
+    proposed_at: UtcDatetime
+    resolved_by: str | None = None
+    resolved_at: UtcDatetime | None = None
+
+    def as_quote(self) -> Quote:
+        return Quote(self.record_id, self.field, self.fact, self.quote)
 
 
 class EscalatableReferral(DomainModel):
@@ -623,6 +647,69 @@ class Store:
             (merchant_id, case_id, cycle),
         ).fetchone()
         return row[0]
+
+    # --- findings (quotes proposed from notes) ----------------------------------------------
+
+    def add_finding(
+        self, merchant_id: str, case_id: str, cycle: int, quote: Quote, at: datetime
+    ) -> str:
+        n = self.conn.execute(
+            "SELECT COUNT(*) FROM findings WHERE merchant_id = ? AND case_id = ?",
+            (merchant_id, case_id),
+        ).fetchone()[0]
+        finding_id = f"{merchant_id}:{case_id}:finding:{n + 1}"
+        self.conn.execute(
+            "INSERT INTO findings (finding_id, merchant_id, case_id, cycle, record_id, field,"
+            " fact, quote, status, proposed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PROPOSED', ?)",
+            (
+                finding_id,
+                merchant_id,
+                case_id,
+                cycle,
+                quote.record_id,
+                quote.field,
+                quote.fact.value,
+                quote.quote,
+                _iso(at),
+            ),
+        )
+        return finding_id
+
+    def findings(self, merchant_id: str, case_id: str, cycle: int) -> list[Finding]:
+        rows = self.conn.execute(
+            "SELECT * FROM findings WHERE merchant_id = ? AND case_id = ? AND cycle = ?"
+            " ORDER BY rowid",
+            (merchant_id, case_id, cycle),
+        )
+        return [Finding.model_validate(dict(r)) for r in rows]
+
+    def resolve_finding(
+        self,
+        merchant_id: str,
+        case_id: str,
+        finding_id: str,
+        status: FindingStatus,
+        *,
+        by: str,
+        at: datetime,
+    ) -> None:
+        """A person confirms or rejects a proposed quote, once."""
+        if status == "PROPOSED":
+            raise StoreError("a finding is resolved to CONFIRMED or REJECTED")
+        cur = self.conn.execute(
+            "UPDATE findings SET status = ?, resolved_by = ?, resolved_at = ?"
+            " WHERE merchant_id = ? AND case_id = ? AND finding_id = ? AND status = 'PROPOSED'",
+            (status, by, _iso(at), merchant_id, case_id, finding_id),
+        )
+        if cur.rowcount != 1:
+            raise StoreError(f"no proposed finding {finding_id!r} for case {case_id!r}")
+
+    def confirmed_quotes(self, merchant_id: str, case_id: str, cycle: int) -> frozenset[Quote]:
+        return frozenset(
+            f.as_quote()
+            for f in self.findings(merchant_id, case_id, cycle)
+            if f.status == "CONFIRMED"
+        )
 
     # --- referrals ------------------------------------------------------------------------
 
