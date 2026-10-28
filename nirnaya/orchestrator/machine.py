@@ -26,7 +26,7 @@ from nirnaya.guardrails.gateway import GuardFailure, WriteGateway
 from nirnaya.ingest import ingest
 from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
-from nirnaya.models.enums import Action, Stage, ValidationStatus
+from nirnaya.models.enums import ACTIONABLE_STATUS, Action, Stage, ValidationStatus
 from nirnaya.models.money import FxTable, Money
 from nirnaya.orchestrator import states
 from nirnaya.orchestrator.deferral import closed_reason, deferral_reason
@@ -39,7 +39,7 @@ from nirnaya.orchestrator.ports import (
     StepObserver,
 )
 from nirnaya.orchestrator.settings import Settings
-from nirnaya.orchestrator.states import RUNNABLE, WATCHDOG_REFERS, CaseState
+from nirnaya.orchestrator.states import DEFERRAL_CHECK, RUNNABLE, WATCHDOG_REFERS, CaseState
 from nirnaya.render.evidence_doc import RenderError, render_evidence
 from nirnaya.store.repository import CaseRow, Store
 from nirnaya.verifier import VerificationOutcome, VerificationResult, verify
@@ -165,8 +165,58 @@ class Orchestrator:
                         urgent=True,
                     )
                     moved += 1
+            for case in self.store.cases(merchant_id, {s.value for s in DEFERRAL_CHECK}):
+                moved += int(self._deferral_unconfirmed(case, now))
             moved += self._escalate_referrals(merchant_id, now)
         return moved
+
+    def _deferral_unconfirmed(self, case: CaseRow, now: datetime) -> bool:
+        """A deferred case at its deadline buffer that Airwallex has not acted on is referred.
+
+        Deferral rests on inputs Nirnaya cannot fully verify (the refunded amount, the merchant's
+        configured auto-accept threshold), so it is checked, not trusted: without this the
+        deadline would pass with no referral and no alert.
+        """
+        stage = Stage(self.store.cycle(case.merchant_id, case.case_id, case.cycle).stage)
+        if now < case.due_at - self.settings.deadline_buffer[stage]:
+            return False
+        dispute = self.store.latest_dispute(case.merchant_id, case.case_id)
+        if dispute is None or dispute.status is not ACTIONABLE_STATUS:
+            return False  # Airwallex acted: ingestion closes the case or opens the next stage
+        why = next(
+            (
+                e["body"].get("why")
+                for e in reversed(self.store.audit_events(case.merchant_id, case.case_id))
+                if e["event"] == "STATE" and e["body"].get("to") == S.DEFERRED
+            ),
+            None,
+        )
+        detail = {
+            "deferral": why,
+            "status": str(dispute.status),
+            "due_at": dispute.due_at.isoformat(),
+            "action": "Nirnaya expected Airwallex to act and it has not. Writes are closed "
+            "inside the deadline buffer: act directly in Airwallex.",
+        }
+
+        def audit() -> None:
+            self.store.audit(case.merchant_id, case.case_id, "DEFERRAL_UNCONFIRMED", detail, now)
+
+        self._move(
+            case,
+            S.REFERRED,
+            now,
+            _Step(
+                S.REFERRED,
+                {"why": "deferral unconfirmed", "deferral": why},
+                audit,
+                referral=["DEFERRAL_UNCONFIRMED"],
+                detail=detail,
+            ),
+            external=True,
+            urgent=True,
+        )
+        return True
 
     def _escalate_referrals(self, merchant_id: str, now: datetime) -> int:
         """A referral still waiting inside the deadline buffer becomes urgent (no transition)."""

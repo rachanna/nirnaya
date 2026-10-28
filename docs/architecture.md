@@ -270,15 +270,16 @@ stateDiagram-v2
 
     AWAITING_OUTCOME --> INGESTED: stage changed (new cycle)
     AWAITING_OUTCOME --> CLOSED: WON, LOST, ACCEPTED, REVERSED, EXPIRED
-    DEFERRED --> INGESTED: stage or status changed
-    DEFERRED --> CLOSED: terminal status
+    DEFERRED --> INGESTED: stage changed (ingestion, new cycle)
+    DEFERRED --> CLOSED: terminal status (ingestion)
+    DEFERRED --> REFERRED: deadline buffer reached, Airwallex has not acted (watchdog, DEFERRAL_UNCONFIRMED)
     CLOSED --> [*]
 ```
 
 | State | Meaning | Handler does | Exits when |
 |---|---|---|---|
 | `INGESTED` | New dispute or new cycle | Close if Airwallex already resolved it; apply deferral rules; resolve ownership (§11.2); snapshot the payment attempt; **look up the order and the helpdesk** (code, not the agent): the order is the anchor for every other lookup, and `unanswered_customer_contacts()` needs the helpdesk | Always, in one step |
-| `DEFERRED` | Airwallex will act; Nirnaya records only | Nothing; it is re-evaluated when Airwallex reports a change | Status or stage changes |
+| `DEFERRED` | Airwallex is expected to act; Nirnaya records only | Nothing. It has no handler transitions (`FLOW[DEFERRED]` is empty): ingestion moves it on a stage change or a terminal status, and the watchdog checks the prediction (§4.4) | Stage change, terminal status, or the deferral is unconfirmed at the deadline buffer |
 | `ASSESSED` | Initial decision on current evidence | `evidence_present()`, `contradictory_record_ids()`, `unanswered_customer_contacts()`, `decide()` | Always |
 | `INVESTIGATING` | Agent searching for VoI evidence | One agent turn per tick (§8) | VoI empty, budget spent, or deadline buffer |
 | `DECIDED` | Engine has decided this cycle | Persist the `Decision`; route by `action` | Always |
@@ -311,6 +312,8 @@ stateDiagram-v2
 | Arbitration: no merchant action | How disputes work | `DEFERRED` |
 | **Sandbox:** pre-chargeback disputes auto-accept within the same second | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) | Nirnaya sees them already `ACCEPTED` (`STATUS_NOT_ACTIONABLE`). The pre-chargeback logic is exercised by engine tests and offline demos only |
 
+**A deferral is a prediction, and it is checked.** It rests on inputs Nirnaya cannot fully verify: the refunded amount (`TODO(verify-airwallex-docs)`, §9.3) and the auto-accept threshold in merchant config. If either is wrong, Airwallex will not act, and without a check the deadline would pass silently. So at the deadline buffer the watchdog re-reads the dispute; if it is still `REQUIRES_RESPONSE`, the case is referred (urgent, `DEFERRAL_UNCONFIRMED`, with the original deferral reason in the referral detail). Writes are closed inside the buffer (§7.2 check 4), so the referral asks a person to act directly in Airwallex. Deferrals whose dispute is not `REQUIRES_RESPONSE` (non-AMEX pre-arbitration, arbitration) are not touched.
+
 The spec also mentions Visa CE3.0 auto-challenge. It is not described on the pages checked: `TODO(verify-airwallex-docs)`.
 
 ### 4.4 Deadline watchdog
@@ -323,7 +326,7 @@ The spec also mentions Visa CE3.0 auto-challenge. It is not described on the pag
 
 Source: [How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow).
 
-On every tick, any case not in `AWAITING_OUTCOME`, `DEFERRED`, `CLOSED` or `SUBMITTING` with `now ≥ due_at − buffer` moves to `REFERRED` with `urgent=true`. The agent's own stop condition uses a larger buffer, so the watchdog is a backstop rather than the normal exit.
+On every tick, any case not in `AWAITING_OUTCOME`, `DEFERRED`, `CLOSED` or `SUBMITTING` with `now ≥ due_at − buffer` moves to `REFERRED` with `urgent=true`. A `DEFERRED` case at the same point is referred only if Airwallex has not acted (`DEFERRAL_UNCONFIRMED`, §4.3). The agent's own stop condition uses a larger buffer, so the watchdog is a backstop rather than the normal exit.
 
 A case already `REFERRED` is not moved, but once inside the same buffer its open referral is marked urgent (`REFERRAL_ESCALATED`, once), so a review queue can put it first before Airwallex's own deadline action.
 
@@ -884,6 +887,7 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 | The dispute moves to a new stage while a referral is open | The old cycle's referral is closed as `SUPERSEDED_BY_NEW_CYCLE`; only the current cycle's referral can be escalated or approved |
 | A challenge cites evidence dated after the dispute opened | Still evidence; submitted if everything else passes, with `SUBMITTED_WITH_NOTES` audited for review afterwards (§6) |
 | A source record changed since it was captured | Stored as a new version `<id>@<content digest>` (`EVIDENCE_REVISED`); the original is kept. Contradiction rules see both, so DELIVERED → LOST refers the case |
+| A deferral does not come true (wrong refund read, threshold set above Airwallex's) | Watchdog at the deadline buffer: `DEFERRAL_UNCONFIRMED` → `REFERRED` (urgent) (§4.3) |
 | A handler raises | `STEP_FAILED` audited; other cases continue; 3 failures in one state → `REFERRED` (urgent), never from `SUBMITTING` (§4.2) |
 | Dispute amount changes before the write | Ingested: re-decide from `ASSESSED`, referrals and approvals superseded. Not yet ingested: gateway `DISPUTE_CHANGED` → `REFERRED`, then the next ingestion re-assesses |
 | LLM error, refusal or timeout | Stop the agent; decide on stored evidence; a CHALLENGE without a verified draft → `REFERRED` |

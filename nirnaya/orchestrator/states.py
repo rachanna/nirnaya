@@ -54,6 +54,9 @@ EXTERNAL_REASSESS = frozenset(
         S.REFERRED,
     }
 )
+# A deferral predicts that Airwallex will act. If it has not by the deadline buffer, the
+# watchdog refers the case (DEFERRAL_UNCONFIRMED) instead of letting the deadline pass silently.
+DEFERRAL_CHECK = frozenset({S.DEFERRED})
 WATCHDOG_REFERS = frozenset(
     s
     for s in CaseState
@@ -87,7 +90,7 @@ def check(frm: CaseState, to: CaseState, *, external: bool = False) -> None:
         return
     if external and to is S.CLOSED and frm in EXTERNAL_CLOSE:
         return
-    if external and to is S.REFERRED and frm in WATCHDOG_REFERS:
+    if external and to is S.REFERRED and frm in WATCHDOG_REFERS | DEFERRAL_CHECK:
         return
     if external and to is S.ASSESSED and frm in EXTERNAL_REASSESS:
         return
