@@ -21,11 +21,21 @@
         "baseline_informed_user@v1#01b77866ab2e",
         "tools@v1#ba84dfdfa56a"
       ]
+    },
+    "informed-v2": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "run_at": "2026-10-28T02:08:44.468701+00:00",
+      "prompts": [
+        "baseline_informed_system@v2#76083047b918",
+        "baseline_informed_user@v1#01b77866ab2e",
+        "tools@v1#ba84dfdfa56a"
+      ]
     }
   },
   "versions": {
     "git": {
-      "commit": "98b74c11419d41f94476513629aa0290f8e2213f",
+      "commit": "19183422e61ecb0460f16f650a7bc14652e25cc6",
       "dirty": true
     },
     "case_set": {
@@ -285,6 +295,46 @@
         "referred": 12,
         "automated_share": "0.692"
       }
+    },
+    "llm_only_informed-v2": {
+      "name": "LLM only (informed v2)",
+      "financial": {
+        "expected_loss": "11342.40",
+        "by_part": {
+          "amount_lost": "8932.40",
+          "handling": "480.00",
+          "fees": "1380.00",
+          "counted_chargeback": "300.00",
+          "review": "250.00"
+        },
+        "priced_cases": 39,
+        "agreement": 39,
+        "cases": 42,
+        "vs_nirnaya": "-75.00"
+      },
+      "integrity": {
+        "challenges": 18,
+        "claims_submitted": 44,
+        "unsupported_submitted": 4,
+        "challenges_without_evidence": 0,
+        "fabrications_caught": 0
+      },
+      "compliance": {
+        "violations": 1,
+        "by_kind": {
+          "acted despite OWNERSHIP_UNRESOLVED": 1
+        },
+        "cases": [
+          "A5"
+        ]
+      },
+      "lifecycle": null,
+      "coverage": {
+        "actionable": 39,
+        "automated": 29,
+        "referred": 10,
+        "automated_share": "0.744"
+      }
     }
   },
   "rows": [
@@ -316,6 +366,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
@@ -352,6 +407,11 @@
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
       }
     },
     {
@@ -385,6 +445,11 @@
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 1
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 2
       }
     },
     {
@@ -418,6 +483,11 @@
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 2
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 0
       }
     },
     {
@@ -451,6 +521,11 @@
         "action": "CHALLENGE",
         "cost": "175.00",
         "unsupported": 1
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "175.00",
+        "unsupported": 0
       }
     },
     {
@@ -481,6 +556,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "ACCEPT",
+        "cost": "300.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
@@ -517,6 +597,11 @@
         "action": "NONE",
         "cost": null,
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
       }
     },
     {
@@ -547,6 +632,11 @@
         "unsupported": 2
       },
       "llm_only_informed-v1": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 1
+      },
+      "llm_only_informed-v2": {
         "action": "CHALLENGE",
         "cost": "250.00",
         "unsupported": 1
@@ -583,6 +673,11 @@
         "action": "CHALLENGE",
         "cost": "190.00",
         "unsupported": 3
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
+        "unsupported": 0
       }
     },
     {
@@ -613,6 +708,11 @@
         "unsupported": 1
       },
       "llm_only_informed-v1": {
+        "action": "REFER",
+        "cost": "225.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "REFER",
         "cost": "225.00",
         "unsupported": 0
@@ -649,6 +749,11 @@
         "action": "REFER",
         "cost": "275.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "ACCEPT",
+        "cost": "250.00",
+        "unsupported": 0
       }
     },
     {
@@ -679,6 +784,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "REFER",
+        "cost": "291.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "REFER",
         "cost": "291.00",
         "unsupported": 0
@@ -715,6 +825,11 @@
         "action": "ACCEPT",
         "cost": "1015.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "ACCEPT",
+        "cost": "1015.00",
+        "unsupported": 0
       }
     },
     {
@@ -745,6 +860,11 @@
         "unsupported": 2
       },
       "llm_only_informed-v1": {
+        "action": "CHALLENGE",
+        "cost": "445.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "CHALLENGE",
         "cost": "445.00",
         "unsupported": 0
@@ -781,6 +901,11 @@
         "action": "REFER",
         "cost": "995.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "REFER",
+        "cost": "995.00",
+        "unsupported": 0
       }
     },
     {
@@ -811,6 +936,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "REFER",
+        "cost": "315.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "REFER",
         "cost": "315.00",
         "unsupported": 0
@@ -847,6 +977,11 @@
         "action": "ACCEPT",
         "cost": "500.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "220.00",
+        "unsupported": 0
       }
     },
     {
@@ -877,6 +1012,11 @@
         "unsupported": 1
       },
       "llm_only_informed-v1": {
+        "action": "CHALLENGE",
+        "cost": "520.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "CHALLENGE",
         "cost": "520.00",
         "unsupported": 0
@@ -913,6 +1053,11 @@
         "action": "CHALLENGE",
         "cost": "445.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "445.00",
+        "unsupported": 0
       }
     },
     {
@@ -943,6 +1088,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "ACCEPT",
+        "cost": "15.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "ACCEPT",
         "cost": "15.00",
         "unsupported": 0
@@ -979,6 +1129,11 @@
         "action": "ACCEPT",
         "cost": "15.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "ACCEPT",
+        "cost": "15.00",
+        "unsupported": 0
       }
     },
     {
@@ -1009,6 +1164,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "REFER",
+        "cost": "145.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "REFER",
         "cost": "145.00",
         "unsupported": 0
@@ -1045,6 +1205,11 @@
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 1
       }
     },
     {
@@ -1075,6 +1240,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
@@ -1111,6 +1281,11 @@
         "action": "CHALLENGE",
         "cost": "190.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
+        "unsupported": 0
       }
     },
     {
@@ -1141,6 +1316,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "REFER",
+        "cost": "175.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "REFER",
         "cost": "175.00",
         "unsupported": 0
@@ -1177,6 +1357,11 @@
         "action": "CHALLENGE",
         "cost": "265.00",
         "unsupported": 2
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 0
       }
     },
     {
@@ -1207,6 +1392,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "ACCEPT",
+        "cost": "135.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "ACCEPT",
         "cost": "135.00",
         "unsupported": 0
@@ -1243,6 +1433,11 @@
         "action": "REFER",
         "cost": "151.40",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "REFER",
+        "cost": "151.40",
+        "unsupported": 0
       }
     },
     {
@@ -1273,6 +1468,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "CHALLENGE",
+        "cost": "150.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "CHALLENGE",
         "cost": "150.00",
         "unsupported": 0
@@ -1309,6 +1509,11 @@
         "action": "CHALLENGE",
         "cost": "265.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 0
       }
     },
     {
@@ -1341,6 +1546,11 @@
       "llm_only_informed-v1": {
         "action": "ACCEPT",
         "cost": "300.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "190.00",
         "unsupported": 0
       }
     },
@@ -1375,6 +1585,11 @@
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 0
       }
     },
     {
@@ -1408,6 +1623,11 @@
         "action": "ACCEPT",
         "cost": "300.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "250.00",
+        "unsupported": 0
       }
     },
     {
@@ -1438,6 +1658,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "REFER",
+        "cost": "275.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "REFER",
         "cost": "275.00",
         "unsupported": 0
@@ -1474,6 +1699,11 @@
         "action": "REFER",
         "cost": "290.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "CHALLENGE",
+        "cost": "265.00",
+        "unsupported": 0
       }
     },
     {
@@ -1504,6 +1734,11 @@
         "unsupported": 1
       },
       "llm_only_informed-v1": {
+        "action": "ACCEPT",
+        "cost": "200.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "ACCEPT",
         "cost": "200.00",
         "unsupported": 0
@@ -1540,6 +1775,11 @@
         "action": "REFER",
         "cost": "1445.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "REFER",
+        "cost": "1445.00",
+        "unsupported": 0
       }
     },
     {
@@ -1570,6 +1810,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "ACCEPT",
+        "cost": "50.00",
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "ACCEPT",
         "cost": "50.00",
         "unsupported": 0
@@ -1606,6 +1851,11 @@
         "action": "REFER",
         "cost": "225.00",
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "REFER",
+        "cost": "225.00",
+        "unsupported": 0
       }
     },
     {
@@ -1639,6 +1889,11 @@
         "action": "NONE",
         "cost": null,
         "unsupported": 0
+      },
+      "llm_only_informed-v2": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
       }
     },
     {
@@ -1669,6 +1924,11 @@
         "unsupported": 0
       },
       "llm_only_informed-v1": {
+        "action": "NONE",
+        "cost": null,
+        "unsupported": 0
+      },
+      "llm_only_informed-v2": {
         "action": "NONE",
         "cost": null,
         "unsupported": 0

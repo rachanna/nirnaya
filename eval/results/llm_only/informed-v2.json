@@ -1,0 +1,626 @@
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-5-5",
+  "variant": "informed",
+  "prompts": [
+    "baseline_informed_system@v2#76083047b918",
+    "baseline_informed_user@v1#01b77866ab2e",
+    "tools@v1#ba84dfdfa56a"
+  ],
+  "run_at": "2026-10-28T02:08:44.468701+00:00",
+  "cases": {
+    "A1": {
+      "action": "ACCEPT",
+      "rationale": "No escalation trigger applies. The stage is CHARGEBACK, the amount is 200 USD, and the records are consistent. The order is shipped and the carrier shows IN_TRANSIT, which fits. Support replied to the customer's email. The reason PRODUCT_NOT_RECEIVED maps to NON_RECEIPT. The records don't establish delivery, because the carrier status is only IN_TRANSIT. The customer's email claims delivery and a signature, but customer-written records establish nothing, so I ignored it. That leaves p = 0.10. Margin = 0.10*200 - 20 - 0.10*500 - 10 = -60, which is not above 0, so accept.",
+      "claims": [],
+      "input_tokens": 3994,
+      "output_tokens": 496
+    },
+    "A2": {
+      "action": "ACCEPT",
+      "rationale": "This is a CHARGEBACK-stage dispute with reason PRODUCT_NOT_RECEIVED, which maps to NON_RECEIPT. None of the escalation triggers apply. The amount is 200 USD and USD needs no conversion. The order record belongs to merchant-demo, so ownership is clear. The only delivery evidence is the carrier record A2-carrier, which belongs to merchant-other. I can't cite it, so DELIVERY_CONFIRMED isn't established and p = 0.10. Margin = 0.10*200 - 20 - 0.10*500 - 10 = 20 - 20 - 50 - 10 = -60. That is not above 0 and not within 5 USD of zero, so I accept.",
+      "claims": [],
+      "input_tokens": 3808,
+      "output_tokens": 615
+    },
+    "A3": {
+      "action": "CHALLENGE",
+      "rationale": "Reason PRODUCT_NOT_RECEIVED maps to NON_RECEIPT. The carrier record confirms delivery, so p=0.60 (no signature evidence). A=200 USD at CHARGEBACK. Margin = 0.60*200 - 20 - 0.10*500 - 10 = 40, which is above 0 and not within 5 of zero. No escalation trigger applies, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "A3-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "Carrier status is DELIVERED."
+        },
+        {
+          "source_record_id": "A3-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "text": "Carrier delivery scan timestamp.",
+          "tz": "-05:00"
+        },
+        {
+          "source_record_id": "A3-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-A3",
+          "value_kind": "IDENTIFIER",
+          "text": "Order ORD-A3 exists."
+        }
+      ],
+      "input_tokens": 3809,
+      "output_tokens": 770
+    },
+    "A5": {
+      "action": "CHALLENGE",
+      "rationale": "Chargeback stage, reason PRODUCT_NOT_RECEIVED (NON_RECEIPT). No escalation trigger applies. The amount is 200 USD, the records are consistent, and no customer contact is recorded. The carrier record confirms delivery, so p = 0.60. No signature is established. Margin = 0.60*200 - 20 - 0.10*500 - 10 = 40, which is above 0, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "A5-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "A5-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME"
+        }
+      ],
+      "input_tokens": 3809,
+      "output_tokens": 669
+    },
+    "D1": {
+      "action": "CHALLENGE",
+      "rationale": "Reason DUPLICATE_CHARGE maps to DUPLICATE. The stage is CHARGEBACK and the amount is 300 USD. The order record establishes DISTINCT_TRANSACTIONS, so p = 0.65. Margin = 0.65*300 - 20 - 0.1*500 - 10 = 115, which is above 0. No escalation trigger applies, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "D1-order",
+          "source_field": "order_id",
+          "establishes": "DISTINCT_TRANSACTIONS",
+          "extracted_value": "ORD-D1",
+          "value_kind": "IDENTIFIER"
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-D1",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 3650,
+      "output_tokens": 669
+    },
+    "D2": {
+      "action": "ACCEPT",
+      "rationale": "No escalation trigger applies. The stage is CHARGEBACK, the reason is DUPLICATE, the amount is 300 USD, and the single order record belongs to merchant-demo. The records only establish ORDER_PLACED. They show neither DISTINCT_TRANSACTIONS nor REFUND_ISSUED, so p = 0.10. Margin = 0.10*300 - 20 - 0.10*500 - 10 = -50. That is not positive and not within 5 of zero, so accept.",
+      "claims": [],
+      "input_tokens": 3582,
+      "output_tokens": 443
+    },
+    "D4": {
+      "action": "CHALLENGE",
+      "rationale": "Pre-chargeback, reason DUPLICATE_CHARGE maps to DUPLICATE. Evidence: order_id shows a separate purchase (DISTINCT_TRANSACTIONS), so p=0.65. A=300 USD. G_cb = max(0, 0.65*300 - 20 - 0.10*500) = 125. Margin = 125 - 0 - (25+50-15+10) = 55 > 0, so challenge. No escalation triggers apply.",
+      "claims": [
+        {
+          "source_record_id": "D4-order",
+          "source_field": "order_id",
+          "establishes": "DISTINCT_TRANSACTIONS",
+          "extracted_value": "ORD-D4",
+          "value_kind": "IDENTIFIER",
+          "text": "Order ORD-D4 is a separate purchase, not a duplicate."
+        }
+      ],
+      "input_tokens": 3654,
+      "output_tokens": 627
+    },
+    "F1": {
+      "action": "CHALLENGE",
+      "rationale": "Stage is CHARGEBACK and the reason is FRAUD (FRAUDULENT). No escalation trigger applies. The order and payment records agree: both show 400 USD at 09:00 UTC, and 17:00+08:00 is 09:00 UTC. Both records belong to merchant-demo, and the amount is under 2000 USD. 3DS authentication is established, so p = 0.70. A = 400, so margin = 0.7*400 - 20 - 0.1*500 - 10 = 200, which is above 0. Challenge.",
+      "claims": [
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "avs",
+          "establishes": "AVS_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "F1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-F1",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 3901,
+      "output_tokens": 876
+    },
+    "F10": {
+      "action": "ESCALATE",
+      "rationale": "The dispute is at the RFI stage with reason FRAUD (FRAUDULENT). The records support PRIOR_UNDISPUTED_ORDERS_MATCH, because 3 earlier undisputed orders match the device and IP. That gives p = 0.60. A is 200 USD. G_cb = max(0, 0.6*200 - 20 - 0.1*500) = 50. The RFI margin is 50 - 0 - (25 + 50 - 0 + 10) = -35, so the economics favour accepting. Policy says accepting at RFI refunds in full, so a person must approve it. I am escalating and not accepting.",
+      "claims": [],
+      "input_tokens": 3879,
+      "output_tokens": 516
+    },
+    "F3": {
+      "action": "ACCEPT",
+      "rationale": "Chargeback stage, FRAUD reason (FRAUDULENT). The records agree: the order time of 17:00+08:00 equals 09:00 UTC, and the amounts match. No escalation trigger applies. The amount is 250 USD. The evidence is AVS_MATCH and CVC_MATCH, so p = 0.30. Margin = 0.30*250 - 20 - 0.1*500 - 10 = 75 - 20 - 50 - 10 = -5. A margin of exactly -5 is not too close to call, and it is not above 0, so accept.",
+      "claims": [],
+      "input_tokens": 3850,
+      "output_tokens": 492
+    },
+    "F4": {
+      "action": "ESCALATE",
+      "rationale": "Stage is CHARGEBACK and the reason is FRAUD. The records establish AVS_MATCH and CVC_MATCH, so p = 0.30. A = 266 USD. Margin = 0.30*266 - 20 - 0.1*500 - 10 = 79.8 - 80 = -0.2 USD. That is inside -5 < margin < 5, so it is too close to call and policy requires a person to decide. No other escalation trigger applies. The order and payment timestamps agree (17:00+08:00 equals 09:00 UTC).",
+      "claims": [],
+      "input_tokens": 3850,
+      "output_tokens": 448
+    },
+    "F5": {
+      "action": "ACCEPT",
+      "rationale": "The reason is FRAUDULENT, which maps to FRAUD, and the stage is PRE_CHARGEBACK. None of the escalation conditions apply. The order and payment records agree: 1000 USD, and the order time of 17:00+08:00 equals 09:00 UTC. Both belong to merchant-demo. The amount is 1000 USD, which is under the 2000 USD limit. The payment attempt shows AVS NO_MATCH, CVC NO_MATCH and 3DS NOT_PERFORMED, so no FRAUD evidence is established. The order record only establishes ORDER_PLACED, which no FRAUD prior uses. So p = 0.10. G_cb = max(0, 0.10*1000 - 20 - 0.10*500) = 30. Margin = 30 - 0 - (25 + 50 - 15 + 10) = 30 - 70 = -40. The margin is not within 5 USD of zero and is not positive, so accept.",
+      "claims": [],
+      "input_tokens": 3785,
+      "output_tokens": 619
+    },
+    "F6": {
+      "action": "CHALLENGE",
+      "rationale": "Pre-chargeback, reason FRAUDULENT maps to FRAUD. No escalation trigger applies: the amount is 1000 USD, the records agree (the order time 17:00+08:00 equals 09:00 UTC, the payment attempt time), and both records belong to merchant-demo. 3DS was authenticated, so p=0.70. G_cb = 0.7*1000 - 20 - 0.1*500 = 630. Margin = 630 - 0 - (25+50-15+10) = 560, which is above 0, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "payment_attempt:att-F6",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "F6-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-F6",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 3840,
+      "output_tokens": 718
+    },
+    "F7": {
+      "action": "ESCALATE",
+      "rationale": "The disputed amount is 3000 USD. That is above the 2000 USD limit, so policy requires a person to decide, whatever the economics say.",
+      "claims": [],
+      "input_tokens": 3836,
+      "output_tokens": 215
+    },
+    "F8": {
+      "action": "ESCALATE",
+      "rationale": "This is a CHARGEBACK-stage FRAUD dispute for 400 USD. Whether to challenge depends entirely on the login evidence. With ACCOUNT_LOGIN_MATCH, p=0.45 and the margin is 0.45*400 - 20 - 0.1*500 - 10 = +100, so challenge. With no evidence, p=0.10 and the margin is -40, so accept. The only evidence is F8-login.purchase_device_login_at, which matches the purchasing device. The same merchant record also says account_compromise_reported is true. That means the login on the purchasing device may have been the fraudster's, so the login match can't be relied on as proof the customer made the purchase. The merchant's own records therefore pull against each other on the one fact the decision depends on, and a person should resolve that. The payment attempt shows no 3DS, AVS or CVC checks, so nothing else supports a challenge.",
+      "claims": [],
+      "input_tokens": 3949,
+      "output_tokens": 944
+    },
+    "F9": {
+      "action": "CHALLENGE",
+      "rationale": "Chargeback stage, reason UNRECOGNIZED_CHARGE maps to FRAUD. No escalation trigger applies: the order and payment records agree on amount and time (17:00+08:00 = 09:00 UTC), the amount is 500 USD, and the stage is CHARGEBACK. 3DS is authenticated, so p = 0.70. Margin = 0.70*500 - 20 - 0.10*500 - 10 = 270, which is above 0, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "payment_attempt:att-F9",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "F9-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-F9",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 3838,
+      "output_tokens": 680
+    },
+    "K1": {
+      "action": "CHALLENGE",
+      "rationale": "RFI stage, FRAUD reason (FRAUDULENT). No escalation trigger applies: the records are consistent, the amount is 1500 USD, and there is no unanswered customer contact. Evidence present is DELIVERY_SIGNATURE + PRIOR_UNDISPUTED_ORDERS_MATCH, so p = 0.75. G_cb = max(0, 0.75*1500 - 20 - 0.10*500) = 1055. Margin = 1055 - 0 - (25 + 50 - 0 + 10) = 970, which is above 0, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "K1-order",
+          "source_field": "prior_undisputed_orders_matching_device_ip",
+          "establishes": "PRIOR_UNDISPUTED_ORDERS_MATCH",
+          "extracted_value": "3",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "K1-carrier",
+          "source_field": "signed_by",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "K1-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "K1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-K1",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 4196,
+      "output_tokens": 917
+    },
+    "K1B": {
+      "action": "CHALLENGE",
+      "rationale": "Chargeback stage, FRAUD reason, 1500 USD (under the 2000 limit), and the records agree with each other. The evidence is DELIVERY_SIGNATURE + PRIOR_UNDISPUTED_ORDERS_MATCH, so p = 0.75. Margin = 0.75*1500 - 20 - 0.1*500 - 10 = 1045, which is above 0, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "K1B-order",
+          "source_field": "prior_undisputed_orders_matching_device_ip",
+          "establishes": "PRIOR_UNDISPUTED_ORDERS_MATCH",
+          "extracted_value": "3",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "K1B-carrier",
+          "source_field": "signed_by",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        }
+      ],
+      "input_tokens": 4223,
+      "output_tokens": 761
+    },
+    "K2": {
+      "action": "ACCEPT",
+      "rationale": "The dispute is at the CHARGEBACK stage. The reason PRODUCT_NOT_RECEIVED maps to NON_RECEIPT. The carrier record confirms delivery, so p = 0.60. The disputed amount is 15 USD, so A = 15. Margin = 0.6*15 - 20 - 0.1*500 - 10 = -71. That is not above 0, so the policy says accept. It is also not within 5 USD of zero. No escalation condition applies. The records agree with each other, both belong to merchant-demo, the stage is not RFI or arbitration, the amount is small, and the reason is known.",
+      "claims": [],
+      "input_tokens": 3809,
+      "output_tokens": 478
+    },
+    "K2C": {
+      "action": "ACCEPT",
+      "rationale": "No escalation trigger applies. The stage is CHARGEBACK, the amount is 15 USD, and the records are consistent. PRODUCT_NOT_RECEIVED maps to NON_RECEIPT. The carrier record confirms delivery, so p = 0.60. No delivery signature is established. Margin = 0.60*15 - 20 - 0.1*500 - 10 = -71, which is not above 0, so accept.",
+      "claims": [],
+      "input_tokens": 3824,
+      "output_tokens": 421
+    },
+    "K3": {
+      "action": "ESCALATE",
+      "rationale": "The customer emailed support twice (K3-email-1 on 2026-02-20 and K3-email-2 on 2026-02-25) about a missing refund. The records show no merchant reply. The dispute's due date is 2026-03-16, so it was most likely raised after both emails, though the records don't give the date it was opened. Policy says to escalate when the customer contacted support before the dispute and got no reply, whatever the economics say. The reason type CREDIT_NOT_PROCESSED is also not one of the mapped reasons, so it is an unknown reason. The economics would favour accepting: p = 0.10, so the margin is 0.10*120 - 20 - 50 - 10 = -68. A person should still review this.",
+      "claims": [],
+      "input_tokens": 3867,
+      "output_tokens": 493
+    },
+    "N1": {
+      "action": "CHALLENGE",
+      "rationale": "Chargeback stage, reason PRODUCT_NOT_RECEIVED maps to NON_RECEIPT. The carrier record shows DELIVERED, so DELIVERY_CONFIRMED applies and p=0.60. No signature is established. A=200 USD. Margin = 0.6*200 - 20 - 0.1*500 - 10 = 40, which is above 5, so challenge. No escalation trigger applies: the records are consistent, both belong to merchant-demo, and the amount is under 2000 USD in a listed currency.",
+      "claims": [
+        {
+          "source_record_id": "N1-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "N1-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "200.00",
+          "value_kind": "MONEY",
+          "currency": "USD"
+        }
+      ],
+      "input_tokens": 3809,
+      "output_tokens": 853
+    },
+    "N2": {
+      "action": "ACCEPT",
+      "rationale": "Chargeback stage, reason PRODUCT_NOT_RECEIVED (NON_RECEIPT). The carrier record shows IN_TRANSIT, so there is no delivery confirmation or signature and p = 0.10. A = 200 USD. Margin = 0.10*200 - 20 - 0.10*500 - 10 = -60, which is not above 0, so accept. No escalation trigger applies: the records are consistent, the merchant owns the payment, the amount is under 2000 USD, the currency is USD, and the margin is not within 5 of zero.",
+      "claims": [],
+      "input_tokens": 3695,
+      "output_tokens": 423
+    },
+    "N3": {
+      "action": "CHALLENGE",
+      "rationale": "Chargeback stage, reason PRODUCT_NOT_RECEIVED maps to NON_RECEIPT. The carrier record shows DELIVERED with a signature, so p=0.80. A=600 USD. Margin = 0.8*600 - 20 - 0.1*500 - 10 = 400, which is above 0. None of the escalation conditions apply, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "signed_by",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME"
+        },
+        {
+          "source_record_id": "N3-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N3",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 3864,
+      "output_tokens": 814
+    },
+    "N4": {
+      "action": "ESCALATE",
+      "rationale": "The merchant's own carrier records contradict each other. N4-carrier-a says DELIVERED and N4-carrier-b says RETURNED_TO_SENDER, both for tracking number TRK-N4. Policy requires escalation to a person when records contradict, whatever the economics say.",
+      "claims": [],
+      "input_tokens": 3936,
+      "output_tokens": 252
+    },
+    "N5": {
+      "action": "CHALLENGE",
+      "rationale": "Pre-chargeback, reason PRODUCT_NOT_RECEIVED maps to NON_RECEIPT. The carrier record shows DELIVERED, so DELIVERY_CONFIRMED applies and p=0.60. No signature is established. A=300 USD. G_cb = max(0, 0.6*300 - 20 - 0.1*500) = 110. Margin = 110 - 0 - (25+50-15+10) = 40. That is above 5, so it is not too close to call. No escalation trigger applies, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "N5-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "N5-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N5",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 3813,
+      "output_tokens": 800
+    },
+    "N6": {
+      "action": "ACCEPT",
+      "rationale": "Pre-chargeback, reason PRODUCT_NOT_RECEIVED maps to NON_RECEIPT. No escalation trigger applies: the amount is 120 USD, the records agree, and both belong to merchant-demo. The carrier status DELIVERED establishes DELIVERY_CONFIRMED, so p = 0.60. No signature field is available, so the 0.80 prior does not apply. G_cb = max(0, 0.6*120 - 20 - 0.1*500) = 2. Margin = 2 - 0 - (25 + 50 - 15 + 10) = -68. The margin is not above 0 and is not within 5 of zero, so accept.",
+      "claims": [],
+      "input_tokens": 3813,
+      "output_tokens": 525
+    },
+    "N7": {
+      "action": "ESCALATE",
+      "rationale": "Chargeback stage, reason PRODUCT_NOT_RECEIVED maps to NON_RECEIPT. The carrier record shows DELIVERED, so DELIVERY_CONFIRMED applies and p=0.60. No field establishes a delivery signature. A is 141 USD. Margin = 0.6*141 - 20 - 0.1*500 - 10 = 4.6 USD. That is inside -5 < margin < 5, so it is too close to call and policy requires a person to decide.",
+      "claims": [],
+      "input_tokens": 3809,
+      "output_tokens": 422
+    },
+    "N8": {
+      "action": "CHALLENGE",
+      "rationale": "Chargeback stage, reason PRODUCT_NOT_RECEIVED (NON_RECEIPT). No escalation trigger applies: the customer's ticket was answered, the records are consistent, the amount is 200 USD, and the stage is CHARGEBACK. The carrier confirms delivery, so p = 0.60. Margin = 0.60*200 - 20 - 0.1*500 - 10 = 40, which is above 0, so challenge. There is no signature evidence, so I did not cite one.",
+      "claims": [
+        {
+          "source_record_id": "N8-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "N8-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "N8-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N8",
+          "value_kind": "IDENTIFIER"
+        }
+      ],
+      "input_tokens": 4086,
+      "output_tokens": 809
+    },
+    "N9": {
+      "action": "CHALLENGE",
+      "rationale": "RFI stage, reason PRODUCT_NOT_RECEIVED maps to NON_RECEIPT. No escalation trigger applies. The amount is 300 USD, the records agree, and the records belong to merchant-demo. The carrier record confirms delivery, so p = 0.60. G_cb = max(0, 0.6*300 - 20 - 0.1*500) = 110. Margin = 110 - 0 - (25 + 50 - 0 + 10) = 25, which is above 5, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "N9-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM"
+        },
+        {
+          "source_record_id": "N9-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME"
+        }
+      ],
+      "input_tokens": 3804,
+      "output_tokens": 752
+    },
+    "S1": {
+      "action": "CHALLENGE",
+      "rationale": "Stage is CHARGEBACK and reason CANCELLED_PRODUCT maps to SUBSCRIPTION. No escalation trigger applies: the amount is 300 USD, the currency is USD, and the records belong to merchant-demo and don't contradict each other. Evidence present is CANCELLATION_TERMS_ACCEPTED and USAGE_AFTER_RENEWAL, so p = 0.60. Margin = 0.60*300 - 20 - 0.1*500 - 10 = 100, which is above 0, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "S1-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "S1-login",
+          "source_field": "active_after_renewal_at",
+          "establishes": "USAGE_AFTER_RENEWAL",
+          "extracted_value": "2026-02-20T08:00:00Z",
+          "value_kind": "DATETIME"
+        }
+      ],
+      "input_tokens": 3919,
+      "output_tokens": 804
+    },
+    "S2": {
+      "action": "CHALLENGE",
+      "rationale": "Stage is CHARGEBACK, reason CANCELLED_PRODUCT maps to SUBSCRIPTION. No escalation trigger applies: the amount is 300 USD, the records are consistent and belong to merchant-demo. The records establish CANCELLATION_TERMS_ACCEPTED, so p = 0.40. Margin = 0.40*300 - 20 - 0.10*500 - 10 = 40, which is above 0, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "S2-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "tz": "UTC"
+        }
+      ],
+      "input_tokens": 3767,
+      "output_tokens": 670
+    },
+    "S3": {
+      "action": "CHALLENGE",
+      "rationale": "Stage is CHARGEBACK and the reason is CANCELLED_PRODUCT, which maps to SUBSCRIPTION. No escalation trigger applies. The amount is 300 USD. The records agree with each other. There were 0 customer contacts before the dispute. The only evidence the records establish is CANCELLATION_TERMS_ACCEPTED, so p = 0.40. Margin = 0.40*300 - 20 - 0.1*500 - 10 = 40. That is above 0, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "S3-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "S3-helpdesk-summary",
+          "source_field": "contacts_before_dispute",
+          "establishes": "NO_PRIOR_CUSTOMER_CONTACT",
+          "extracted_value": "0",
+          "value_kind": "ENUM"
+        }
+      ],
+      "input_tokens": 3935,
+      "output_tokens": 779
+    },
+    "S4": {
+      "action": "ESCALATE",
+      "rationale": "The helpdesk summary (S4-helpdesk-summary) says there were 0 customer contacts before the dispute. But the helpdesk also holds a customer email (S4-email-1, sent 2026-02-20, before the dispute) asking to cancel the subscription before it renews. No reply is recorded. The merchant's records contradict each other. The policy also says to escalate when a customer contacted support before the dispute and got no reply. Either condition requires a person, whatever the economics say. The economics would otherwise favour a challenge: p=0.40 with cancellation terms accepted, so margin = 0.4*300 - 20 - 50 - 10 = 40. I am not challenging, because the policy's escalation checks come first.",
+      "claims": [],
+      "input_tokens": 4080,
+      "output_tokens": 670
+    },
+    "S5": {
+      "action": "CHALLENGE",
+      "rationale": "RFI stage, reason CANCELLED_PRODUCT maps to SUBSCRIPTION. Evidence present: CANCELLATION_TERMS_ACCEPTED and USAGE_AFTER_RENEWAL, so p=0.60. A=300 USD. G_cb = max(0, 0.6*300 - 20 - 0.1*500) = 110. Margin = 110 - 0 - (25 + 50 - 0 + 10) = 25. That is above 5, so the economics favour challenging. No escalation trigger applies, so challenge.",
+      "claims": [
+        {
+          "source_record_id": "S5-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME"
+        },
+        {
+          "source_record_id": "S5-login",
+          "source_field": "active_after_renewal_at",
+          "establishes": "USAGE_AFTER_RENEWAL",
+          "extracted_value": "2026-02-20T08:00:00Z",
+          "value_kind": "DATETIME"
+        }
+      ],
+      "input_tokens": 3914,
+      "output_tokens": 698
+    },
+    "U1": {
+      "action": "ACCEPT",
+      "rationale": "The reason_type is UNKNOWN, so p = 0.10. The stage is CHARGEBACK and A = 200 USD. Margin = 0.10*200 - 20 - 0.10*500 - 10 = -60. That is not within 5 of zero, so it isn't too close to call. The economics favour accepting, and no escalation trigger applies. The records belong to merchant-demo and don't contradict each other. Order and carrier details are consistent. There is no sign of unanswered customer contact. The amount is in USD and under 2000 USD. Accept.",
+      "claims": [],
+      "input_tokens": 3798,
+      "output_tokens": 458
+    },
+    "U2": {
+      "action": "ESCALATE",
+      "rationale": "The reason_type is UNKNOWN, so p = 0.10. A = 1500 USD at the CHARGEBACK stage. margin = 0.10*1500 - 20 - 0.10*500 - 10 = 70, which is above 0, so the economics favour challenging. Policy says unknown reasons are never challenged without a person, so I am escalating.",
+      "claims": [],
+      "input_tokens": 3575,
+      "output_tokens": 289
+    },
+    "U3": {
+      "action": "ACCEPT",
+      "rationale": "Reason_type PRODUCT_UNACCEPTABLE is not in the policy mapping, so the reason is unknown and p = 0.10. The stage is CHARGEBACK and the amount is 50 USD. Margin = 0.10*50 - 20 - 0.10*500 - 10 = -75. That is not within 5 of zero, so it is not too close to call. Economics favour accepting, so the unknown-reason escalation rule does not apply. No other escalation condition holds: the stage is not pre-arbitration or arbitration, the records don't contradict each other, ownership is clear, and there is no unanswered customer contact. The amount is in USD and is under 2000 USD. Accept.",
+      "claims": [],
+      "input_tokens": 3584,
+      "output_tokens": 476
+    },
+    "U4": {
+      "action": "ESCALATE",
+      "rationale": "The stage is RFI and the reason is unknown, so p = 0.10. A = 200 USD. G_cb = max(0, 0.10*200 - 0 - 0.1*500) = max(0, -30) = 0. Margin = 0 - 0 - (25 + 50 - 0 + 10) = -85, so the economics favour accepting. Policy says accepting at RFI refunds in full, so a person must approve it. I found no other escalation trigger, but this one applies.",
+      "claims": [],
+      "input_tokens": 3568,
+      "output_tokens": 385
+    }
+  }
+}

@@ -67,14 +67,18 @@ uv run pytest           # about 1,300 offline tests; no network, no keys needed
 
 ## Evaluation (42 synthetic cases)
 
-| | Nirnaya | Fight everything | Accept everything | LLM only, naive (Claude) | LLM only, informed (Claude) | LLM only, naive (gpt-5-mini) |
+| | Nirnaya | Fight everything | Accept everything | LLM only: naive v1 | LLM only: informed v1 | LLM only: informed v2 |
 |---|---|---|---|---|---|---|
-| Expected net loss (USD) | **11,417.40** | 11,800.60 | 17,652.00 | 11,495.60 | 11,882.40 | 11,687.60 |
-| Agrees with the expert decision | **42/42** | 18/42 | 14/42 | 28/42 | 34/42 | 22/42 |
-| Unsupported claims submitted | **0** | 6 | 0 | 18 | 10 | 84 |
-| Merchant-policy violations | **0** | 13 | 11 | 8 | 1 | 12 |
+| Expected net loss (USD) | 11,417.40 | 11,800.60 | 17,652.00 | 11,495.60 | 11,882.40 | 11,342.40 |
+| Agrees with the expert decision | **42/42** | 18/42 | 14/42 | 28/42 | 34/42 | 39/42 |
+| Unsupported claims submitted | **0** | 6 | 0 | 18 | 10 | 4 |
+| Merchant-policy violations | **0** | 13 | 11 | 8 | 1 | 1 |
 
-The LLM-only baseline gives a model the dispute and every record and lets it decide and draft alone, with no engine or verifier. *Naive* adds only the fees. *Informed* also gives it the merchant's rules from the policy file: when to escalate, the costs, the win priors, FX, the stage formulas, whose records may be cited, and which record field establishes which fact. Both Claude runs use `claude-sonnet-5-5`; answers are cached in `eval/results/llm_only/` with the prompt versions used. Told the rules, the model follows policy far better, but it still submits claims its records do not support. Known gaps in informed prompt v1: it does not map Airwallex reason types to the policy's reason categories, so five subscription and fraud cases were treated as unknown reasons. And no prompt can see an unresolved payment ownership, which is not in any record.
+The LLM-only baseline gives a model (`claude-sonnet-5-5`) the dispute and every record and lets it decide and draft alone, with no engine or verifier. *Naive* adds only the fees. *Informed* also gives it the merchant's rules from the policy file: when to escalate, the costs, the win priors, FX, the stage formulas, whose records may be cited, and which record field establishes which fact. Informed v2 adds the mapping from Airwallex reason types to the policy's reasons and the exact marginal-band rule, both missing from v1.
+
+Prompting closes most of the decision gap, and informed v2 even shows 75 USD less expected loss than Nirnaya. That 75 USD is three human reviews (25 USD each) it skipped on cases a person should see: A3, where it submitted two claims its records do not support; A5, where payment ownership is unresolved (a policy violation; the fact is not in any record); and S2, where it challenged without the evidence the reason code requires. The expected-loss metric charges for a review but puts no price on submitting an unsupported claim. Nirnaya's 0 unsupported claims and 0 violations hold by construction, on every run; the model's numbers are one run of a non-deterministic model.
+
+Answers are cached in `eval/results/llm_only/<variant>-<version>.json` with the prompt versions used. An earlier naive v1 run on gpt-5-mini (22/42, 84 unsupported claims, 12 violations) is kept in `eval/results/llm_only/archive/`.
 
 These are expected values under the expert policy's assumed priors and fees ([`eval/EXPERT_POLICY.md`](eval/EXPERT_POLICY.md)) on **synthetic** cases, not real issuer outcomes. The full report is `eval/results/report.md`.
 
