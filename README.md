@@ -67,16 +67,20 @@ uv run pytest           # about 1,300 offline tests; no network, no keys needed
 
 ## Evaluation (42 synthetic cases)
 
-| | Nirnaya | Fight everything | Accept everything | LLM only (claude-sonnet-5-5) | LLM only (gpt-5-mini) |
-|---|---|---|---|---|---|
-| Expected net loss (USD) | **11,417.40** | 11,800.60 | 17,652.00 | 11,495.60 | 11,687.60 |
-| Agrees with the expert decision | **42/42** | 18/42 | 14/42 | 28/42 | 22/42 |
-| Unsupported claims submitted | **0** | 6 | 0 | 18 | 84 |
-| Merchant-policy violations | **0** | 13 | 11 | 8 | 12 |
+| | Nirnaya | Fight everything | Accept everything | LLM only, naive (Claude) | LLM only, informed (Claude) | LLM only, naive (gpt-5-mini) |
+|---|---|---|---|---|---|---|
+| Expected net loss (USD) | **11,417.40** | 11,800.60 | 17,652.00 | 11,495.60 | 11,882.40 | 11,687.60 |
+| Agrees with the expert decision | **42/42** | 18/42 | 14/42 | 28/42 | 34/42 | 22/42 |
+| Unsupported claims submitted | **0** | 6 | 0 | 18 | 10 | 84 |
+| Merchant-policy violations | **0** | 13 | 11 | 8 | 1 | 12 |
 
-The LLM-only baseline gives the model the dispute and every record and lets it decide and draft alone, with no engine or verifier. The report uses the Claude run (`eval/results/llm_only.json`); the earlier gpt-5-mini answers are kept in `eval/results/llm_only.gpt-5-mini.json`.
+The LLM-only baseline gives a model the dispute and every record and lets it decide and draft alone, with no engine or verifier. *Naive* adds only the fees. *Informed* also gives it the merchant's rules from the policy file: when to escalate, the costs, the win priors, FX, the stage formulas, whose records may be cited, and which record field establishes which fact. Both Claude runs use `claude-sonnet-5-5`; answers are cached in `eval/results/llm_only/` with the prompt versions used. Told the rules, the model follows policy far better, but it still submits claims its records do not support. Known gaps in informed prompt v1: it does not map Airwallex reason types to the policy's reason categories, so five subscription and fraud cases were treated as unknown reasons. And no prompt can see an unresolved payment ownership, which is not in any record.
 
 These are expected values under the expert policy's assumed priors and fees ([`eval/EXPERT_POLICY.md`](eval/EXPERT_POLICY.md)) on **synthetic** cases, not real issuer outcomes. The full report is `eval/results/report.md`.
+
+## Versioned prompts and configuration
+
+Prompts, the demo policy and priors, the FX snapshot and the evaluation economics are files in `nirnaya/assets/`, one per version, pinned in `nirnaya/assets/active.toml` and SHA-256 locked. A published version never changes: add `v2`, then run `uv run python -m nirnaya.assets lock`. To try a prompt version without changing the pin, set `NIRNAYA_PROMPTS=drafter_system:v2`. Agent runs and reports record the versions they used (see architecture §16.1).
 
 ## Honest limits
 

@@ -188,7 +188,7 @@ def build(
 
 def as_text(report: dict[str, Any]) -> str:
     keys = list(report["policies"])
-    width = 18
+    width = max(18, *(len(report["policies"][k]["name"]) + 2 for k in keys))
     head = f"{'':34}" + "".join(f"{report['policies'][k]['name']:>{width}}" for k in keys)
 
     def line(label: str, get: Callable[[dict[str, Any]], Any]) -> str:

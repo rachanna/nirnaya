@@ -201,7 +201,8 @@ flowchart TB
 | Write gateway | `nirnaya/guardrails/` | 🔶 (checklist, ledger, dry run against ports; wire request in M5) | Pre-write checklist, deterministic `request_id`, write ledger, dry-run; the only caller of write endpoints | **enforces** | engine, Airwallex clients, store |
 | Airwallex clients | `nirnaya/integrations/airwallex/` | ⬜ | Auth, typed read client, separate write client, simulation helpers | none | httpx |
 | Merchant mocks | `nirnaya/integrations/mocks/` | ✅ (plus `FakeAirwallex` for tests) | SYNTHETIC order, carrier, login, helpdesk and policy systems behind `Protocol` interfaces | none | none |
-| Demo config | `nirnaya/config/demo.py` | ✅ | `DEMO_POLICY`, `DEMO_FX` (labelled ASSUMPTION) | data | models |
+| Versioned assets | `nirnaya/assets/`, `nirnaya/assets.py` | ✅ | Prompts, demo policy and priors, FX snapshot, eval economics: one immutable file per version, pinned in `active.toml`, SHA-256 locked (§16.1) | data | none |
+| Demo config | `nirnaya/config/demo.py` | ✅ | `DEMO_POLICY`, `DEMO_FX` (labelled ASSUMPTION), loaded from the versioned assets | data | models, assets |
 | Eval harness | `eval/` (data), `nirnaya/evaluation/` (code) | 🔶 | Case fixtures and expert policy ✅; runner, baselines, metrics ⬜ | none | orchestrator, store |
 | UI | `app/` | ⬜ | Streamlit views and approver actions | none | store, review queue |
 
@@ -883,7 +884,7 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 
 - **Case timeline:** every state transition, decision, tool call, verification, referral and write is an audit event. The UI renders a case as this timeline.
 - **Decision trace:** `Decision.inputs` (the full parameter snapshot) and `Decision.reasons` (the arithmetic in words) are stored verbatim.
-- **Agent runs:** the transcript, tool calls, tokens and cost per cycle (`agent_runs`).
+- **Agent runs:** the transcript, tool calls, tokens and cost per cycle (`agent_runs`), and the prompt versions that produced the run (`name@version#hash`).
 - **Logs:** structured JSON lines with `merchant_id`, `case_id`, `cycle` and `state` on every line. No secrets, and no customer free text at INFO level.
 - **Integrity:** the hash-chained audit log plus record hashes allow an offline proof that evidence and decisions were not altered after the fact.
 
@@ -909,7 +910,11 @@ flowchart LR
 - **Baselines:**
   - **Fight all:** challenge every automated-stage dispute.
   - **Accept all:** accept everything.
-  - **LLM only:** the configured model gets the dispute and all the case's records (customer messages inside untrusted data blocks) and answers ACCEPT, CHALLENGE or ESCALATE with its claims in one forced-tool call; no engine, verifier or investigation loop. Answers are cached in `eval/results/llm_only.json`, and its claims are passed through `verify()` only to *count* unsupported ones.
+  - **LLM only:** the configured model gets the dispute and all the case's records (customer messages inside untrusted data blocks) and answers ACCEPT, CHALLENGE or ESCALATE with its claims in one call to a decide tool; no engine, verifier or investigation loop. Its claims are passed through `verify()` only to *count* unsupported ones. Two prompt variants:
+    - *naive:* the task, the dispute, the records and the fees.
+    - *informed:* also the merchant's rules, rendered from the active policy: when to escalate, costs, win priors, FX, the stage formulas, whose records may be cited, and a field guide from the evidence catalogue applied to every non-customer record (not filtered by merchant or hash: applying those rules is the model's job). It measures how far prompting alone gets.
+
+    Answers are cached per variant in `eval/results/llm_only/<variant>.json` with the model and prompt versions.
 - **Nirnaya** is measured from real pipeline runs (dry run, scripted agent; the fabrication cases use their careless fixture drafter), never copied from the expectations.
 - **Metrics**, reported separately (spec §9):
   1. Expected net dispute loss against the baselines, and agreement with the expert decisions.
@@ -920,7 +925,7 @@ flowchart LR
 
 **Expected loss** (`nirnaya/evaluation/economics.py`) prices each policy's action with the case's hand-derived prior and the policy's fees, from the current stage on (sunk costs excluded): accept costs A (+ F_pre or F_rfi); a chargeback challenge costs (1 − p)·A + h + q·F_pa; an RFI or pre-chargeback challenge costs its handling + F_cb + R plus the chargeback stage, where an expert then accepts or fights (whichever is cheaper) and fight-everything always fights. A referral costs the reviewer's expert action plus a 25 USD review (assumption). Accept minus challenge equals the engine's margin + m on every case, which a test checks. Deferred cases are excluded.
 
-Run it with `uv run python -m nirnaya.evaluation.report`, which writes `eval/results/report.json` and `report.md`. The LLM-only answers come from `NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline`.
+Run it with `uv run python -m nirnaya.evaluation.report`, which writes `eval/results/report.json` and `report.md`. The LLM-only answers come from `NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline [--variant informed]`. Every report ends with the versions it was built from: git commit (and whether the tree was dirty), the case-set version (`eval/case_set.toml`), the policy, FX and economics files, and each LLM-only variant's model and prompts.
 
 Sandbox runs are integration tests. Economic results are simulations on synthetic data.
 
@@ -947,9 +952,28 @@ The kit demo tells each case as the guide's arc. The **initial plan** is the eng
 - **Demo topology:** one Python process running the scheduler loop and a Streamlit server sharing one SQLite file. Optionally a small webhook receiver (§9.4).
 - **Configuration:**
   - Env: `ANTHROPIC_API_KEY`, `NIRNAYA_MODEL`, `DRY_RUN` (default `true`), and the Airwallex credentials and base URL (`.env.example`).
-  - Per-merchant `MerchantPolicy` (versioned in `policies`).
+  - Per-merchant `MerchantPolicy` (versioned in `policies`; the demo policy is a versioned asset, §16.1).
   - Deadline buffers and agent budgets (ASSUMPTION defaults in §4.4 and §8.5).
 - **Safety defaults:** `DRY_RUN=true`, sandbox base URL, simulation enabled only on the sandbox host.
+
+### 16.1 Versioned assets
+
+What a model is told, and the configuration decisions depend on, live in files rather than code (`nirnaya/assets/`):
+
+| Asset | Path | Selected by |
+|---|---|---|
+| System prompts, user-message templates | `prompts/<name>/<version>.md` | `active.toml` `[prompts]`; `NIRNAYA_PROMPTS=name:version,...` overrides for an experiment |
+| Tool and field wording (schemas stay in code) | `prompts/tools/<version>.toml` | same |
+| Merchant policy and win priors | `policies/<merchant_id>/<version>.toml` | `active.toml` `[config]` only |
+| FX snapshot | `fx/<snapshot>.toml` | `[config]` only |
+| Evaluation economics (review cost) | `evaluation/economics/<version>.toml` | `[config]` only |
+| Eval case set | `eval/case_set.toml` (count + hash of `eval/cases/`) | bumped with `python -m nirnaya.evaluation.case_set bump <version>` |
+
+- **Immutable versions.** `assets.lock` records each published file's SHA-256 (over the text with normalised line endings). Loading fails closed on an unlocked or changed file. `python -m nirnaya.assets lock` adds new files and refuses to rewrite an entry, so a changed text is a new version.
+- **Configuration has no env override:** a policy, FX or economics change alters decisions, so it goes through a committed pin.
+- **Templates** use `$placeholders` filled only by code, and must receive exactly their placeholders. System prompts take only merchant configuration, never case data; case data goes in user messages inside untrusted blocks.
+- **Provenance:** agent runs, LLM-only caches and the evaluation report record `name@version#hash` for what they used.
+- **Deliberately kept in code:** the evidence catalogue (`FIELD_RULES` and friends), which is verifier logic and changes only with tests; the engine's referral explanations, which are deterministic output text, not prompts; and the Anthropic adapter's one-line "call this tool" instruction, which is provider mechanics.
 
 ---
 

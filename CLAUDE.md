@@ -25,6 +25,7 @@ These are the product. Never weaken them for convenience, and stop and ask if a 
 - Evaluation: `uv run python -m nirnaya.evaluation.report` (offline; writes `eval/results/report.json`). The LLM-only baseline is opt-in and cached: `NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline`.
 - Sandbox: `uv run python -m nirnaya.sandbox_demo` (`--offline`, `--checkout`, `--submit`); read-only live checks: `NIRNAYA_LIVE_AIRWALLEX=1 uv run pytest -m live_airwallex -s`.
 - UI: Streamlit (`app/`), thin — no business logic in the UI; it renders `nirnaya/console/` view models. Run: `uv run streamlit run app/streamlit_app.py`.
+- Versioned assets (`nirnaya/assets/`, architecture §16.1): prompts, the demo policy and priors, FX and eval economics are files, one per version, pinned in `active.toml` and SHA-256 locked. Never edit a published file: add a new version and run `uv run python -m nirnaya.assets lock`. `NIRNAYA_PROMPTS=name:version` overrides a prompt pin; config pins have no override. Changing the eval cases needs `uv run python -m nirnaya.evaluation.case_set bump <version>`.
 - Secrets only from env / `.env` (gitignored). Never commit keys.
 
 ## Repository layout (target)

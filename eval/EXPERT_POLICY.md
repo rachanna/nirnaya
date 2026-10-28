@@ -4,7 +4,7 @@ This is the written policy every expected result in `eval/cases/` is derived fro
 
 All cases are SYNTHETIC. All amounts are USD for the demo merchant `merchant-demo`.
 
-## 1. Economics (demo policy, labelled assumptions in `nirnaya/config/demo.py`)
+## 1. Economics (demo policy, labelled assumptions in `nirnaya/assets/policies/merchant-demo/demo-2026-10.toml`)
 
 | Parameter | Value |
 |---|---|
@@ -162,7 +162,7 @@ Every policy is priced with the same assumptions, from the current stage on (cos
 | RFI | A + F_rfi | h_rfi + F_cb + R + the chargeback stage |
 
 - **The chargeback stage after a challenge:** an expert accepts or fights, whichever is cheaper; a fight-everything policy always fights.
-- **A referral** costs the reviewer's action (the expected maths action) plus a **review cost of 25 USD (ASSUMPTION)**.
+- **A referral** costs the reviewer's action (the expected maths action) plus a **review cost of 25 USD (ASSUMPTION, `nirnaya/assets/evaluation/economics/v1.toml`)**.
 - **Deferred cases** (Airwallex acts on its own) are excluded.
 - These are expected values under assumed priors on synthetic cases, not real outcomes. Accept minus challenge equals the engine's margin + m for every case.
 
