@@ -12,10 +12,18 @@ from nirnaya.agent.scripted import ScriptedDrafter, ScriptedInvestigator
 from nirnaya.agent.tools import MerchantSystems
 from nirnaya.llm.base import LLMClient
 from nirnaya.llm.factory import llm_settings_from_env, make_llm
+from nirnaya.llm.tracing import tracing_settings
 from nirnaya.llm.types import LLMConfigError
 from nirnaya.models.money import FxTable
 from nirnaya.orchestrator.machine import Orchestrator
-from nirnaya.orchestrator.ports import DisputeActions, DisputeSource, Drafter, Investigator
+from nirnaya.orchestrator.ports import (
+    NULL_OBSERVER,
+    DisputeActions,
+    DisputeSource,
+    Drafter,
+    Investigator,
+    StepObserver,
+)
 from nirnaya.orchestrator.settings import Settings
 from nirnaya.store.repository import Store
 
@@ -52,5 +60,24 @@ def build_orchestrator(
 ) -> Orchestrator:
     investigator, drafter = build_agents(settings, env, llm)
     return Orchestrator(
-        store, source, actions, systems, investigator, drafter, settings, fx=fx, synthetic=synthetic
+        store,
+        source,
+        actions,
+        systems,
+        investigator,
+        drafter,
+        settings,
+        fx=fx,
+        synthetic=synthetic,
+        observer=case_observer(env),
     )
+
+
+def case_observer(env: Mapping[str, str] = os.environ) -> StepObserver:
+    """One LangSmith trace per case when LANGSMITH_TRACING=true; otherwise nothing."""
+    tracing = tracing_settings(env)
+    if tracing is None:
+        return NULL_OBSERVER
+    from nirnaya.integrations.langsmith.cases import CaseTracer
+
+    return CaseTracer(tracing)

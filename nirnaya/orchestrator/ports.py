@@ -1,6 +1,7 @@
 """Interfaces the orchestrator depends on. M3 uses fakes and scripted parts; M4 and M5
 plug in Claude and the real Airwallex client behind the same Protocols."""
 
+from contextlib import AbstractContextManager, nullcontext
 from typing import Any, Protocol
 
 from nirnaya.models.base import DomainModel, NonBlankStr
@@ -62,3 +63,41 @@ class Drafter(Protocol):
     def draft(self, dispute: Dispute, records: list[EvidenceRecord]) -> Any:
         """Propose claims. Returns a DraftResult (nirnaya.agent.runs); never trusted."""
         ...
+
+
+class StepObserver(Protocol):
+    """Watches the state machine without taking part: told when a case's step runs and when
+    the case changes state. Used for tracing; the machine ignores anything it raises."""
+
+    def step(self, case: Any) -> AbstractContextManager[None]:  # noqa: ANN401 - a CaseRow
+        """Wraps one handler run; model calls the handler makes happen inside it."""
+        ...
+
+    def transition(
+        self,
+        case: Any,  # noqa: ANN401 - a CaseRow
+        frm: str,
+        to: str,
+        body: dict[str, Any],
+        external: bool,
+    ) -> None:
+        """A committed state change (external: the watchdog or a failure referral)."""
+        ...
+
+
+class _NullObserver:
+    def step(self, case: Any) -> AbstractContextManager[None]:  # noqa: ANN401
+        return nullcontext()
+
+    def transition(
+        self,
+        case: Any,  # noqa: ANN401
+        frm: str,
+        to: str,
+        body: dict[str, Any],
+        external: bool,
+    ) -> None:
+        return None
+
+
+NULL_OBSERVER: StepObserver = _NullObserver()

@@ -90,7 +90,7 @@ Prompts, the demo policy and priors, the FX snapshot and the evaluation economic
 
 Set `LANGSMITH_API_KEY` (and `LANGSMITH_ENDPOINT` for a non-default region) in `.env`.
 
-- **Trace every model call:** `LANGSMITH_TRACING=true` (project `LANGSMITH_PROJECT`, default `nirnaya`). Each call shows the prompt, the reply, tool calls, tokens, the case and the prompt versions used.
+- **Trace every case:** `LANGSMITH_TRACING=true` (project `LANGSMITH_PROJECT`, default `nirnaya`). Each case is one tree: its state-machine steps in order (ingested, investigating, decided, drafting, verifying, ... submitted or referred), each with what was decided there, and the model calls inside the step that made them, with the prompt, reply, tool calls, tokens and prompt versions.
 - **Mirror the prompt versions:** `uv run python -m nirnaya.integrations.langsmith prompts` (private, read-only; the repo is the source of truth).
 - **Upload the evaluation as experiments:** `uv run python -m nirnaya.evaluation.report`, then `uv run python -m nirnaya.integrations.langsmith experiments`.
 

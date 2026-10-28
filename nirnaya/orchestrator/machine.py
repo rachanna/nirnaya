@@ -7,7 +7,8 @@ idempotent: evidence is immutable, tool calls are remembered per cycle, and writ
 the request_id ledger. Time is always passed in; nothing here reads a clock.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -29,7 +30,14 @@ from nirnaya.models.enums import Action, Stage, ValidationStatus
 from nirnaya.models.money import FxTable, Money
 from nirnaya.orchestrator import states
 from nirnaya.orchestrator.deferral import closed_reason, deferral_reason
-from nirnaya.orchestrator.ports import DisputeActions, DisputeSource, Drafter, Investigator
+from nirnaya.orchestrator.ports import (
+    NULL_OBSERVER,
+    DisputeActions,
+    DisputeSource,
+    Drafter,
+    Investigator,
+    StepObserver,
+)
 from nirnaya.orchestrator.settings import Settings
 from nirnaya.orchestrator.states import RUNNABLE, WATCHDOG_REFERS, CaseState
 from nirnaya.render.evidence_doc import RenderError, render_evidence
@@ -61,8 +69,10 @@ class Orchestrator:
         *,
         fx: FxTable | None = None,
         synthetic: bool = True,
+        observer: StepObserver = NULL_OBSERVER,
     ) -> None:
         self.store = store
+        self.observer = observer
         self.source = source
         self.systems = systems
         self.investigator = investigator
@@ -181,11 +191,32 @@ class Orchestrator:
         handler = self._handlers.get(CaseState(case.state))
         if handler is None:
             return False
-        result = handler(case, now)
-        if result is None:  # waiting (e.g. a write whose outcome is not yet known)
-            return False
-        self._move(case, result.to, now, result)
-        return True
+        with self._observed(case):
+            result = handler(case, now)
+            if result is None:  # waiting (e.g. a write whose outcome is not yet known)
+                return False
+            self._move(case, result.to, now, result)
+            return True
+
+    @contextmanager
+    def _observed(self, case: CaseRow) -> Iterator[None]:
+        """Run a step inside the observer's context. The observer only watches: anything it
+        raises is ignored, and the step's own exceptions propagate unchanged."""
+        context = None
+        with suppress(Exception):
+            entering = self.observer.step(case)
+            entering.__enter__()
+            context = entering  # only a context that entered is exited
+        try:
+            yield
+        except BaseException as e:
+            if context is not None:
+                with suppress(Exception):
+                    context.__exit__(type(e), e, e.__traceback__)
+            raise
+        if context is not None:
+            with suppress(Exception):
+                context.__exit__(None, None, None)
 
     def _move(
         self,
@@ -220,6 +251,8 @@ class Orchestrator:
                 {"from": frm, "to": to, "cycle": case.cycle, **step.body},
                 now,
             )
+        with suppress(Exception):  # reported only once committed; an observer never interferes
+            self.observer.transition(case, str(frm), str(to), step.body, external)
 
     # --- helpers ------------------------------------------------------------------------------
 
