@@ -22,11 +22,14 @@ and challenging there (what an expert does), or always challenging (a fight-ever
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from nirnaya import assets
 from nirnaya.models.enums import Action, Stage
 from nirnaya.models.policy import MerchantPolicy
 
-# ASSUMPTION (eval/EXPERT_POLICY.md): what a person's review of a referred case costs.
-REVIEW_COST = Decimal("25")
+# ASSUMPTION (eval/EXPERT_POLICY.md section 9): what a person's review of a referred case
+# costs, in the policy currency. Versioned in nirnaya/assets/evaluation/economics/.
+ECONOMICS_ASSET, _economics = assets.config("economics")
+REVIEW_COST = Decimal(_economics["review_cost"])
 
 _ZERO = Decimal(0)
 
