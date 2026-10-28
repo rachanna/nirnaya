@@ -38,7 +38,7 @@
   },
   "versions": {
     "git": {
-      "commit": "86ea26121978484d95ae50c97666f8fd44f5ea71",
+      "commit": "3d301cdffa5cf5d264a0bcfa0d7c847746ee6fbf",
       "dirty": true
     },
     "case_set": {
@@ -141,6 +141,174 @@
       ]
     }
   },
+  "sensitivity": {
+    "cases": 40,
+    "rows": [
+      {
+        "assumption": "as configured",
+        "flips": 0,
+        "cases": []
+      },
+      {
+        "assumption": "every prior -0.10",
+        "flips": 4,
+        "cases": [
+          "N7",
+          "N9",
+          "S5",
+          "U2"
+        ]
+      },
+      {
+        "assumption": "every prior -0.05",
+        "flips": 2,
+        "cases": [
+          "N7",
+          "U2"
+        ]
+      },
+      {
+        "assumption": "every prior +0.05",
+        "flips": 3,
+        "cases": [
+          "F3",
+          "F4",
+          "F5"
+        ]
+      },
+      {
+        "assumption": "every prior +0.10",
+        "flips": 3,
+        "cases": [
+          "F3",
+          "F4",
+          "F5"
+        ]
+      },
+      {
+        "assumption": "q = 0.05",
+        "flips": 2,
+        "cases": [
+          "F3",
+          "F4"
+        ]
+      },
+      {
+        "assumption": "q = 0.25",
+        "flips": 14,
+        "cases": [
+          "A3",
+          "A5",
+          "D4",
+          "N1",
+          "N4",
+          "N5",
+          "N7",
+          "N8",
+          "N9",
+          "S2",
+          "S3",
+          "S4",
+          "S5",
+          "U2"
+        ]
+      },
+      {
+        "assumption": "F_pa = 0",
+        "flips": 4,
+        "cases": [
+          "F10",
+          "F3",
+          "F4",
+          "F5"
+        ]
+      },
+      {
+        "assumption": "F_pa = 1000",
+        "flips": 12,
+        "cases": [
+          "A3",
+          "A5",
+          "N1",
+          "N4",
+          "N5",
+          "N7",
+          "N8",
+          "N9",
+          "S2",
+          "S3",
+          "S4",
+          "S5"
+        ]
+      },
+      {
+        "assumption": "R = 0",
+        "flips": 2,
+        "cases": [
+          "F10",
+          "F5"
+        ]
+      },
+      {
+        "assumption": "R = 100",
+        "flips": 3,
+        "cases": [
+          "N5",
+          "N9",
+          "S5"
+        ]
+      },
+      {
+        "assumption": "h = 50",
+        "flips": 3,
+        "cases": [
+          "N7",
+          "N9",
+          "S5"
+        ]
+      },
+      {
+        "assumption": "m = 0",
+        "flips": 2,
+        "cases": [
+          "F3",
+          "F4"
+        ]
+      }
+    ],
+    "near_break_even": [
+      {
+        "case": "F3",
+        "p": "0.30",
+        "break_even": "0.320",
+        "gap": "-0.020"
+      },
+      {
+        "case": "F4",
+        "p": "0.30",
+        "break_even": "0.301",
+        "gap": "-0.001"
+      },
+      {
+        "case": "F5",
+        "p": "0.10",
+        "break_even": "0.140",
+        "gap": "-0.040"
+      },
+      {
+        "case": "N7",
+        "p": "0.60",
+        "break_even": "0.567",
+        "gap": "0.033"
+      },
+      {
+        "case": "U2",
+        "p": "0.10",
+        "break_even": "0.053",
+        "gap": "0.047"
+      }
+    ]
+  },
   "policies": {
     "nirnaya": {
       "name": "Nirnaya",
@@ -162,6 +330,8 @@
         "challenges": 15,
         "claims_submitted": 38,
         "unsupported_submitted": 0,
+        "unsupported_format": 0,
+        "unsupported_substantive": 0,
         "challenges_without_evidence": 0,
         "fabrications_caught": 1
       },
@@ -202,6 +372,8 @@
         "challenges": 39,
         "claims_submitted": 27,
         "unsupported_submitted": 6,
+        "unsupported_format": 0,
+        "unsupported_substantive": 6,
         "challenges_without_evidence": 20,
         "fabrications_caught": 0
       },
@@ -261,6 +433,8 @@
         "challenges": 0,
         "claims_submitted": 0,
         "unsupported_submitted": 0,
+        "unsupported_format": 0,
+        "unsupported_substantive": 0,
         "challenges_without_evidence": 0,
         "fabrications_caught": 0
       },
@@ -317,6 +491,8 @@
         "challenges": 26,
         "claims_submitted": 65,
         "unsupported_submitted": 18,
+        "unsupported_format": 13,
+        "unsupported_substantive": 5,
         "challenges_without_evidence": 3,
         "fabrications_caught": 0
       },
@@ -370,6 +546,8 @@
         "challenges": 13,
         "claims_submitted": 33,
         "unsupported_submitted": 10,
+        "unsupported_format": 10,
+        "unsupported_substantive": 0,
         "challenges_without_evidence": 0,
         "fabrications_caught": 0
       },
@@ -410,6 +588,8 @@
         "challenges": 18,
         "claims_submitted": 44,
         "unsupported_submitted": 4,
+        "unsupported_format": 4,
+        "unsupported_substantive": 0,
         "challenges_without_evidence": 0,
         "fabrications_caught": 0
       },

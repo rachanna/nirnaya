@@ -50,10 +50,13 @@ def main(case_ids: tuple[str, ...] = CASE_IDS) -> int:
         print(f"Configuration error: {e}", file=sys.stderr)
         return 2
     agent = os.environ.get("NIRNAYA_AGENT", "scripted")
-    print(
-        f"Agent: {agent}  Provider: {os.environ.get('NIRNAYA_LLM_PROVIDER', 'anthropic')}"
+    model = (
+        f"  Provider: {os.environ.get('NIRNAYA_LLM_PROVIDER', 'anthropic')}"
         f"  Model: {os.environ.get('NIRNAYA_MODEL', '(default)')}"
+        if agent == "llm"
+        else ""
     )
+    print(f"Airwallex: in-memory FAKE (SYNTHETIC data; nothing is sent)  Agent: {agent}{model}")
 
     now = cases[case_ids[0]].dispute.opened_at + timedelta(hours=1)
     orch.run_until_idle(now)

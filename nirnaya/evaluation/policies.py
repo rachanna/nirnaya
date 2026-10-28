@@ -18,6 +18,8 @@ from nirnaya.agent.runs import DraftResult
 from nirnaya.agent.scripted import ScriptedDrafter, ScriptedInvestigator
 from nirnaya.config.demo import DEMO_POLICY
 from nirnaya.evaluation.cases import EvalCase, synthetic_world
+from nirnaya.evidence.catalogue import record_establishes
+from nirnaya.evidence.derive import case_records
 from nirnaya.integrations.mocks.airwallex_fake import FakeAirwallex
 from nirnaya.integrations.mocks.systems import SyntheticWorld
 from nirnaya.models.claim import Claim
@@ -31,7 +33,7 @@ from nirnaya.orchestrator.settings import Settings
 from nirnaya.orchestrator.states import CaseState
 from nirnaya.store import Store, connect
 from nirnaya.store.repository import WriteRow
-from nirnaya.verifier import verify
+from nirnaya.verifier import CheckName, verify
 
 
 class Act(StrEnum):
@@ -48,6 +50,9 @@ class CaseResult:
     # Claims sent with a challenge, and how many of them fail a blocking check.
     submitted: tuple[Claim, ...] = ()
     unsupported_submitted: int = 0
+    # Of those, claims whose cited field does establish the fact and only the value was written
+    # in the wrong form (e.g. "Order ORD-A3 exists." for ORD-A3). The rest overreach.
+    unsupported_format: int = 0
     # Claims the policy itself stopped before anything was sent (Nirnaya's verifier).
     blocked_before_write: int = 0
     writes: tuple[WriteRow, ...] = field(default=())
@@ -65,18 +70,49 @@ def actionable(dispute: Dispute) -> bool:
 
 def score_claims(case: EvalCase, claims: list[Claim]) -> int:
     """How many claims fail a blocking check against the case's records (scoring only)."""
+    return score_claims_split(case, claims)[0]
+
+
+# Failures that only concern how a value was written, not whether the record supports the fact.
+FORMAT_ONLY = frozenset(
+    {CheckName.EXTRACTED_VALUE_MISMATCH, CheckName.VALUE_MISMATCH, CheckName.NAME_OR_ID_MISMATCH}
+)
+
+
+def score_claims_split(case: EvalCase, claims: list[Claim]) -> tuple[int, int]:
+    """(claims that fail a blocking check, of which format only). Format only: the cited field
+    of the case's own record does establish the claimed fact, and every failure is about how
+    the value was written. Wrong record, a field that does not establish the fact, more than
+    the record shows, a wrong amount or date: substantive."""
     if not claims:
-        return 0
+        return 0, 0
+    records = {r.id: r for r in case_records(case.evidence_records(), case.dispute)}
     result = verify(case.dispute, claims, case.evidence_records())
-    return sum(1 for c in result.claims if c.claim.validation_status is ValidationStatus.BLOCKED)
+    blocked = [c for c in result.claims if c.claim.validation_status is ValidationStatus.BLOCKED]
+    fmt = 0
+    for c in blocked:
+        record = records.get(c.claim.source_record_id)
+        checks = {f.check for f in c.failures}
+        if (
+            record is not None
+            and c.claim.establishes in record_establishes(record, c.claim.source_field)
+            and checks <= FORMAT_ONLY
+        ):
+            fmt += 1
+    return len(blocked), fmt
 
 
 def fight_all(case: EvalCase) -> CaseResult:
     if not actionable(case.dispute):
         return CaseResult(case.id, Act.NONE)
     claims = case.claim_objects()
+    unsupported, fmt = score_claims_split(case, claims)
     return CaseResult(
-        case.id, Act.CHALLENGE, tuple(claims), unsupported_submitted=score_claims(case, claims)
+        case.id,
+        Act.CHALLENGE,
+        tuple(claims),
+        unsupported_submitted=unsupported,
+        unsupported_format=fmt,
     )
 
 

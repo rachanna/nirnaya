@@ -4,11 +4,16 @@ Endpoints and bodies are from the API reference and the kit 4 guide (checked 202
 - GET  /api/v1/pa/payment_disputes            (paging: `page`, `size`; next page: `page_after`)
 - GET  /api/v1/pa/payment_disputes/{id}
 - POST /api/v1/pa/payment_disputes/{id}/accept     {request_id, reason, accepted_by}
-- POST /api/v1/pa/payment_disputes/{id}/challenge  {request_id, challenge_method, reason,
-       product_type, supporting_documents.documents[{type, file_ids, description}]}
+- POST /api/v1/pa/payment_disputes/{id}/challenge  {request_id, challenge_method, challenged_by,
+       reason, product_type, customer_info, supporting_documents.documents[...]}
 - GET  /api/v1/pa/payment_attempts/{id}, GET /api/v1/pa/payment_intents/{id}
 - GET  /api/v1/pa/refunds?payment_intent_id=       (paging: `page_num`, `page_size`, `has_more`)
 - POST https://files.sandbox.airwallex.com/api/v1/files/upload (multipart `file`, `notes`)
+
+TODO(verify-airwallex-docs): the paging parameter names above are from the API reference as
+read on 2026-10-27, not observed on a multi-page sandbox listing; the error code "not_found"
+for a missing attempt or intent; and connected_account_id as the sign that an intent belongs
+to a connected account (any other value refers the case for ownership).
 
 One client serves one merchant: its credentials, its account. Calls for any other merchant
 are refused before they reach the wire.
@@ -158,6 +163,8 @@ class AirwallexClient:
             "request_id": request.request_id,
             # Always STANDARD: Nirnaya's verified package is what is submitted (section 7.2).
             "challenge_method": "STANDARD",
+            # Listed on the challenge reference (checked 2026-10-28).
+            # TODO(verify-airwallex-docs): which values challenged_by accepts.
             "challenged_by": ACTOR,
             "reason": request.reason.value,
             "supporting_documents": {

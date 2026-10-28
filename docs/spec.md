@@ -12,7 +12,7 @@ A dispute is a financial decision made under a deadline with incomplete evidence
 - **Agents raise the bar for trust.** An agent acting on money must stay within limits, explain each decision and never invent evidence.
 
 ## 2. Why existing tools are not enough
-Airwallex already auto-accepts pre-chargebacks below account-configured thresholds, auto-defends fully refunded disputes and auto-challenges eligible Visa CE3.0 fraud cases. AI Dispute Automation gives eligible merchants an advisory recommendation and an evidence package built from Airwallex data at the chargeback stage.
+Airwallex already auto-accepts pre-chargebacks below account-configured thresholds and auto-defends fully refunded disputes. (An automatic Visa CE 3.0 challenge is not described on the pages checked: `TODO(verify-airwallex-docs)`; Nirnaya does not rely on it.) AI Dispute Automation gives eligible merchants an advisory recommendation and an evidence package built from Airwallex data at the chargeback stage.
 
 What is still manual:
 1. Finding evidence outside Airwallex.
@@ -107,7 +107,7 @@ Sandbox outcomes are integration tests only. Economic results are simulations on
 ## 10. Demo
 The demo follows the Airwallex hackathon kit 4 brief ("Dispute Response Agent", [guide](https://airwallexdev.com/agentic-banking-builder-guide.md)). Each case is shown as: the goal, the agent's initial plan, the new information, the revised decision, and the resulting dispute status. All amounts are USD on the demo policy. `tests/test_kit4_scenarios.py` asserts every number.
 
-- **1. Large fraud claim (1,500 USD, RFI, Visa 10.4): recover revenue.** At first only the payment attempt is known, and the decision is to refer, since an RFI accept would issue a refund. Value of information names prior undisputed orders as worth finding. The agent finds three earlier undisputed orders from the same device and IP, plus a signed delivery. The decision flips to challenge, the claims verify, and the evidence goes in.
+- **1. Large fraud claim (1,500 USD, RFI, Visa 10.4): recover revenue.** On Airwallex's data alone (the dispute and the payment attempt) the decision is to refer, since an RFI accept would issue a refund. Nirnaya's intake then looks up the merchant's order record by code (it always does: the order is the anchor for every other lookup), and it shows three earlier undisputed orders from the same device and IP. That alone flips the decision to challenge; before drafting, code also checks the systems that could contradict it (§8.2 of the architecture). The claims verify and the evidence goes in. The investigating agent is not needed here; cases N1 and S5 show it finding the evidence that flips a decision. (The signed delivery in K1's data is not needed for the decision and is not fetched.)
 - **1b. The issuer rejects the evidence.** The sandbox escalation moves the case to chargeback as a new cycle. Nirnaya re-decides on the same verified evidence and challenges again.
 - **2. Small not-received claim (15 USD, chargeback, Visa 13.1): accept.** The carrier shows delivery but no signature. Fighting costs more than the amount at risk at any win probability, so Nirnaya accepts with the reason `LOW_VALUE_TRANSACTION`.
 - **2-C. Block a fabrication (same case).** An unguarded agent's draft says "delivered and signed for by J. Smith". The carrier record has no signature, so the verifier blocks the claim and shows exactly which claim failed and why.

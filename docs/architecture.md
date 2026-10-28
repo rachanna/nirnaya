@@ -298,7 +298,7 @@ stateDiagram-v2
 - **One step per case per tick.** The scheduler loads runnable cases, earliest `due_at` first, and runs one handler for each. Each handler is a pure function `(case, store snapshot, now) → (new state, effects)`, applied in **one SQLite transaction** together with an audit event.
 - **Ingestion never stops the tick.** Each merchant's listing runs on its own: a failure (Airwallex unreachable, bad credentials, an unreadable listing) is audited once as `INGEST_FAILED` and once as `INGEST_RECOVERED`, and the watchdog and every other merchant's cases still run on stored deadlines. The console shows the outage.
 - **Idempotent and resumable.** Re-running a handler after a crash produces the same effects. Writes are protected by the `request_id` ledger (§7.3), so `SUBMITTING` can be retried safely.
-- **Leases.** `cases.lease_until` stops two workers advancing the same case. The demo runs one worker, but the column keeps the invariant explicit.
+- **One worker.** There is no lease or compare-and-set on case state yet, so two workers on one store are not supported: a stale worker could step a case it read earlier. The write ledger still prevents a duplicate write (§7.3). Leases or `UPDATE … WHERE state = ?` are needed before running more than one worker.
 - **Per-case isolation.** A step that raises is rolled back with its transaction, audited as `STEP_FAILED` (state and error type), and skipped; the tick carries on with the other cases. After 3 failures in the same state the case is referred (urgent, `STEP_FAILED`), except in `SUBMITTING`: a write in flight is never interrupted and keeps reconciling through the gateway. It is never silent either: after `Settings.max_submitting_failures` (3, ASSUMPTION) failures, or once past the deadline buffer, the case is marked urgent and `SUBMISSION_STALLED` is audited (once per cause and cycle), with no transition, cancel or resend; the console's review tab lists it as a stalled write to check in Airwallex. (The ordinary paths are already bounded: a failed re-fetch refers the case through the gateway's `REFETCH_FAILED`, and repeated timeouts end at the gateway's deadline-buffer refusal. The alert covers a handler that raises every tick.) `Settings.isolate_step_failures` turns this off for debugging.
 - **Amendments re-decide.** If ingestion sees the dispute's amount or currency change within the same stage while the case is between `ASSESSED` and `REFERRED` (no write yet), the case returns to `ASSESSED` (`EXTERNAL_REASSESS`), any open referral is closed as `SUPERSEDED_BY_DISPUTE_CHANGE`, every approval of the cycle is voided, and `DISPUTE_AMENDED` is audited. The new decision gets a new draft, verification and PDF with the current amount.
 - **Clock injection.** The orchestrator owns `now` and passes it to the guardrails and the watchdog. The engine and verifier never see a clock (I2).
@@ -485,7 +485,7 @@ It takes **ids, not objects**. The gateway reloads everything it needs from the 
 | 2 | `status is ACTIONABLE_STATUS` (`REQUIRES_RESPONSE`) | `STATUS_CHANGED` |
 | 3 | `stage`, `amount`, `currency` equal to those the **decision** was made on (`decision.stage`, `decision.inputs.amount`), not merely the latest snapshot | `DISPUTE_CHANGED` |
 | 4 | `now < due_at − buffer(stage)` | `TOO_CLOSE_TO_DEADLINE` |
-| 5 | The dispute's account matches the case's merchant, and the merchant has delegated authority or a human approval exists for this cycle | `NO_AUTHORITY` |
+| 5 | The merchant has delegated authority, or a human approval exists for this cycle that still binds. (The account is not compared here: each `AirwallexClient` serves one merchant's credentials and refuses calls for another, §11.1.) | `NO_AUTHORITY` |
 | 6 | `decide()` re-run on the fresh dispute (and, for a challenge, on `established`) returns the same action (§6) | `DECISION_CHANGED` / `DECISION_NOT_SUPPORTED_BY_VERIFIED_CLAIMS` |
 | 7 | Challenge only: the stored `VerificationResult.outcome` is `PASSED`; every cited record's stored hash equals its capture hash; evidence files are uploaded and their `file_id`s recorded | `NOT_VERIFIED` / `EVIDENCE_CHANGED` / `FILES_MISSING` |
 | 7c | Challenge only: every record that could contradict the challenge was looked at: no lookup returned by `counterevidence_lookups()` is outstanding (§8.2). Read-only here; the drafting sweep does the fetching | `COUNTEREVIDENCE_INCOMPLETE` |
@@ -494,7 +494,7 @@ It takes **ids, not objects**. The gateway reloads everything it needs from the 
 
 A **human approval** satisfies check 5 and overrides the engine's economic REFER. It never satisfies check 7: an approved challenge still needs a `PASSED` verification.
 
-Each approval is **bound to what the approver saw** ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)): the action, the amount and currency, the dispute id and merchant, and the hash of the evidence package (verified claims plus rendered files). The gateway re-checks all of them; if any has changed since the approval, it is void and the case is referred again.
+Each approval is **bound to what the approver saw** ([kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md)): the action, the amount and currency, the dispute id and merchant, and the hashes of the case's evidence records (`guardrails/binding.py`). The gateway re-checks all of them; if any has changed since the approval, it is void and the case is referred again. An approved **challenge** is then drafted, verified and rendered after the approval, so its claims and PDF are not themselves approved: they must still pass verification (check 7), and the PDF is not shown to the approver again. Binding the approval to the rendered package (a second look after rendering) is not built.
 
 ### 7.3 Idempotency
 
@@ -509,7 +509,7 @@ Each approval is **bound to what the approver saw** ([kit 4 guide](https://airwa
 
 ### 7.4 Dry run
 
-`DRY_RUN=true` is the default. The gateway runs every check and builds the exact request, then stores it in the ledger as `DRY_RUN` instead of sending it. The case moves to `AWAITING_OUTCOME` with `dry_run=true`. In the sandbox, the simulation API can then resolve the dispute (§9.4).
+`DRY_RUN=true` is the default. The gateway runs every check and builds the exact request, then stores it in the ledger as `DRY_RUN` instead of sending it. The case moves to `AWAITING_OUTCOME` with `dry_run=true`. (The simulation client can also resolve a sandbox dispute, but the sandbox runner does not call it.)
 
 ---
 
@@ -545,7 +545,7 @@ Targets are **recomputed by code** after every tool result (`nirnaya/agent/targe
 | `get_order` | `ORDER_PLACED`, `DISTINCT_TRANSACTIONS`, `REFUND_ISSUED`, `PRIOR_UNDISPUTED_ORDERS_MATCH` | `merchant_order_id` (an Airwallex dispute field, per the webhook sample on [Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis)) |
 | `get_carrier_tracking` | `DELIVERY_CONFIRMED`, `DELIVERY_SIGNATURE` | tracking number from the order record |
 | `get_login_history` | `ACCOUNT_LOGIN_MATCH`, `USAGE_AFTER_RENEWAL` | customer account from the order record |
-| `get_helpdesk_summary` | `NO_PRIOR_CUSTOMER_CONTACT` (and surfaces customer messages as counterevidence). Also run by code at `INGESTED` for every case, because `unanswered_customer_contacts()` needs it | customer account |
+| `get_helpdesk_contacts` | `NO_PRIOR_CUSTOMER_CONTACT` (and surfaces customer messages as counterevidence). Also run by code at `INGESTED` for every case, because `unanswered_customer_contacts()` needs it | customer account |
 | `get_policy_acceptance` | `CANCELLATION_TERMS_ACCEPTED` | customer account |
 
 `THREE_DS_AUTHENTICATED`, `AVS_MATCH` and `CVC_MATCH` come from the payment-attempt snapshot at ingestion, not from the agent. They are final once ingested, so a VoI target with no tool (for example `AVS_MATCH` when AVS was not checked) is dropped from the agent's list.
@@ -650,8 +650,9 @@ The simulation client is constructible only when the base URL is the sandbox hos
 | `challenge_method` | Always `STANDARD` (§7.2 check 8) |
 | `product_type` (required at `CHARGEBACK`: `PHYSICAL_GOODS`, `DIGITAL_PRODUCT_OR_SERVICE`, `OFFLINE_SERVICE`, `TRAVEL`, `RESERVE_OR_BOOKING`, `OTHERS`) | Merchant config or the order record |
 | `reason` (`CUSTOMER_WITHDRAWN`, `CUSTOMER_REFUNDED`, `PRODUCT_RECEIVED`, `PURCHASE_HISTORY`, `NOT_ENTITLED`, `SEPARATE_PRODUCT`, `AUTHENTIC_PRODUCT`, `OTHER_REASONS`) | Challenge-reason mapping (§9.5) |
-| `supporting_documents.documents[]` (`type`: `PRIMARY`, `ORDER`, `CUSTOMER`, `OTHER`; `file_ids`; `description`) | Rendered evidence files (§9.6); `description` is the rendered claim text |
+| `supporting_documents.documents[]` (`type`: `PRIMARY`, `ORDER`, `CUSTOMER`, `OTHER`; `file_ids`; `description`) | Rendered evidence files (§9.6); `description` is a fixed summary ("Verified evidence: N claim(s), each bound to a source record"); the claims themselves are in the PDF |
 | `customer_info.device_id`, `customer_info.ip` (CHARGEBACK only) | The merchant's own ORDER record cited by the verified claims (§9.5) |
+| `challenged_by` | The constant `nirnaya`, naming the actor. Listed as a top-level request field on the [Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md) (checked 2026-10-28); the accepted values are `TODO(verify-airwallex-docs)`. The accept request sends `accepted_by` the same way |
 | `delivery_info`, `duplicate_charge_info`, other `customer_info` fields | Not sent |
 
 ### 9.3 Wire → domain mapping (`ingest/`)
@@ -674,7 +675,7 @@ The simulation client is constructible only when the base URL is the sandbox hos
 
 ### 9.4 Ingestion: polling first, webhooks second
 
-- **Reconciliation poll (primary).** Each tick lists disputes `updated_at` after the stored cursor, per merchant. This catches everything, including missed webhooks.
+- **Reconciliation poll (primary).** Each tick lists all of the merchant's disputes (paged; no `updated_at` cursor yet) and records only what changed against the stored snapshot. This catches everything, including missed webhooks, at the cost of one request per page and a refunds lookup per dispute (§17.2 #11).
 - **Unreadable disputes are surfaced.** A dispute the mapping cannot read (an undocumented enum, or any value the domain models refuse: precision, currency, naive or unordered timestamps, a negative amount) becomes an unreadable record, never a crash and never a guess. It has no case, so ingestion audits `INGEST_UNMAPPABLE` once per dispute and reason (with the raw `due_at`), and the console lists it for a person to handle in Airwallex, alongside disputes refused for tenancy (`INGEST_REJECTED`).
 - **Webhooks (optional; not built).** The events are `payment_dispute.requires_response`, `.challenged`, `.accepted`, `.won`, `.lost`, `.reversed`, `.expired`, `.pending_closure` and `.pending_decision` ([Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis)). A webhook only marks a dispute for immediate reconciliation; its payload is never used to decide or write.
 - `TODO(verify-airwallex-docs)`: webhook signature verification before any webhook endpoint is exposed.
@@ -760,7 +761,6 @@ erDiagram
         text state
         int cycle
         timestamp due_at
-        timestamp lease_until
     }
     DISPUTE_SNAPSHOTS {
         text id PK
@@ -980,7 +980,7 @@ flowchart LR
 - **What 42/42 means.** The expected route of each case (`eval/EXPERT_POLICY.md`) was derived by hand, but by the same author as the engine, from the same rules. So 42/42 agreement measures **self-consistency** (the code does what the written policy says), not that the policy is right. The independent signals are: the LLM-only comparison (a different decider, the same cases and rules); the count of unsupported claims submitted, which the verifier checks against the records rather than against the policy; and, once prior calibration exists (§19), realised outcomes.
 - **Metrics**, reported separately (spec §9):
   1. Expected net dispute loss against the baselines, and agreement with the expert decisions.
-  2. Unsupported claims submitted (target 0) and fabrications caught.
+  2. Unsupported claims submitted (target 0) and fabrications caught. Unsupported claims are split: those the cited record does not support (wrong record, a field that does not establish the fact, more than the record shows, a wrong amount or date) and true facts written in the wrong form (the field establishes the fact; only the value's form failed the exact check). The report also re-evaluates every maths action with one assumption changed at a time (`evaluation/sensitivity.py`).
   3. Merchant-policy violations (target 0).
   4. Lifecycle correctness: the right action per stage, deadlines met, no duplicate writes.
   5. Share of cases automated versus referred.

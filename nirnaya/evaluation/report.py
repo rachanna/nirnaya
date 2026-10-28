@@ -32,6 +32,7 @@ from nirnaya.evaluation.metrics import (
     priced,
 )
 from nirnaya.evaluation.policies import CaseResult, accept_all, fight_all, nirnaya
+from nirnaya.evaluation.sensitivity import sensitivity
 from nirnaya.models.policy import MerchantPolicy
 
 CAVEAT = (
@@ -128,6 +129,8 @@ def build(
                 "challenges": integ.challenges,
                 "claims_submitted": integ.claims_submitted,
                 "unsupported_submitted": integ.unsupported_submitted,
+                "unsupported_format": integ.unsupported_format,
+                "unsupported_substantive": integ.unsupported_submitted - integ.unsupported_format,
                 "challenges_without_evidence": integ.challenges_without_evidence,
                 "fabrications_caught": integ.fabrications_caught,
             },
@@ -185,6 +188,7 @@ def build(
         or None,
         "versions": versions(),
         "variance": variance(cases, repeats or {}, policy),
+        "sensitivity": sensitivity(cases, policy),
         "policies": policies,
         "rows": rows,
     }
@@ -212,6 +216,11 @@ def as_text(report: dict[str, Any]) -> str:
         ),
         "2. Evidence integrity",
         line("   unsupported claims submitted", lambda p: p["integrity"]["unsupported_submitted"]),
+        line(
+            "     of which the record overreaches",
+            lambda p: p["integrity"]["unsupported_substantive"],
+        ),
+        line("     of which value in wrong form", lambda p: p["integrity"]["unsupported_format"]),
         line(
             "   challenges with no evidence",
             lambda p: p["integrity"]["challenges_without_evidence"],
@@ -269,6 +278,14 @@ def as_markdown(report: dict[str, Any]) -> str:
         lambda p: f"{p['financial']['agreement']}/{p['financial']['cases']}",
     )
     row("Unsupported claims submitted", lambda p: p["integrity"]["unsupported_submitted"])
+    row(
+        "of which the record does not support the fact",
+        lambda p: p["integrity"]["unsupported_substantive"],
+    )
+    row(
+        "of which a true fact in the wrong form",
+        lambda p: p["integrity"]["unsupported_format"],
+    )
     row("Challenges with no evidence", lambda p: p["integrity"]["challenges_without_evidence"])
     row("Fabrications caught", lambda p: p["integrity"]["fabrications_caught"])
     row("Policy violations", lambda p: p["compliance"]["violations"])
@@ -324,6 +341,24 @@ def as_markdown(report: dict[str, Any]) -> str:
             "",
             "Nirnaya gives the same result on every run.",
         ]
+    sens = report.get("sensitivity")
+    if sens:
+        lines += [
+            "",
+            "## How much the decisions depend on assumed numbers",
+            "",
+            f"Maths actions on the {sens['cases']} cases that have one, re-evaluated with one "
+            "assumption changed at a time. The fees and q are unverified assumptions; a merchant "
+            "must set them.",
+            "",
+            "| Assumption | Maths actions that flip |",
+            "|---|---|",
+        ]
+        lines += [f"| {r['assumption']} | {r['flips']} |" for r in sens["rows"]]
+        near = ", ".join(
+            f"{r['case']} (p {r['p']} vs {r['break_even']})" for r in sens["near_break_even"]
+        )
+        lines += ["", f"Within 0.05 of the break-even prior: {near or 'none'}."]
     v = report["versions"]
     lines += [
         "",

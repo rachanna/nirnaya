@@ -97,6 +97,7 @@ class Integrity:
     challenges: int
     claims_submitted: int
     unsupported_submitted: int
+    unsupported_format: int  # of which: a true fact whose value was written in the wrong form
     challenges_without_evidence: int
     fabrications_caught: int
 
@@ -108,6 +109,7 @@ def integrity(cases: list[EvalCase], results: dict[str, CaseResult]) -> Integrit
         challenges=len(challenges),
         claims_submitted=sum(len(r.submitted) for r in challenges),
         unsupported_submitted=sum(r.unsupported_submitted for r in challenges),
+        unsupported_format=sum(r.unsupported_format for r in challenges),
         challenges_without_evidence=sum(1 for r in challenges if not r.submitted),
         fabrications_caught=sum(r.blocked_before_write for r in rs),
     )

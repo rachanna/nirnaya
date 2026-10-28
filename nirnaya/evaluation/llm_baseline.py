@@ -33,7 +33,12 @@ from nirnaya.config.demo import DEMO_FX, DEMO_POLICY
 from nirnaya.config.env import load_dotenv
 from nirnaya.evaluation import case_set
 from nirnaya.evaluation.cases import EvalCase, load_cases
-from nirnaya.evaluation.policies import Act, CaseResult, actionable, score_claims
+from nirnaya.evaluation.policies import (
+    Act,
+    CaseResult,
+    actionable,
+    score_claims_split,
+)
 from nirnaya.evidence.catalogue import record_establishes
 from nirnaya.llm.base import LLMClient
 from nirnaya.llm.factory import llm_settings_from_env, make_llm
@@ -384,9 +389,16 @@ def llm_only(case: EvalCase, cache: Cache) -> CaseResult:
     ids = {r.id for r in case.evidence_records()}
     items = [complete_item(i) for i in answer.get("claims") or []]
     claims, dropped = build_claims(case.dispute, items, ids)
-    # A claim that cannot even be built is an unsupported statement that would have been sent.
-    unsupported = score_claims(case, claims) + len(dropped)
-    return CaseResult(case.id, act, tuple(claims), unsupported_submitted=unsupported)
+    # A claim that cannot even be built is an unsupported statement that would have been sent;
+    # it is counted as a format failure (a value the model wrote in a form code cannot read).
+    blocked, fmt = score_claims_split(case, claims)
+    return CaseResult(
+        case.id,
+        act,
+        tuple(claims),
+        unsupported_submitted=blocked + len(dropped),
+        unsupported_format=fmt + len(dropped),
+    )
 
 
 def main(

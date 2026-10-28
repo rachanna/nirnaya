@@ -8,6 +8,8 @@
 | vs Nirnaya (USD) | 0.00 | 383.20 | 6234.60 | 78.20 | 465.00 | -75.00 |
 | Agrees with expert route | 42/42 | 18/42 | 14/42 | 28/42 | 34/42 | 39/42 |
 | Unsupported claims submitted | 0 | 6 | 0 | 18 | 10 | 4 |
+| of which the record does not support the fact | 0 | 6 | 0 | 5 | 0 | 0 |
+| of which a true fact in the wrong form | 0 | 0 | 0 | 13 | 10 | 4 |
 | Challenges with no evidence | 0 | 20 | 0 | 3 | 0 | 0 |
 | Fabrications caught | 1 | 0 | 0 | 0 | 0 | 0 |
 | Policy violations | 0 | 13 | 11 | 8 | 1 | 1 |
@@ -75,9 +77,31 @@ Cases whose unsupported-claim count changed between runs: A3 (2 / 2 / 0), D1 (0 
 
 Nirnaya gives the same result on every run.
 
+## How much the decisions depend on assumed numbers
+
+Maths actions on the 40 cases that have one, re-evaluated with one assumption changed at a time. The fees and q are unverified assumptions; a merchant must set them.
+
+| Assumption | Maths actions that flip |
+|---|---|
+| as configured | 0 |
+| every prior -0.10 | 4 |
+| every prior -0.05 | 2 |
+| every prior +0.05 | 3 |
+| every prior +0.10 | 3 |
+| q = 0.05 | 2 |
+| q = 0.25 | 14 |
+| F_pa = 0 | 4 |
+| F_pa = 1000 | 12 |
+| R = 0 | 2 |
+| R = 100 | 3 |
+| h = 50 | 3 |
+| m = 0 | 2 |
+
+Within 0.05 of the break-even prior: F3 (p 0.30 vs 0.320), F4 (p 0.30 vs 0.301), F5 (p 0.10 vs 0.140), N7 (p 0.60 vs 0.567), U2 (p 0.10 vs 0.053).
+
 ## Versions
 
-- Code: git `86ea26121978484d95ae50c97666f8fd44f5ea71` (uncommitted changes)
+- Code: git `3d301cdffa5cf5d264a0bcfa0d7c847746ee6fbf` (uncommitted changes)
 - Case set: v2 (42 cases, sha256 `a1e698b4a20c`)
 - Policy: `merchant-demo@demo-2026-10#bd3f0c2ec782`; FX: `fx@demo-2026-10-01#a74fb42c5c16`; economics: `economics@v1#b0b04a506ede`
 - LLM only (naive-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_naive_system@v1#1e33f22c05c7`, `baseline_naive_user@v1#86578a4c5f93`, `tools@v1#ba84dfdfa56a`; answered on case set v1; current is v2

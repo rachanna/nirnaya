@@ -26,6 +26,9 @@ from nirnaya.models.payment import PaymentAttempt
 from nirnaya.models.reasons import DisputeReason
 
 # Refunds in these states did not (or will not) move money back.
+# TODO(verify-airwallex-docs): the refund status values. A pending or cancelled refund counted
+# as paid could overstate refunded_amount; a wrong full-refund deferral is still checked by
+# the watchdog at the deadline buffer (DEFERRAL_UNCONFIRMED).
 _REFUND_NOT_PAID = frozenset({"FAILED"})
 
 

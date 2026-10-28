@@ -31,7 +31,7 @@ Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 uv sync
 cp .env.example .env    # then fill in what you need (see below)
-uv run pytest           # about 1,300 offline tests; no network, no keys needed
+uv run pytest           # about 1,470 offline tests; no network, no keys needed
 ```
 
 `.env` keys. Everything is optional for the offline demo:
@@ -59,7 +59,7 @@ uv run pytest           # about 1,300 offline tests; no network, no keys needed
 
 | Case | What happens |
 |---|---|
-| **1. Large fraud claim** (1,500 USD, RFI, Visa 10.4) | On Airwallex's data alone, Nirnaya refers, because an RFI accept would refund. It finds three prior undisputed orders from the same device and IP and challenges. |
+| **1. Large fraud claim** (1,500 USD, RFI, Visa 10.4) | On Airwallex's data alone, Nirnaya refers, because an RFI accept would refund. Its intake looks up the merchant's order record (by code), which shows three earlier undisputed orders from the same device and IP, so it challenges. The investigating agent is not needed here; N1 and S5 show it finding the evidence that flips a decision. |
 | **1b. The issuer rejects the evidence** | The case escalates to chargeback, and Nirnaya re-decides and challenges again. |
 | **2. Small not-received claim** (15 USD, chargeback, Visa 13.1) | Fighting costs more than the amount, so Nirnaya accepts (`LOW_VALUE_TRANSACTION`). |
 | **2-C. A fabricated signature** | An unguarded draft says "signed for by J. Smith". The carrier record has no signature, so the verifier blocks it and says why. |
@@ -71,7 +71,7 @@ At the chargeback stage Nirnaya also sends Airwallex the customer's device ID an
 
 ## Airwallex AI beside Nirnaya
 
-Airwallex's AI Dispute Automation can recommend Challenge or Accept for a dispute at the chargeback stage. Nirnaya reads that recommendation and shows it next to its own decision, with its reasons when they differ, for example: *"Airwallex AI recommends Challenge; Nirnaya decides REFER to a person (UNANSWERED_CUSTOMER_CONTACT)."* It is a comparison, never an input: the engine does not read it. Offline, the kit cases carry clearly labelled **simulated** recommendations to show the display; on the live sandbox the real one is used.
+Airwallex's AI Dispute Automation can recommend Challenge or Accept for a dispute at the chargeback stage. Nirnaya reads that recommendation and shows it next to its own decision, with its reasons when they differ, for example: *"Airwallex AI recommends Challenge; Nirnaya decides REFER to a person (UNANSWERED_CUSTOMER_CONTACT)."* It is a comparison, never an input: the engine does not read it. Offline, the kit cases carry clearly labelled **simulated** recommendations to show the display; on the live sandbox Nirnaya reads the real one if Airwallex sends it (not yet observed: sandbox card payments are failing).
 
 ## Evaluation (42 synthetic cases)
 
@@ -79,22 +79,25 @@ Airwallex's AI Dispute Automation can recommend Challenge or Accept for a disput
 |---|---|---|---|---|---|---|
 | Expected net loss (USD) | 11,417.40 | 11,800.60 | 17,652.00 | 11,495.60 | 11,882.40 | 11,342.40 |
 | Agrees with the expert decision | **42/42** | 18/42 | 14/42 | 28/42 | 34/42 | 39/42 |
-| Unsupported claims submitted | **0** | 6 | 0 | 18 | 10 | 4 |
+| Claims a record does not support | **0** | 6 | 0 | 5 | 0 | 0 |
+| True facts written in the wrong form (fail exact-value checks) | **0** | 0 | 0 | 13 | 10 | 4 |
 | Merchant-policy violations | **0** | 13 | 11 | 8 | 1 | 1 |
 
 The LLM-only baseline gives a model (`claude-sonnet-5-5`) the dispute and every record and lets it decide and draft alone, with no engine or verifier. *Naive* adds only the fees. *Informed* also gives it the merchant's rules from the policy file: when to escalate, the costs, the win priors, FX, the stage formulas, whose records may be cited, and which record field establishes which fact. Informed v2 adds the mapping from Airwallex reason types to the policy's reasons and the exact marginal-band rule, both missing from v1.
 
-Prompting closes most of the decision gap, and informed v2 even shows 75 USD less expected loss than Nirnaya. That 75 USD is three human reviews (25 USD each) it skipped on cases a person should see: A3, where it submitted two claims its records do not support; A5, where payment ownership is unresolved (a policy violation; the fact is not in any record); and S2, where it challenged without the evidence the reason code requires. The expected-loss metric charges for a review but puts no price on submitting an unsupported claim. Nirnaya's 0 unsupported claims and 0 violations hold by construction, on every run; the model's numbers are one run of a non-deterministic model.
+**What this shows, honestly.** Told the rules, Claude never claimed anything its records do not support, in any of four runs. Its failures were all true facts written as sentences where the exact record value was needed (for example "Order ORD-A3 exists." for `ORD-A3`), which an exact-binding check rejects because only an exact value can be checked against its record. Without the rules (naive), it did overreach: it cited another merchant's record and made a reason-specific claim on an unknown reason. Prompting closes most of the decision gap, and informed v2 even shows 75 USD less expected loss than Nirnaya; that 75 USD is three human reviews (25 USD each) it skipped on cases a person should see: A3, A5 (payment ownership unresolved, a policy violation; the fact is not in any record) and S2 (challenged without the evidence the reason code requires). So the difference is not that the model lies. It is that Nirnaya's guarantees hold by construction on every run (every submitted claim bound to and checked against a record field; policy referrals enforced), while the model's hold only as far as its prompt and that run went.
 
 **Same model, same prompts, three runs (informed v2):**
 
-| Run | Agrees with the expert | Unsupported claims | Policy violations |
+| Run | Agrees with the expert | Claims failing exact-value checks (all true facts in the wrong form) | Policy violations |
 |---|---|---|---|
 | 1 | 39/42 | 4 | 1 |
 | 2 | 39/42 | 4 | 1 |
 | 3 | 38/42 | 10 | 2 |
 
-One decision changed between runs (F8), and six cases changed how many unsupported claims the model submitted. K1, the kit's headline fraud case, had none in runs 1 and 2 and three in run 3. Nirnaya gives the same result on every run, with 0 unsupported claims by construction.
+One decision changed between runs (F8), and six cases changed how many claims failed (K1: 0, 0, then 3). Nirnaya gives the same result on every run.
+
+**How sensitive are the decisions?** The fees and q are assumptions, so the report re-evaluates every maths action with one changed at a time: raising q from 0.10 to 0.25 flips 14 of 40, a pre-arbitration fee of 1,000 instead of 500 flips 12, and shifting every prior by 0.10 flips 3 to 4. Five cases sit within 0.05 of their break-even prior. A merchant must set these numbers; `docs/calibration.md` specifies how to learn the priors from outcomes.
 
 Answers are cached in `eval/results/llm_only/<variant>-<version>.json` (repeat runs as `.runN.json`) with the prompt versions and case set used. An earlier naive v1 run on gpt-5-mini (22/42, 84 unsupported claims, 12 violations) is kept in `eval/results/llm_only/archive/`.
 
