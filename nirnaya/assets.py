@@ -185,6 +185,11 @@ def render_from(asset: Asset, pool: Mapping[str, str]) -> str:
     return render(asset, **{k: v for k, v in pool.items() if k in wanted})
 
 
+def published(root: Path = ROOT) -> list[Asset]:
+    """Every locked asset, verified, in path order."""
+    return [load(rel, root=root) for rel in sorted(_locked(root))]
+
+
 def _published(root: Path) -> dict[str, str]:
     return {
         p.relative_to(root).as_posix(): digest(_read(p))

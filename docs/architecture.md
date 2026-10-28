@@ -887,6 +887,11 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 - **Agent runs:** the transcript, tool calls, tokens and cost per cycle (`agent_runs`), and the prompt versions that produced the run (`name@version#hash`).
 - **Logs:** structured JSON lines with `merchant_id`, `case_id`, `cycle` and `state` on every line. No secrets, and no customer free text at INFO level.
 - **Integrity:** the hash-chained audit log plus record hashes allow an offline proof that evidence and decisions were not altered after the fact.
+- **LangSmith (optional):**
+  - *Tracing.* With `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY`, `make_llm` wraps the provider client in `TracedLLM` (`nirnaya/llm/tracing.py`). Every model call is logged as an LLM run: the system prompt, messages, tools, reply, tool calls and token usage. Each run is labelled with its step (investigate, draft, baseline), case, merchant, stage and prompt versions (`annotate()`), which also become tags such as `drafter_system@v1`. Agent code still imports no SDK. A trace records; it decides nothing.
+  - *Experiments.* `python -m nirnaya.integrations.langsmith experiments` uploads the evaluation report: one dataset per case-set version (expert route as the reference output) and one experiment per policy column, replaying the stored results with per-case scores and the report's totals as summary scores. Unchanged results are not uploaded twice (`eval/results/langsmith_experiments.json`).
+  - *Prompt mirror.* `python -m nirnaya.integrations.langsmith prompts` pushes every locked prompt version as a private, read-only commit tagged with its version. The repo file stays the source of truth.
+  - *What leaves the machine:* what the model sees (SYNTHETIC case data or sandbox test data), the prompts and the eval results. Never keys.
 
 ---
 
