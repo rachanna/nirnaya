@@ -10,7 +10,8 @@
         "baseline_naive_system@v1#1e33f22c05c7",
         "baseline_naive_user@v1#86578a4c5f93",
         "tools@v1#ba84dfdfa56a"
-      ]
+      ],
+      "case_set": "v1"
     },
     "informed-v1": {
       "provider": "anthropic",
@@ -20,7 +21,8 @@
         "baseline_informed_system@v1#794edcb55f46",
         "baseline_informed_user@v1#01b77866ab2e",
         "tools@v1#ba84dfdfa56a"
-      ]
+      ],
+      "case_set": "v1"
     },
     "informed-v2": {
       "provider": "anthropic",
@@ -30,22 +32,114 @@
         "baseline_informed_system@v2#76083047b918",
         "baseline_informed_user@v1#01b77866ab2e",
         "tools@v1#ba84dfdfa56a"
-      ]
+      ],
+      "case_set": "v1"
     }
   },
   "versions": {
     "git": {
-      "commit": "33e4054b0dc85c5aa3056fa849dda4fff8669278",
-      "dirty": false
+      "commit": "13dd86221aa8ff127556196e01e290bed16e7888",
+      "dirty": true
     },
     "case_set": {
-      "version": "v1",
+      "version": "v2",
       "count": 42,
-      "sha256": "22fb03b56b3bc771c554805fb56629614d1570d4ae6d6a0797b78e0d4fbe2b37"
+      "sha256": "a1e698b4a20c46c622b385fe0d947ed3f8178806be1566ab762a3af724bfe484"
     },
     "policy": "merchant-demo@demo-2026-10#bd3f0c2ec782",
     "fx": "fx@demo-2026-10-01#a74fb42c5c16",
     "economics": "economics@v1#b0b04a506ede"
+  },
+  "variance": {
+    "informed-v2": {
+      "runs": 3,
+      "per_run": [
+        {
+          "run": 1,
+          "run_at": "2026-10-28T02:08:44.468701+00:00",
+          "expected_loss": "11342.40",
+          "agreement": "39/42",
+          "unsupported": 4,
+          "violations": 1
+        },
+        {
+          "run": 2,
+          "run_at": "2026-10-28T04:22:49.003627+00:00",
+          "expected_loss": "11342.40",
+          "agreement": "39/42",
+          "unsupported": 4,
+          "violations": 1
+        },
+        {
+          "run": 3,
+          "run_at": "2026-10-28T04:26:07.267928+00:00",
+          "expected_loss": "11317.40",
+          "agreement": "38/42",
+          "unsupported": 10,
+          "violations": 2
+        }
+      ],
+      "changed": [
+        {
+          "case": "F8",
+          "actions": [
+            "REFER",
+            "REFER",
+            "CHALLENGE"
+          ]
+        }
+      ],
+      "claims_changed": [
+        {
+          "case": "A3",
+          "unsupported": [
+            2,
+            2,
+            0
+          ]
+        },
+        {
+          "case": "D1",
+          "unsupported": [
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "case": "D4",
+          "unsupported": [
+            1,
+            2,
+            2
+          ]
+        },
+        {
+          "case": "K1",
+          "unsupported": [
+            0,
+            0,
+            3
+          ]
+        },
+        {
+          "case": "N1",
+          "unsupported": [
+            1,
+            0,
+            2
+          ]
+        },
+        {
+          "case": "N5",
+          "unsupported": [
+            0,
+            0,
+            2
+          ]
+        }
+      ]
+    }
   },
   "policies": {
     "nirnaya": {

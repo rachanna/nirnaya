@@ -176,6 +176,7 @@ def build(
                 "model": c.model,
                 "run_at": c.run_at,
                 "prompts": list(c.prompts),
+                "case_set": c.case_set,
             }
             for variant, c in caches.items()
         }
@@ -309,9 +310,16 @@ def as_markdown(report: dict[str, Any]) -> str:
             for r in var["per_run"]
         ]
         changed = ", ".join(f"{c['case']} ({' / '.join(c['actions'])})" for c in var["changed"])
+        claims = ", ".join(
+            f"{c['case']} ({' / '.join(str(n) for n in c['unsupported'])})"
+            for c in var["claims_changed"]
+        )
         lines += [
             "",
-            f"Cases whose answer changed between runs: {changed or 'none'}. "
+            f"Cases whose decision changed between runs: {changed or 'none'}.",
+            "",
+            f"Cases whose unsupported-claim count changed between runs: {claims or 'none'}.",
+            "",
             "Nirnaya gives the same result on every run.",
         ]
     v = report["versions"]
@@ -327,6 +335,11 @@ def as_markdown(report: dict[str, Any]) -> str:
     ]
     for variant, m in (report["llm_only"] or {}).items():
         prompts = ", ".join(f"`{x}`" for x in m["prompts"]) or "not recorded"
+        current = v["case_set"].get("version")
+        if m.get("case_set") != current:
+            prompts += (
+                f"; answered on case set {m.get('case_set') or 'unrecorded'}; current is {current}"
+            )
         lines.append(
             f"- LLM only ({variant}): {m['provider']}/{m['model']}, {m['run_at'][:10]}; {prompts}"
         )
@@ -388,12 +401,20 @@ def variance(
                     "violations": compliance(cases, res).violations,
                 }
             )
-        changed = []
+        changed, claims_changed = [], []
         for c in cases:
             actions = [str(res[c.id].action) for res in results]
+            unsupported = [res[c.id].unsupported_submitted for res in results]
             if len(set(actions)) > 1:
                 changed.append({"case": c.id, "actions": actions})
-        out[label] = {"runs": len(runs), "per_run": per_run, "changed": changed}
+            if len(set(unsupported)) > 1:
+                claims_changed.append({"case": c.id, "unsupported": unsupported})
+        out[label] = {
+            "runs": len(runs),
+            "per_run": per_run,
+            "changed": changed,
+            "claims_changed": claims_changed,
+        }
     return out
 
 

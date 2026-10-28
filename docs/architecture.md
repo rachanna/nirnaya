@@ -656,6 +656,14 @@ Challenge-reason mapping, chosen at write time from `VerificationResult.establis
 | `PRIOR_UNDISPUTED_ORDERS_MATCH` (fraud) | `PURCHASE_HISTORY` |
 | anything else | `OTHER_REASONS` |
 
+**`customer_info` (CHARGEBACK only).** The challenge request's optional `customer_info` ("applicable when Payment Dispute stage is `CHARGEBACK`"; API reference, checked 2026-10-28) carries the customer's `device_id` and `ip` when a record establishes them (`nirnaya/guardrails/customer_info.py`):
+- the source is the merchant's own ORDER record (`device_id`, `ip_address`) that the verified claims cite, so the gateway has already bound it to this case and merchant and checked it against its captured hash;
+- the IP must parse as an IP address, and the device ID must be non-blank and at most 128 characters; a failing value is left out, never repaired;
+- only device ID and IP are sent (not name, email, phone or billing address);
+- the write ledger records what was sent with its source record and hash, and the case trace and console show it.
+
+In the kit, K1's RFI challenge carries none; its CHARGEBACK challenge after the issuer's rejection carries the order's device and IP.
+
 ### 9.6 Evidence files (`render/`)
 
 Verified claims are rendered into a single evidence document per cycle, split if size limits require. Each claim appears with its source excerpt: record id, source system, field, value, `captured_at` and `sha256`.

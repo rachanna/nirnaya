@@ -61,11 +61,25 @@
 | X1 | PRE_CHARGEBACK | 200.00 USD | DEFER | NONE | NONE | NONE | NONE | NONE | NONE |
 | X2 | PRE_ARBITRATION | 400.00 USD | DEFER | NONE | NONE | NONE | NONE | NONE | NONE |
 
+## Repeat runs: LLM only (informed v2), same model and prompts
+
+| Run | Expected net loss (USD) | Agrees with expert | Unsupported claims | Policy violations |
+|---|---|---|---|---|
+| 1 | 11342.40 | 39/42 | 4 | 1 |
+| 2 | 11342.40 | 39/42 | 4 | 1 |
+| 3 | 11317.40 | 38/42 | 10 | 2 |
+
+Cases whose decision changed between runs: F8 (REFER / REFER / CHALLENGE).
+
+Cases whose unsupported-claim count changed between runs: A3 (2 / 2 / 0), D1 (0 / 0 / 1), D4 (1 / 2 / 2), K1 (0 / 0 / 3), N1 (1 / 0 / 2), N5 (0 / 0 / 2).
+
+Nirnaya gives the same result on every run.
+
 ## Versions
 
-- Code: git `33e4054b0dc85c5aa3056fa849dda4fff8669278`
-- Case set: v1 (42 cases, sha256 `22fb03b56b3b`)
+- Code: git `13dd86221aa8ff127556196e01e290bed16e7888` (uncommitted changes)
+- Case set: v2 (42 cases, sha256 `a1e698b4a20c`)
 - Policy: `merchant-demo@demo-2026-10#bd3f0c2ec782`; FX: `fx@demo-2026-10-01#a74fb42c5c16`; economics: `economics@v1#b0b04a506ede`
-- LLM only (naive-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_naive_system@v1#1e33f22c05c7`, `baseline_naive_user@v1#86578a4c5f93`, `tools@v1#ba84dfdfa56a`
-- LLM only (informed-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_informed_system@v1#794edcb55f46`, `baseline_informed_user@v1#01b77866ab2e`, `tools@v1#ba84dfdfa56a`
-- LLM only (informed-v2): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_informed_system@v2#76083047b918`, `baseline_informed_user@v1#01b77866ab2e`, `tools@v1#ba84dfdfa56a`
+- LLM only (naive-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_naive_system@v1#1e33f22c05c7`, `baseline_naive_user@v1#86578a4c5f93`, `tools@v1#ba84dfdfa56a`; answered on case set v1; current is v2
+- LLM only (informed-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_informed_system@v1#794edcb55f46`, `baseline_informed_user@v1#01b77866ab2e`, `tools@v1#ba84dfdfa56a`; answered on case set v1; current is v2
+- LLM only (informed-v2): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_informed_system@v2#76083047b918`, `baseline_informed_user@v1#01b77866ab2e`, `tools@v1#ba84dfdfa56a`; answered on case set v1; current is v2

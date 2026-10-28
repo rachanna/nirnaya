@@ -211,3 +211,11 @@ def test_a_repeat_run_gets_its_own_cache_file():
     assert cache_path(p, run=2).name == f"informed-{p.system.version}.run2.json"
     lines = []
     assert main(env={}, out=lines.append, argv=["--variant", "informed", "--run", "0"]) == 2
+
+
+def test_a_run_records_the_case_set_it_answered():
+    from nirnaya.evaluation import case_set
+
+    llm = ScriptedLLM([decision("ACCEPT")])
+    result = run(llm, [CASES["K2"]], now=NOW, out=lambda _: None)
+    assert result["case_set"] == case_set.check()["version"]

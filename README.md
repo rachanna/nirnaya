@@ -65,6 +65,10 @@ uv run pytest           # about 1,300 offline tests; no network, no keys needed
 | **2-C. A fabricated signature** | An unguarded draft says "signed for by J. Smith". The carrier record has no signature, so the verifier blocks it and says why. |
 | **3. Credit not processed** (120 USD, chargeback, Visa 13.6) | The customer emailed support twice with no reply. The maths would accept, but a person decides. |
 
+## Device and IP on a chargeback challenge
+
+At the chargeback stage Nirnaya also sends Airwallex the customer's device ID and IP address (`customer_info`), taken only from the merchant's own order record that the verified claims cite, and only if valid. In the kit, K1's second challenge (after the issuer rejects the first) carries them.
+
 ## Airwallex AI beside Nirnaya
 
 Airwallex's AI Dispute Automation can recommend Challenge or Accept for a dispute at the chargeback stage. Nirnaya reads that recommendation and shows it next to its own decision, with its reasons when they differ, for example: *"Airwallex AI recommends Challenge; Nirnaya decides REFER to a person (UNANSWERED_CUSTOMER_CONTACT)."* It is a comparison, never an input: the engine does not read it. Offline, the kit cases carry clearly labelled **simulated** recommendations to show the display; on the live sandbox the real one is used.
@@ -82,7 +86,17 @@ The LLM-only baseline gives a model (`claude-sonnet-5-5`) the dispute and every 
 
 Prompting closes most of the decision gap, and informed v2 even shows 75 USD less expected loss than Nirnaya. That 75 USD is three human reviews (25 USD each) it skipped on cases a person should see: A3, where it submitted two claims its records do not support; A5, where payment ownership is unresolved (a policy violation; the fact is not in any record); and S2, where it challenged without the evidence the reason code requires. The expected-loss metric charges for a review but puts no price on submitting an unsupported claim. Nirnaya's 0 unsupported claims and 0 violations hold by construction, on every run; the model's numbers are one run of a non-deterministic model.
 
-Answers are cached in `eval/results/llm_only/<variant>-<version>.json` with the prompt versions used. An earlier naive v1 run on gpt-5-mini (22/42, 84 unsupported claims, 12 violations) is kept in `eval/results/llm_only/archive/`.
+**Same model, same prompts, three runs (informed v2):**
+
+| Run | Agrees with the expert | Unsupported claims | Policy violations |
+|---|---|---|---|
+| 1 | 39/42 | 4 | 1 |
+| 2 | 39/42 | 4 | 1 |
+| 3 | 38/42 | 10 | 2 |
+
+One decision changed between runs (F8), and six cases changed how many unsupported claims the model submitted. K1, the kit's headline fraud case, had none in runs 1 and 2 and three in run 3. Nirnaya gives the same result on every run, with 0 unsupported claims by construction.
+
+Answers are cached in `eval/results/llm_only/<variant>-<version>.json` (repeat runs as `.runN.json`) with the prompt versions and case set used. An earlier naive v1 run on gpt-5-mini (22/42, 84 unsupported claims, 12 violations) is kept in `eval/results/llm_only/archive/`.
 
 These are expected values under the expert policy's assumed priors and fees ([`eval/EXPERT_POLICY.md`](eval/EXPERT_POLICY.md)) on **synthetic** cases, not real issuer outcomes. The full report is `eval/results/report.md`.
 

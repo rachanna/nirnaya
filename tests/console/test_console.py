@@ -60,7 +60,9 @@ def test_the_issuer_rejection_starts_a_second_cycle_that_is_challenged_again(ses
     session.reject_k1()
     card = kit_card(session, "K1")
     assert [a.stage for a in card.cycles] == ["RFI", "CHARGEBACK"]
-    assert card.cycles[1].writes == ("CHALLENGE CONFIRMED",)
+    assert card.cycles[1].writes == (
+        "CHALLENGE CONFIRMED; customer_info: device dev-k1-7f3a91, ip 203.0.113.24 (from K1-order)",
+    )  # at CHARGEBACK the challenge carries the order's device and IP
     assert card.dispute_status == "CHARGEBACK CHALLENGED"
 
 

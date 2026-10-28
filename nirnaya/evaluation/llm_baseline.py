@@ -31,6 +31,7 @@ from nirnaya import assets
 from nirnaya.agent.llm_drafter import VALUE_KINDS, build_claims, field_guide
 from nirnaya.config.demo import DEMO_FX, DEMO_POLICY
 from nirnaya.config.env import load_dotenv
+from nirnaya.evaluation import case_set
 from nirnaya.evaluation.cases import EvalCase, load_cases
 from nirnaya.evaluation.policies import Act, CaseResult, actionable, score_claims
 from nirnaya.evidence.catalogue import record_establishes
@@ -296,6 +297,14 @@ def ask(llm: LLMClient, case: EvalCase, prompts: BaselinePrompts | None = None) 
     }
 
 
+def _case_set_version() -> str | None:
+    """The case-set version the answers were given on (None if the cases are off-manifest)."""
+    try:
+        return case_set.check()["version"]
+    except case_set.CaseSetChanged:
+        return None
+
+
 def run(
     llm: LLMClient,
     cases: list[EvalCase],
@@ -316,6 +325,7 @@ def run(
         "model": llm.model,
         "variant": prompts.variant,
         "prompts": list(prompts.refs),
+        "case_set": _case_set_version(),
         "run_at": now.isoformat(),
         "cases": answers,
     }
@@ -330,6 +340,8 @@ class Cache:
     variant: str = "naive"
     # Prompt versions the answers came from; empty for a run made before prompts were versioned.
     prompts: tuple[str, ...] = ()
+    # The eval case-set version the answers were given on.
+    case_set: str | None = None
 
     @classmethod
     def load(cls, path: Path) -> "Cache | None":
@@ -343,6 +355,7 @@ class Cache:
             data["cases"],
             data.get("variant", "naive"),
             tuple(data.get("prompts", ())),
+            data.get("case_set"),
         )
 
 

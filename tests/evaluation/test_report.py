@@ -72,7 +72,9 @@ def test_the_report_loads_every_cached_version_in_variant_order(tmp_path):
 
 def test_the_report_states_the_versions_it_was_built_from(report):
     v = report["versions"]
-    assert v["case_set"]["version"] == "v1" and v["case_set"]["count"] == 42
+    from nirnaya.evaluation import case_set
+
+    assert v["case_set"] == case_set.check() and v["case_set"]["count"] == 42
     assert v["policy"].startswith("merchant-demo@demo-2026-10#")
     assert v["fx"].startswith("fx@") and v["economics"].startswith("economics@v1#")
     assert set(v["git"]) == {"commit", "dirty"}
@@ -117,9 +119,19 @@ def test_repeat_runs_are_kept_apart_from_the_columns_and_compared_case_by_case(t
     assert v["runs"] == 2
     assert [r["agreement"] for r in v["per_run"]] == ["2/2", "1/2"]
     assert v["changed"] == [{"case": "N1", "actions": ["CHALLENGE", "REFER"]}]
+    assert v["claims_changed"] == []  # no claims in either run
 
 
 def test_a_single_run_has_no_variance_section():
     from nirnaya.evaluation.report import variance
 
     assert variance(CASES, {}) == {}
+
+
+def test_a_cache_made_on_an_older_case_set_is_flagged():
+    at = datetime(2026, 10, 27, tzinfo=UTC).isoformat()
+    old = Cache("fake", "m", at, {"N1": {"action": "CHALLENGE", "claims": []}}, "naive", (), "v0")
+    report = build([c for c in CASES if c.id == "N1"], caches={"naive-v1": old})
+    assert report["llm_only"]["naive-v1"]["case_set"] == "v0"
+    current = report["versions"]["case_set"]["version"]
+    assert f"answered on case set v0; current is {current}" in as_markdown(report)

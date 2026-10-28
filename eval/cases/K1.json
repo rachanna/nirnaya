@@ -55,7 +55,9 @@
         "currency": "USD",
         "tracking_number": "TRK-K1",
         "fulfilment_status": "SHIPPED",
-        "prior_undisputed_orders_matching_device_ip": 3
+        "prior_undisputed_orders_matching_device_ip": 3,
+        "device_id": "dev-k1-7f3a91",
+        "ip_address": "203.0.113.24"
       }
     },
     {
