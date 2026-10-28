@@ -1,0 +1,4 @@
+# Evaluation-only assumptions (eval/EXPERT_POLICY.md section 9). Not used by the engine.
+
+# ASSUMPTION: what a person's review of a referred case costs, in the policy currency.
+review_cost = "25"

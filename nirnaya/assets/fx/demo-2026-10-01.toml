@@ -1,0 +1,24 @@
+# SYNTHETIC/ASSUMPTION demo FX snapshot. Only direct rates are used; inverses are never derived.
+
+label = "SYNTHETIC/ASSUMPTION demo FX snapshot"
+as_of = "2026-10-01T00:00:00Z"
+
+[[rates]]
+base = "EUR"
+quote = "USD"
+rate = "1.10"
+
+[[rates]]
+base = "JPY"
+quote = "USD"
+rate = "0.0067"
+
+[[rates]]
+base = "USD"
+quote = "JPY"
+rate = "150"
+
+[[rates]]
+base = "GBP"
+quote = "USD"
+rate = "1.27"

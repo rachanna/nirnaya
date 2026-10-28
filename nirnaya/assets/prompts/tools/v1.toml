@@ -1,0 +1,25 @@
+# Tool and field descriptions the model reads. Schemas (names, enums, required fields)
+# stay in code; only the wording is here.
+
+[investigator]
+get_order = "Look up the merchant's order record (items, totals, customer, history)."
+get_carrier_tracking = "Look up carrier tracking events for a shipment."
+get_login_history = "Look up the customer's account login and activity summary."
+get_helpdesk_contacts = "Look up support tickets and replies for the customer."
+get_policy_acceptance = "Look up which terms and policies the customer accepted, and when."
+finish = "Stop investigating: nothing more is worth fetching for this case."
+
+[drafter.submit_claims]
+description = "Submit every factual statement for this dispute response at once."
+
+[drafter.submit_claims.fields]
+extracted_value = "the field's value exactly as it appears"
+text = "for NAME, IDENTIFIER or ENUM"
+amount = "for MONEY, e.g. 200.00"
+currency = "for MONEY, ISO-4217"
+at = "for DATETIME, ISO-8601 with offset"
+date = "for DATE, YYYY-MM-DD"
+tz = "for DATE, IANA time zone"
+
+[baseline.decide]
+description = "Decide the dispute and, for a challenge, list the supporting claims."

@@ -1,0 +1,15 @@
+# SHA-256 of every published asset (text, normalised line endings).
+# Written by: python -m nirnaya.assets lock. Never edit an entry: a changed
+# text is a new version file.
+
+[files]
+"evaluation/economics/v1.toml" = "b0b04a506edee092cfa7e115b3eef90428b6a9da40cd810f2881afa1abd579a2"
+"fx/demo-2026-10-01.toml" = "a74fb42c5c1696ef9dfc9b022a943e15072ddd780f7add763304910e555f34c0"
+"policies/merchant-demo/demo-2026-10.toml" = "bd3f0c2ec7820ab5c2bc9285ecbf072e22cf6b7d77a46ee843a55794a6732507"
+"prompts/baseline_naive_system/v1.md" = "1e33f22c05c7bfa09ecc74aeaf2e4082cf74fcdd2c334f177f0573e88a13e3ef"
+"prompts/baseline_naive_user/v1.md" = "86578a4c5f93347447f67e8e8d84753664d147098c91fdf83e05bcd7f0427dc3"
+"prompts/drafter_system/v1.md" = "6c9a943c49efcb3903249f5f022a615304f6850762a85a259bf16725a26b836a"
+"prompts/drafter_user/v1.md" = "56b395e94bd8a39a793139021503b8846e2763332719ac7d06b63d02e4281368"
+"prompts/investigator_system/v1.md" = "1a2f30db35063afc2bcf7ba9032fb6dad63b51153d96ca44172abded14ab7ded"
+"prompts/investigator_user/v1.md" = "469b752adc643b72106f443b287d6072c3a8d27b5589f2db0dd219ba274c4a64"
+"prompts/tools/v1.toml" = "ba84dfdfa56ae467d18b43c2badcb32fe26b45b325ede1e16344bcc206cbca8a"

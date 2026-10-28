@@ -1,0 +1,17 @@
+# Which version of each asset is in use. Changing a pin is a reviewed commit.
+# Prompt pins can be overridden for an experiment: NIRNAYA_PROMPTS=name:version,...
+# Configuration pins cannot: a change there alters decisions.
+
+[prompts]
+investigator_system = "v1"
+investigator_user = "v1"
+drafter_system = "v1"
+drafter_user = "v1"
+tools = "v1"
+baseline_naive_system = "v1"
+baseline_naive_user = "v1"
+
+[config]
+policy = "policies/merchant-demo/demo-2026-10.toml"
+fx = "fx/demo-2026-10-01.toml"
+economics = "evaluation/economics/v1.toml"
