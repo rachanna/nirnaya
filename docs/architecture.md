@@ -46,7 +46,7 @@ These are the seven rules in `CLAUDE.md`, restated with **where each is enforced
 | I4 | Customer and support text is untrusted data. | Customer-authored records establish nothing (`nirnaya/evidence/catalogue.py` `record_establishes`); the agent never sees customer-written content and passes records only as delimited data (§8.4) | ✅ catalogue tests; `tests/agent/` |
 | I5 | Writes are guarded: re-fetch, re-check, unique `request_id`, `DRY_RUN=true` by default. | `nirnaya/guardrails/` write gateway (§7); AST test that only the gateway calls write operations (§3.3) | ✅ `tests/guardrails/`, `tests/test_architecture.py` |
 | I6 | Tenant isolation by `merchant_id`. | `TenantMismatchError` in `nirnaya/engine/core.py`; `case_records()` in `nirnaya/evidence/derive.py`; verifier scope checks; the repository layer (§10.3); one Airwallex client per merchant (§11.1) | ✅ including `tests/store/test_store.py` |
-| I7 | Never invent Airwallex API details. | Enums carry documented values (`nirnaya/models/enums.py`); `TODO(verify-airwallex-docs)` markers | review |
+| I7 | Never invent Airwallex API details. | Every endpoint the client calls must be cited in §9.2 with its source; enums carry documented values (`nirnaya/models/enums.py`); `TODO(verify-airwallex-docs)` markers | ✅ endpoints: `tests/test_airwallex_citations.py`; enum values: review |
 
 ### 1.2 In scope
 
@@ -607,7 +607,7 @@ Model: chosen by configuration through the provider-neutral `LLMClient` (`nirnay
 | Challenge | `POST /api/v1/pa/payment_disputes/{dispute_id}/challenge`; allowed at `RFI` or `CHARGEBACK` with `REQUIRES_RESPONSE` | **write** | [Challenge API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/challenge.md) |
 | Accept | `POST /api/v1/pa/payment_disputes/{dispute_id}/accept`; required `request_id`, `reason` from `AcceptReason` | **write** | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md); [API reference](https://www.airwallex.com/docs/api/payments/payment_disputes/retrieve) |
 | Upload evidence file | `POST https://files.sandbox.airwallex.com/api/v1/files/upload` (multipart `file`, `notes`) → `file_id`; Nirnaya uploads PDF only | **write** | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) (settles §17 #14 for the sandbox) |
-| Create test payments | `POST /api/v1/pa/payment_intents/create`, then `/{id}/confirm` (test card `4035501000000008`) | sim | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
+| Create test payments | `POST /api/v1/pa/payment_intents/create`, then `POST /api/v1/pa/payment_intents/{id}/confirm` (test card `4035501000000008`) | sim | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
 | Payment attempt / intent read | `GET /api/v1/pa/payment_attempts/{id}` (3DS, AVS, CVC); `GET /api/v1/pa/payment_intents/{id}` (ownership check) | read | API reference |
 | Refunds | `GET /api/v1/pa/refunds` | read | [kit 4 guide](https://airwallexdev.com/agentic-banking-builder-guide.md) |
 | Simulate create | `POST /api/v1/simulation/pa/payment_disputes/create` | sim | [Simulate payment disputes](https://www.airwallex.com/docs/developer-tools/sandbox-environment/payments/simulate-payment-disputes) |
@@ -684,6 +684,8 @@ In the kit, K1's RFI challenge carries none; its CHARGEBACK challenge after the 
 
 Verified claims are rendered into a single evidence document per cycle, split if size limits require. Each claim appears with its source excerpt: record id, source system, field, value, `captured_at` and `sha256`.
 
+**Open question (with §17.2 #19):** the renderer leaves out dates and document ids so the output is byte-identical and its hash reproducible. A representment is partly read by a person at the issuer, and a dateless document may read as less credible. An alternative is to hash the *claims* (already bound to record hashes) and let the document carry a dated header. Behaviour is unchanged until the live-upload check.
+
 Format and size limits by card brand, from [Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis):
 
 | Brand | Formats | Limits |
@@ -744,7 +746,7 @@ erDiagram
         timestamp fetched_at
     }
     CYCLES {
-        text case_id FK
+        text case_id PK, FK "key is (case_id, cycle)"
         int cycle PK
         text stage
         text policy_version
@@ -949,6 +951,7 @@ flowchart LR
 
     Answers are cached as `eval/results/llm_only/<variant>-<system prompt version>.json` (repeat runs `.runN.json`), with the model, prompt versions and the case set they were given on. The report has one column per prompt version and a repeat-run section: each run's numbers, and every case whose decision or unsupported-claim count changed between runs.
 - **Nirnaya** is measured from real pipeline runs (dry run, scripted agent; the fabrication cases use their careless fixture drafter), never copied from the expectations.
+- **What 42/42 means.** The expected route of each case (`eval/EXPERT_POLICY.md`) was derived by hand, but by the same author as the engine, from the same rules. So 42/42 agreement measures **self-consistency** (the code does what the written policy says), not that the policy is right. The independent signals are: the LLM-only comparison (a different decider, the same cases and rules); the count of unsupported claims submitted, which the verifier checks against the records rather than against the policy; and, once prior calibration exists (§19), realised outcomes.
 - **Metrics**, reported separately (spec §9):
   1. Expected net dispute loss against the baselines, and agreement with the expert decisions.
   2. Unsupported claims submitted (target 0) and fabrications caught.
@@ -1036,7 +1039,7 @@ What a model is told, and the configuration decisions depend on, live in files r
 | 12 | Auto-accept threshold source | merchant config, or read from Airwallex if exposed | Deferral correctness | M5 |
 | 15 | Is there a fee for accepting at RFI (`fee_rfi_accept`, default 0)? | per Airwallex pricing | RFI economics | Before any real merchant |
 | 16 | Which `reason.type` does the sandbox assign to Visa codes 10.4, 13.1 and 13.6? | observe on simulated disputes | Whether the demo cases map to FRAUD, NON_RECEIPT and UNKNOWN as expected | M5 |
-| 19 | Evidence file formats: JPG or PDF (kit guide) or JPG, PNG, WEBP (challenge reference) | observe on a live upload | Whether PDF evidence is accepted | Live sandbox run |
+| 19 | Evidence file formats: JPG or PDF (kit guide) or JPG, PNG, WEBP (challenge reference); and whether the evidence document should carry a dated header (§9.6) | observe on a live upload | Whether PDF evidence is accepted, and how it reads to the issuer | Live sandbox run |
 | 20 | Does the sandbox return an `AVAILABLE` AI recommendation? | observe on a simulated CHARGEBACK dispute | Whether the live demo shows a real recommendation | Live sandbox run |
 | 18 | Can a **pre-chargeback** be challenged? The disputes guide says yes (it escalates to chargeback); the Challenge API reference lists only RFI and CHARGEBACK | check with the Docs MCP | Pre-chargeback challenges (`FakeAirwallex` refuses them); sandbox pre-chargebacks auto-accept anyway | M5 |
 
@@ -1054,14 +1057,18 @@ What a model is told, and the configuration decisions depend on, live in files r
 | M6: Evaluation | `nirnaya/evaluation/` economics, policies, metrics, LLM-only baseline, report | Five metrics against three baselines on 42 cases: Nirnaya has the lowest expected loss, 42/42 agreement with the expert, 0 unsupported claims, 0 violations and a clean ledger | ✅, with LLM-only runs on `claude-sonnet-5-5` (naive, informed v1 and v2, informed v2 three times) |
 | M7: Streamlit demo | `app/`, `nirnaya/console/` | Kit 4 cases in the kit's demo structure (with the issuer rejection and the 2-C fabrication), review queue with approver actions, case detail, baseline comparison | ✅ |
 
-**After M7** ✅ (1431 tests): the Claude adapter uses strict tool calls (current models reject a forced `tool_choice`); versioned prompts and configuration with a SHA-256 lock and a versioned case set (§16.1); optional LangSmith tracing with one trace per case, a read-only prompt mirror and eval experiments (§13); Airwallex's AI recommendation beside each decision (§9.3); the customer's device ID and IP on chargeback challenges (§9.5).
+Review and change notes, **newest first** (dates are commit dates, so test counts rise as you read upward):
 
-**Second code review** ✅ (1108 tests): out-of-range timestamps are unreadable rather than a crash, a new cycle closes the old cycle's referral, each record is dated against its own order, the note event states its authority, cross-tenant record ids fail as `StoreError`, referral descriptions come from the decision, one rule matcher and one date-only rule, and no write lock on opening an up-to-date database.
+**External architecture review, 2026-10-28** ✅: a deferral is checked at the deadline buffer and referred if Airwallex has not acted (`DEFERRAL_UNCONFIRMED`, §4.3); a stalled write in `SUBMITTING` is flagged and made urgent, never interrupted (§4.2); the 42/42 agreement is qualified as self-consistency (§14); endpoints are checked against their citations (I7).
 
-**Code review of batch 2** ✅ (1094 tests): disputed-order anchors, all counterevidence kept, tampered records excluded from date checks, safe step-wise migrations, notes recorded on delegated submissions, contradiction descriptions in referrals, merchant-scoped ids and counts, one-pass cross-check, one-query escalation, one UTC timestamp parser.
+**After M7, 2026-10-28** ✅ (1431 tests): the Claude adapter uses strict tool calls (current models reject a forced `tool_choice`); versioned prompts and configuration with a SHA-256 lock and a versioned case set (§16.1); optional LangSmith tracing with one trace per case, a read-only prompt mirror and eval experiments (§13); Airwallex's AI recommendation beside each decision (§9.3); the customer's device ID and IP on chargeback challenges (§9.5).
 
-**Pre-submission audit, batch 2** ✅ (1073 tests): dates must be consistent across records, which also caught impossible dates in the S1/S5 fixtures (M3); a referral nearing the deadline becomes urgent (L3); the referral record carries why (L4).
+**Second code review, 2026-10-23** ✅ (1108 tests): out-of-range timestamps are unreadable rather than a crash, a new cycle closes the old cycle's referral, each record is dated against its own order, the note event states its authority, cross-tenant record ids fail as `StoreError`, referral descriptions come from the decision, one rule matcher and one date-only rule, and no write lock on opening an up-to-date database.
 
-**Pre-submission audit, batch 1** ✅ (1047 tests): a changed source record is versioned instead of halting the scheduler, and a failing step is isolated per case (H1); a new attempt after a rejected write gets a new `request_id` (M1); the gateway compares against the decision's own dispute, and an amended amount re-decides the case and voids stale approvals (M2); no PNG for any brand (L1). Since closed: metrics and baselines (M6; L2 by choosing expected values over realised fees, §14), the sandbox client (M5), and showing the model only the facts its records establish (L5).
+**Code review of batch 2, 2026-10-23** ✅ (1094 tests): disputed-order anchors, all counterevidence kept, tampered records excluded from date checks, safe step-wise migrations, notes recorded on delegated submissions, contradiction descriptions in referrals, merchant-scoped ids and counts, one-pass cross-check, one-query escalation, one UTC timestamp parser.
+
+**Pre-submission audit, batch 2, 2026-10-23** ✅ (1073 tests): dates must be consistent across records, which also caught impossible dates in the S1/S5 fixtures (M3); a referral nearing the deadline becomes urgent (L3); the referral record carries why (L4).
+
+**Pre-submission audit, batch 1, 2026-10-23** ✅ (1047 tests): a changed source record is versioned instead of halting the scheduler, and a failing step is isolated per case (H1); a new attempt after a rejected write gets a new `request_id` (M1); the gateway compares against the decision's own dispute, and an amended amount re-decides the case and voids stale approvals (M2); no PNG for any brand (L1). Since closed: metrics and baselines (M6; L2 by choosing expected values over realised fees, §14), the sandbox client (M5), and showing the model only the facts its records establish (L5).
 
 Each milestone is finished and tested before the next starts (`CLAUDE.md`).

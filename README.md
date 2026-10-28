@@ -98,6 +98,8 @@ One decision changed between runs (F8), and six cases changed how many unsupport
 
 Answers are cached in `eval/results/llm_only/<variant>-<version>.json` (repeat runs as `.runN.json`) with the prompt versions and case set used. An earlier naive v1 run on gpt-5-mini (22/42, 84 unsupported claims, 12 violations) is kept in `eval/results/llm_only/archive/`.
 
+**On the 42/42:** the expected routes were derived by hand from the written expert policy, by the same author as the engine, so this measures self-consistency (the code follows its policy), not that the policy is right. The independent evidence is the comparison with the LLM-only baseline and the unsupported-claim counts.
+
 These are expected values under the expert policy's assumed priors and fees ([`eval/EXPERT_POLICY.md`](eval/EXPERT_POLICY.md)) on **synthetic** cases, not real issuer outcomes. The full report is `eval/results/report.md`.
 
 ## Versioned prompts and configuration

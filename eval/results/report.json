@@ -1,5 +1,5 @@
 {
-  "caveat": "Expected values under the expert policy's assumed priors and fees on SYNTHETIC cases (eval/EXPERT_POLICY.md); not real issuer or network outcomes.",
+  "caveat": "Expected values under the expert policy's assumed priors and fees on SYNTHETIC cases (eval/EXPERT_POLICY.md); not real issuer or network outcomes. The expert routes and the engine share an author, so agreement with them measures self-consistency; the independent signals are the LLM-only comparison and the unsupported-claim counts.",
   "cases": 42,
   "llm_only": {
     "naive-v1": {
@@ -38,8 +38,8 @@
   },
   "versions": {
     "git": {
-      "commit": "f24727aaa82957b31ec1dd555295067bf1548fcd",
-      "dirty": false
+      "commit": "4cc626a5a6b16d3de6cd410811b346bb2493f7e2",
+      "dirty": true
     },
     "case_set": {
       "version": "v2",

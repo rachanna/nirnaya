@@ -36,7 +36,9 @@ from nirnaya.models.policy import MerchantPolicy
 
 CAVEAT = (
     "Expected values under the expert policy's assumed priors and fees on SYNTHETIC cases "
-    "(eval/EXPERT_POLICY.md); not real issuer or network outcomes."
+    "(eval/EXPERT_POLICY.md); not real issuer or network outcomes. The expert routes and the "
+    "engine share an author, so agreement with them measures self-consistency; the independent "
+    "signals are the LLM-only comparison and the unsupported-claim counts."
 )
 NAMES = {
     "nirnaya": "Nirnaya",
