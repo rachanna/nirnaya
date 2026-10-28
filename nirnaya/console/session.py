@@ -1,6 +1,7 @@
 """A demo session for the console: a store, the simulated Airwallex and the orchestrator.
 
-The console shows the kit 4 cases (1, 1b, 2, 2-C, 3) end to end. Offline, Airwallex is the
+The console shows the kit 4 cases (1, 1b, 2, 2-C, 3) end to end, then one case beyond the kit
+whose deciding fact is only in a driver's note (architecture 8.8). Offline, Airwallex is the
 in-memory fake and merchant systems are SYNTHETIC; writes land only in the fake. A sandbox run
 written by `python -m nirnaya.sandbox_demo` can be opened to view instead (no actions).
 """
@@ -13,6 +14,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from nirnaya.config.demo import DEMO_POLICY
+from nirnaya.evaluation.agentic import AgenticCase, Cached, load_agentic_cases, load_llm_caches
 from nirnaya.evaluation.cases import EvalCase, load_cases, synthetic_world
 from nirnaya.integrations.mocks.airwallex_ai import simulated as simulated_ai
 from nirnaya.integrations.mocks.airwallex_fake import FakeAirwallex
@@ -25,6 +27,7 @@ from nirnaya.runtime import build_orchestrator
 from nirnaya.store import Store, connect
 
 KIT = ("K1", "K2", "K3")
+NOTE_CASE = "AG-F1"  # the agentic suite's signature-in-a-driver's-note case
 M = DEMO_POLICY.merchant_id
 SANDBOX_DIR = Path(".nirnaya")
 
@@ -42,6 +45,9 @@ class DemoSession:
     source: str = "offline"
     rejected: bool = False
     log: list[str] = field(default_factory=list)
+    note_case: AgenticCase | None = None
+    # How the note was read: a live model call or a replayed cached answer (labelled).
+    note_source: str | None = None
 
     @property
     def can_act(self) -> bool:
@@ -53,6 +59,7 @@ class DemoSession:
     ) -> "DemoSession":
         """A fresh in-memory session. The agent (scripted or LLM) follows the environment."""
         cases = {c.id: c for c in load_cases()}
+        note = next(c for c in load_agentic_cases() if c.id == NOTE_CASE)
         store = Store(connect(check_same_thread=False))  # Streamlit reruns on worker threads
         store.register_merchant(
             M, airwallex_account_id="acct-demo", policy=DEMO_POLICY, delegated_authority=True
@@ -62,13 +69,13 @@ class DemoSession:
             store,
             aw,
             aw,
-            synthetic_world(list(cases.values())),
+            synthetic_world([*cases.values(), note.case]),
             Settings(dry_run=False),  # the fake is the only Airwallex here
             env=os.environ if env is None else env,
             llm=llm,
         )
         now = cases["K1"].dispute.opened_at + timedelta(hours=1)
-        return cls(store, cases, {k: k for k in KIT}, now, aw=aw, orch=orch)
+        return cls(store, cases, {k: k for k in KIT}, now, aw=aw, orch=orch, note_case=note)
 
     @classmethod
     def from_sandbox_run(cls, directory: Path = SANDBOX_DIR) -> "DemoSession | None":
@@ -116,6 +123,37 @@ class DemoSession:
         orch.run_until_idle(self.now)
         self.rejected = True
         self.log.append("The issuer rejected K1's evidence; K1 escalated to chargeback.")
+
+    def run_note_case(self, caches: dict | None = None) -> None:
+        """Beyond the kit: a not-received chargeback whose signature is only in the driver's
+        note. In llm mode the model reads it live; otherwise a cached Claude answer from the
+        agentic suite is replayed (no model call), and labelled as such."""
+        aw, orch = self._require()
+        if self.note_case is None:
+            raise RuntimeError("no note case in this session")
+        if orch.reader is not None:
+            llm = getattr(orch.reader, "llm", None)
+            who = "the configured reader" if llm is None else f"{llm.provider}/{llm.model}"
+            self.note_source = f"read live by {who}"
+        else:
+            runs = caches if caches is not None else load_llm_caches()
+            answered = [r for r in runs.values() if NOTE_CASE in r.get("cases", {})]
+            if not answered:
+                raise RuntimeError(
+                    "no cached reading: run NIRNAYA_LIVE_LLM=1 uv run python -m "
+                    "nirnaya.evaluation.agentic --live, or start the console with NIRNAYA_AGENT=llm"
+                )
+            run = answered[-1]
+            orch.reader = Cached(run["cases"], run["provider"], run["model"])
+            self.note_source = (
+                f"cached answer from {run['provider']}/{run['model']} recorded "
+                f"{run['run_at'][:10]}, replayed (no model call now)"
+            )
+        case = self.note_case.case
+        if self.store.case(M, case.id) is None:
+            aw.add_dispute(case.dispute, attempt=case.payment_attempt, intent_owner="same")
+        orch.run_until_idle(self.now)
+        self.log.append(f"Ran {case.id}: the driver's note was {self.note_source}.")
 
     def approve(
         self, case_id: str, action: Action, approver: str, confirm: tuple[str, ...] = ()

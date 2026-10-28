@@ -9,7 +9,7 @@ import altair as alt
 import streamlit as st
 
 from nirnaya.config.env import load_dotenv
-from nirnaya.console.session import KIT, DemoSession
+from nirnaya.console.session import KIT, NOTE_CASE, DemoSession, M
 from nirnaya.console.views import (
     airwallex_unreachable,
     blocked,
@@ -166,6 +166,37 @@ with demo:
         for c in blocked(check):
             st.error(f"Blocked: {c.text} ({c.source})")
 
+    with st.container(border=True):
+        st.markdown("### Beyond the kit · evidence only a driver's note holds")
+        st.caption(
+            "A 120 USD not-received chargeback. The carrier shows DELIVERED with no structured "
+            "signature, so the engine accepts (prior 0.60: 72 − 80 < 0). The driver's note says "
+            "a signature was captured. The agent may only propose the exact words; a person "
+            "confirms them in the review queue, and the verifier checks them word for word."
+        )
+        staged = s.store.case(M, NOTE_CASE) is not None
+        if st.button(
+            "Read the driver's note",
+            key="note_case",
+            disabled=not s.can_act or s.note_case is None or staged,
+        ):
+            try:
+                s.run_note_case()
+            except RuntimeError as e:
+                st.error(str(e))
+            else:
+                st.rerun()
+        if s.note_source:
+            st.caption(f"The note was {s.note_source}.")
+        for item in (i for i in queue(s) if i.case_id == NOTE_CASE):
+            st.info(
+                f"{NOTE_CASE} is waiting in the review queue: "
+                f"{len(item.proposed)} proposed quote(s). {item.if_confirmed or ''}"
+            )
+        if staged and not any(i.case_id == NOTE_CASE for i in queue(s)):
+            done = [f"{w.action} {w.status}" for w in s.store.writes(M, NOTE_CASE)]
+            st.markdown("Status: " + (", ".join(done) or "no write"))
+
 
 # --- review queue -------------------------------------------------------------------------------
 
@@ -248,6 +279,8 @@ with review:
 
 with detail:
     ids = [s.kit_ids[k] for k in KIT if kit_card(s, k) is not None]
+    if s.store.case(M, NOTE_CASE) is not None:
+        ids.append(NOTE_CASE)
     if not ids:
         st.info("Run the kit cases first.")
     else:

@@ -87,3 +87,51 @@ def test_note_text_is_shown_literally_never_as_markdown():
     shown = item.proposed[0].note_markdown
     assert "[click here](http" not in shown
     assert "\\[click here\\]\\(http://evil\\.example\\)" in shown
+
+
+CACHE = {
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "prompts": ["reader_system@v1#x"],
+    "case_set": "v1",
+    "run_at": "2026-10-29T00:00:00+00:00",
+    "cases": {
+        "AG-F1": {
+            "proposals": [
+                {
+                    "record_id": "AG-F1-carrier",
+                    "field": "driver_notes",
+                    "fact": "DELIVERY_SIGNATURE",
+                    "quote": "signature captured on the handheld device",
+                }
+            ],
+            "stop": "TOOL_USE",
+        }
+    },
+}
+
+
+def test_the_note_beat_replays_a_labelled_cached_reading_and_a_confirmation_challenges():
+    s = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
+    s.run_kit()
+    s.run_note_case(caches={"llm-run1": CACHE})
+    assert "cached answer from anthropic/claude-sonnet-5-5" in s.note_source
+    assert "no model call" in s.note_source
+    (item,) = [i for i in queue(s) if i.case_id == "AG-F1"]
+    assert item.reasons == ("PROPOSED_EVIDENCE",)
+    s.approve("AG-F1", Action.CHALLENGE, "ops@example.test", (item.proposed[0].finding_id,))
+    assert [(w.action, w.status) for w in s.store.writes(M, "AG-F1")] == [
+        ("CHALLENGE", "CONFIRMED")
+    ]
+    # The kit cases are untouched by the reader: they have no notes.
+    assert [(w.action, w.status) for w in s.store.writes(M, "K2")] == [("ACCEPT", "CONFIRMED")]
+
+
+def test_without_a_cached_reading_the_note_beat_says_how_to_get_one():
+    s = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
+    try:
+        s.run_note_case(caches={})
+    except RuntimeError as e:
+        assert "--live" in str(e)
+    else:
+        raise AssertionError("expected a clear error")

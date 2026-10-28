@@ -65,3 +65,11 @@ def test_a_proposed_quote_is_confirmed_from_the_review_queue(monkeypatch):
     at.button(key="qchal-NOTED").click().run()
     assert not at.exception
     assert "Nothing waiting for a person." in "\n".join(i.value for i in at.info)
+
+
+def test_the_note_beat_runs_from_the_kit_tab(app):
+    app.button(key="note_case").click().run()
+    assert not app.exception
+    text = all_text(app)
+    assert "cached answer from" in text  # the committed Claude run, replayed and labelled
+    assert "AG-F1 is waiting in the review queue" in "\n".join(i.value for i in app.info)
