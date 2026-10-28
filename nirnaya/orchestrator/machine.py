@@ -127,6 +127,11 @@ class Orchestrator:
             for e in self.store.audit_events(case.merchant_id, case.case_id)
             if e["event"] == "STEP_FAILED" and e["body"].get("state") == case.state
         )
+        if (
+            CaseState(case.state) is S.SUBMITTING
+            and failures >= self.settings.max_submitting_failures
+        ):
+            self._stalled(case, now, "STEP_FAILED", failures=failures, error=type(error).__name__)
         if failures >= self.settings.max_step_failures and CaseState(case.state) in WATCHDOG_REFERS:
             self._move(
                 case,
@@ -167,8 +172,43 @@ class Orchestrator:
                     moved += 1
             for case in self.store.cases(merchant_id, {s.value for s in DEFERRAL_CHECK}):
                 moved += int(self._deferral_unconfirmed(case, now))
+            for case in self.store.cases(merchant_id, {S.SUBMITTING.value}):
+                stage = Stage(self.store.cycle(merchant_id, case.case_id, case.cycle).stage)
+                if now >= case.due_at - self.settings.deadline_buffer[stage]:
+                    moved += int(self._stalled(case, now, "DEADLINE_BUFFER"))
             moved += self._escalate_referrals(merchant_id, now)
         return moved
+
+    def _stalled(self, case: CaseRow, now: datetime, cause: str, **extra: Any) -> bool:
+        """A write in flight that is not progressing: make it visible, once per cause and
+        cycle. No transition, no cancel, no resend: the write may already have landed."""
+        if any(
+            e["event"] == "SUBMISSION_STALLED"
+            and e["body"].get("cause") == cause
+            and e["body"].get("cycle") == case.cycle
+            for e in self.store.audit_events(case.merchant_id, case.case_id)
+        ):
+            return False
+        writes = [
+            w for w in self.store.writes(case.merchant_id, case.case_id) if w.cycle == case.cycle
+        ]
+        last = writes[-1] if writes else None
+        with self.store.transaction():
+            self.store.update_case(case.merchant_id, case.case_id, urgent=True, at=now)
+            self.store.audit(
+                case.merchant_id,
+                case.case_id,
+                "SUBMISSION_STALLED",
+                {
+                    "cause": cause,
+                    "cycle": case.cycle,
+                    "request_id": None if last is None else last.request_id,
+                    "ledger": None if last is None else last.status,
+                    **extra,
+                },
+                now,
+            )
+        return True
 
     def _deferral_unconfirmed(self, case: CaseRow, now: datetime) -> bool:
         """A deferred case at its deadline buffer that Airwallex has not acted on is referred.

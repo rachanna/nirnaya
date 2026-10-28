@@ -290,6 +290,40 @@ def queue(session: DemoSession) -> list[QueueItem]:
 
 
 @dataclass(frozen=True)
+class StalledWrite:
+    case_id: str
+    causes: tuple[str, ...]
+    request_id: str | None
+    ledger: str | None
+    due_at: datetime
+    hours_left: int
+
+
+def stalled_writes(session: DemoSession) -> list[StalledWrite]:
+    """Writes in flight that stopped progressing (SUBMISSION_STALLED). Read-only: the write
+    may have landed, so a person checks in Airwallex rather than resending."""
+    items = []
+    for case in session.store.cases(M, {"SUBMITTING"}):
+        events = [
+            e["body"]
+            for e in session.store.audit_events(M, case.case_id)
+            if e["event"] == "SUBMISSION_STALLED" and e["body"].get("cycle") == case.cycle
+        ]
+        if events:
+            items.append(
+                StalledWrite(
+                    case_id=case.case_id,
+                    causes=tuple(e["cause"] for e in events),
+                    request_id=events[-1].get("request_id"),
+                    ledger=events[-1].get("ledger"),
+                    due_at=case.due_at,
+                    hours_left=int((case.due_at - session.now).total_seconds() // 3600),
+                )
+            )
+    return sorted(items, key=lambda i: (i.due_at, i.case_id))
+
+
+@dataclass(frozen=True)
 class FabricationCheck:
     title: str
     outcome: str

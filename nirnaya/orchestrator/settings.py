@@ -47,6 +47,9 @@ class Settings:
     # failures the case is referred (a write in flight is never interrupted).
     isolate_step_failures: bool = True
     max_step_failures: int = 3
+    # In SUBMITTING the case is never referred (a write may have landed); after this many
+    # failures it is marked urgent and SUBMISSION_STALLED is audited instead. ASSUMPTION.
+    max_submitting_failures: int = 3
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":

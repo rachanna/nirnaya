@@ -297,7 +297,7 @@ stateDiagram-v2
 - **One step per case per tick.** The scheduler loads runnable cases, earliest `due_at` first, and runs one handler for each. Each handler is a pure function `(case, store snapshot, now) → (new state, effects)`, applied in **one SQLite transaction** together with an audit event.
 - **Idempotent and resumable.** Re-running a handler after a crash produces the same effects. Writes are protected by the `request_id` ledger (§7.3), so `SUBMITTING` can be retried safely.
 - **Leases.** `cases.lease_until` stops two workers advancing the same case. The demo runs one worker, but the column keeps the invariant explicit.
-- **Per-case isolation.** A step that raises is rolled back with its transaction, audited as `STEP_FAILED` (state and error type), and skipped; the tick carries on with the other cases. After 3 failures in the same state the case is referred (urgent, `STEP_FAILED`), except in `SUBMITTING`: a write in flight is never interrupted and keeps reconciling through the gateway. `Settings.isolate_step_failures` turns this off for debugging.
+- **Per-case isolation.** A step that raises is rolled back with its transaction, audited as `STEP_FAILED` (state and error type), and skipped; the tick carries on with the other cases. After 3 failures in the same state the case is referred (urgent, `STEP_FAILED`), except in `SUBMITTING`: a write in flight is never interrupted and keeps reconciling through the gateway. It is never silent either: after `Settings.max_submitting_failures` (3, ASSUMPTION) failures, or once past the deadline buffer, the case is marked urgent and `SUBMISSION_STALLED` is audited (once per cause and cycle), with no transition, cancel or resend; the console's review tab lists it as a stalled write to check in Airwallex. (The ordinary paths are already bounded: a failed re-fetch refers the case through the gateway's `REFETCH_FAILED`, and repeated timeouts end at the gateway's deadline-buffer refusal. The alert covers a handler that raises every tick.) `Settings.isolate_step_failures` turns this off for debugging.
 - **Amendments re-decide.** If ingestion sees the dispute's amount or currency change within the same stage while the case is between `ASSESSED` and `REFERRED` (no write yet), the case returns to `ASSESSED` (`EXTERNAL_REASSESS`), any open referral is closed as `SUPERSEDED_BY_DISPUTE_CHANGE`, every approval of the cycle is voided, and `DISPUTE_AMENDED` is audited. The new decision gets a new draft, verification and PDF with the current amount.
 - **Clock injection.** The orchestrator owns `now` and passes it to the guardrails and the watchdog. The engine and verifier never see a clock (I2).
 
@@ -327,6 +327,8 @@ The spec also mentions Visa CE3.0 auto-challenge. It is not described on the pag
 Source: [How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow).
 
 On every tick, any case not in `AWAITING_OUTCOME`, `DEFERRED`, `CLOSED` or `SUBMITTING` with `now ≥ due_at − buffer` moves to `REFERRED` with `urgent=true`. A `DEFERRED` case at the same point is referred only if Airwallex has not acted (`DEFERRAL_UNCONFIRMED`, §4.3). The agent's own stop condition uses a larger buffer, so the watchdog is a backstop rather than the normal exit.
+
+A `SUBMITTING` case past the buffer is not moved either (a write may be in flight), but it is flagged `SUBMISSION_STALLED` and made urgent (§4.2).
 
 A case already `REFERRED` is not moved, but once inside the same buffer its open referral is marked urgent (`REFERRAL_ESCALATED`, once), so a review queue can put it first before Airwallex's own deadline action.
 
@@ -888,7 +890,7 @@ Every failure fails closed: refer, defer, or do nothing. None leads to a write.
 | A challenge cites evidence dated after the dispute opened | Still evidence; submitted if everything else passes, with `SUBMITTED_WITH_NOTES` audited for review afterwards (§6) |
 | A source record changed since it was captured | Stored as a new version `<id>@<content digest>` (`EVIDENCE_REVISED`); the original is kept. Contradiction rules see both, so DELIVERED → LOST refers the case |
 | A deferral does not come true (wrong refund read, threshold set above Airwallex's) | Watchdog at the deadline buffer: `DEFERRAL_UNCONFIRMED` → `REFERRED` (urgent) (§4.3) |
-| A handler raises | `STEP_FAILED` audited; other cases continue; 3 failures in one state → `REFERRED` (urgent), never from `SUBMITTING` (§4.2) |
+| A handler raises | `STEP_FAILED` audited; other cases continue; 3 failures in one state → `REFERRED` (urgent); in `SUBMITTING`, `SUBMISSION_STALLED` and urgent instead, never interrupted (§4.2) |
 | Dispute amount changes before the write | Ingested: re-decide from `ASSESSED`, referrals and approvals superseded. Not yet ingested: gateway `DISPUTE_CHANGED` → `REFERRED`, then the next ingestion re-assesses |
 | LLM error, refusal or timeout | Stop the agent; decide on stored evidence; a CHALLENGE without a verified draft → `REFERRED` |
 | LLM proposes an unlisted tool or arguments | Refused and audited |

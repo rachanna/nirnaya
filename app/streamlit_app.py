@@ -17,6 +17,7 @@ from nirnaya.console.views import (
     fabrication_check,
     kit_card,
     queue,
+    stalled_writes,
 )
 from nirnaya.models import Action
 
@@ -166,6 +167,12 @@ with demo:
 # --- review queue -------------------------------------------------------------------------------
 
 with review:
+    for stalled in stalled_writes(s):
+        st.error(
+            f"Write stalled: {stalled.case_id} ({', '.join(stalled.causes)}). The write may have "
+            f"landed: check it in Airwallex, do not resend. Request {stalled.request_id}, "
+            f"ledger {stalled.ledger}, {stalled.hours_left} h left."
+        )
     st.subheader("Referrals: a person decides")
     items = queue(s)
     if not items:
