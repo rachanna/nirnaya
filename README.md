@@ -75,17 +75,29 @@ Airwallex's AI Dispute Automation can recommend Challenge or Accept for a disput
 
 ## Evaluation (42 synthetic cases)
 
-| | Nirnaya | Fight everything | Accept everything | LLM only: naive v1 | LLM only: informed v1 | LLM only: informed v2 |
+| | Nirnaya | Fight everything | Accept everything | Claude only: naive | Claude only: informed v2 | Claude only: informed v3 |
 |---|---|---|---|---|---|---|
-| Expected net loss (USD) | 11,417.40 | 11,800.60 | 17,652.00 | 11,495.60 | 11,882.40 | 11,342.40 |
-| Agrees with the expert decision | **42/42** | 18/42 | 14/42 | 28/42 | 34/42 | 39/42 |
+| Expected net loss (USD) | 11,417.40 | 11,800.60 | 17,652.00 | 11,495.60 | 11,342.40 | 11,342.40 |
+| Agrees with the expert decision | **42/42** | 18/42 | 14/42 | 28/42 | 39/42 | 39/42 |
 | Claims a record does not support | **0** | 6 | 0 | 5 | 0 | 0 |
-| True facts written in the wrong form (fail exact-value checks) | **0** | 0 | 0 | 13 | 10 | 4 |
+| True facts written in the wrong form (fail exact-value checks) | **0** | 0 | 0 | 13 | 4 | 0 |
 | Merchant-policy violations | **0** | 13 | 11 | 8 | 1 | 1 |
 
-The LLM-only baseline gives a model (`claude-sonnet-5-5`) the dispute and every record and lets it decide and draft alone, with no engine or verifier. *Naive* adds only the fees. *Informed* also gives it the merchant's rules from the policy file: when to escalate, the costs, the win priors, FX, the stage formulas, whose records may be cited, and which record field establishes which fact. Informed v2 adds the mapping from Airwallex reason types to the policy's reasons and the exact marginal-band rule, both missing from v1.
+The Claude-only baseline gives `claude-sonnet-5-5` the dispute and every record and lets it decide and draft alone, with no engine or verifier. *Naive* adds only the fees. *Informed* also gives it the merchant's rules from the policy file: when to escalate, the costs, the win priors, FX, the stage formulas, whose records may be cited, and which record field establishes which fact (v2 adds the reason-type mapping and the exact marginal-band rule; v3 adds the same exact-value guidance Nirnaya's own drafter gets). An informed v1 run (34/42) is in the full report.
 
-**What this shows, honestly.** Told the rules, Claude never claimed anything its records do not support, in any of four runs. Its failures were all true facts written as sentences where the exact record value was needed (for example "Order ORD-A3 exists." for `ORD-A3`), which an exact-binding check rejects because only an exact value can be checked against its record. Without the rules (naive), it did overreach: it cited another merchant's record and made a reason-specific claim on an unknown reason. Prompting closes most of the decision gap, and informed v2 even shows 75 USD less expected loss than Nirnaya; that 75 USD is three human reviews (25 USD each) it skipped on cases a person should see: A3, A5 (payment ownership unresolved, a policy violation; the fact is not in any record) and S2 (challenged without the evidence the reason code requires). So the difference is not that the model lies. It is that Nirnaya's guarantees hold by construction on every run (every submitted claim bound to and checked against a record field; policy referrals enforced), while the model's hold only as far as its prompt and that run went.
+**What this shows, honestly.** On these synthetic cases, a well-informed model nearly matches Nirnaya. Informed v3 agrees on 39 of 42 and submits no claim its records fail to support. Its three differences all come from something it was not given or from the fixtures:
+- **S2:** it challenged a subscription dispute with only the accepted terms. The rule that a subscription defence needs a second piece of evidence was not in its prompt, so it was silently not applied. In Nirnaya that rule is code, tested, and enforced on every case.
+- **A5:** payment ownership is unresolved, which is not in any record it saw (the one policy violation).
+- **A3:** expected "refer" only because the scripted side drafts a deliberately careless claim there; the model's own claims were correct.
+
+Its 75 USD lower expected loss is exactly those three skipped human reviews. Naive prompting did overreach (another merchant's record, a reason-specific claim on an unknown reason), and earlier informed runs wrote true facts as sentences where an exact value was needed.
+
+So Nirnaya's advantage here is not better judgement than a well-prompted model. It is that its guarantees do not depend on the prompt or the run:
+- every rule is code, so none can be left out of a prompt;
+- every submitted claim is bound to a record field and checked against it;
+- referrals are enforced;
+- the result is identical every run;
+- the model never controls a write.
 
 **Same model, same prompts, three runs (informed v2):**
 
