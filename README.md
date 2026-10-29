@@ -62,14 +62,14 @@ uv run pytest           # about 1,470 offline tests; no network, no keys needed
 
 | Case | What happens |
 |---|---|
-| **1. Large fraud claim** (1,500 USD, RFI, Visa 10.4) | On Airwallex's data alone, Nirnaya refers, because an RFI accept would refund. Its intake looks up the merchant's order record (by code), which shows three earlier undisputed orders from the same device and IP, so it challenges. The investigating agent is not needed here; N1 and S5 show it finding the evidence that flips a decision. |
+| **1. Large fraud claim** (1,500 USD, RFI, Visa 10.4) | On Airwallex's data alone, Nirnaya refers, because an RFI accept would refund. Its intake looks up the merchant's order record (by code), which shows three earlier undisputed orders from the same device and IP, so it is worth fighting. Code then looks up the signed delivery to make the fight stronger (prior 0.60 → 0.75, margin 745 → 970 USD), and the response cites both, as the kit brief describes. The investigating agent is not needed here; N1 and S5 show it finding the evidence that flips a decision. |
 | **1b. The issuer rejects the evidence** | The case escalates to chargeback, and Nirnaya re-decides and challenges again. |
 | **2. Small not-received claim** (15 USD, chargeback, Visa 13.1) | Fighting costs more than the amount, so Nirnaya accepts (`LOW_VALUE_TRANSACTION`). |
 | **2-C. A fabricated signature** | An unguarded draft says "signed for by J. Smith". The carrier record has no signature, so the verifier blocks it and says why. |
 | **3. Credit not processed** (120 USD, chargeback, Visa 13.6) | The customer emailed support twice with no reply. The maths would accept, but a person decides. |
 
 **Live on the Airwallex sandbox (29 October 2026).** The whole kit ran against real sandbox disputes with real writes (`python -m nirnaya.sandbox_demo --checkout --submit`, LLM agent on `claude-sonnet-5-5`). Test-card payments were made on Airwallex's hosted checkout, and Visa disputes 10.4, 13.1 and 13.6 were raised on them.
-- **K1:** challenged at RFI with the evidence PDF uploaded; the rejection escalated it to chargeback; challenged again with the customer's device and IP. Airwallex then moved it to pre-arbitration, pending its decision, where Nirnaya defers by design.
+- **K1:** challenged at RFI with the evidence PDF uploaded (this run predates the supporting lookups, so it cited the prior orders, not yet the signature); the rejection escalated it to chargeback; challenged again with the customer's device and IP. Airwallex then moved it to pre-arbitration, pending its decision, where Nirnaya defers by design.
 - **K2:** accepted.
 - **K3:** referred to a person.
 - Audit chain intact.

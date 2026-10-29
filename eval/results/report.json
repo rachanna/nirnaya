@@ -49,8 +49,8 @@
   },
   "versions": {
     "git": {
-      "commit": "016182760ab3d5a0586b89b4926e381d1ff971f6",
-      "dirty": true
+      "commit": "58cbf1ab5d7e8aaded82afda83b4c5451357cd76",
+      "dirty": false
     },
     "case_set": {
       "version": "v2",
@@ -339,7 +339,7 @@
       },
       "integrity": {
         "challenges": 15,
-        "claims_submitted": 38,
+        "claims_submitted": 42,
         "unsupported_submitted": 0,
         "unsupported_format": 0,
         "unsupported_substantive": 0,

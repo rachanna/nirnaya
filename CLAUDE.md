@@ -76,7 +76,7 @@ All parameters are per-merchant config. Sunk costs are excluded.
 - **Referral overrides the maths:** amount above threshold, margin within a configured band, contradictory records, unresolved ownership, a customer contact before the dispute with no reply, non-automated stage (pre-arb, arbitration).
 - **Accept reason:** `LOW_VALUE_TRANSACTION` when even `p = 1 - q` would not pay; otherwise the policy's `accept_reason`.
 - **Hackathon:** Nirnaya is the Airwallex Developer Lab kit 4 "Dispute Response Agent". The demo cases are the kit's (`docs/spec.md` §10, `tests/test_kit4_scenarios.py`). In the sandbox, pre-chargeback disputes auto-accept instantly.
-- **Value of information:** for each unsatisfied prior entry, report whether obtaining its missing evidence (as a set) would change the decision; only minimal flipping sets. This catches evidence that flips only jointly. The agent only searches for evidence that would.
+- **Value of information:** for each unsatisfied prior entry, report whether obtaining its missing evidence (as a set) would change the decision; only minimal flipping sets. This catches evidence that flips only jointly. The agent only searches for evidence that would. Once the engine says CHALLENGE, code (never the agent) makes supporting lookups: evidence that would raise p (`engine.strengthening_sets`), fetched and decided on again before the decision is recorded, only if it and the sweep it adds fit the budget.
 
 ## Verifier blocking checks
 
