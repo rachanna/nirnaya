@@ -1,6 +1,9 @@
 """Nirnaya demo console. Thin: everything it shows or does goes through nirnaya.console.
 
 uv run streamlit run app/streamlit_app.py
+
+Written for people outside payments: each case reads as a verdict, one sentence of why, and
+the steps that led there. The numbers and rule codes stay one click away under "Details".
 """
 
 import os
@@ -9,6 +12,14 @@ import altair as alt
 import streamlit as st
 
 from nirnaya.config.env import load_dotenv
+from nirnaya.console.plain import (
+    decision_sentence,
+    fact_text,
+    reason_sentences,
+    stage_name,
+    status_text,
+    verdict,
+)
 from nirnaya.console.session import KIT, NOTE_CASE, REDRAFT_CASE, DemoSession, M
 from nirnaya.console.views import (
     agents_in_run,
@@ -25,7 +36,7 @@ from nirnaya.console.views import (
 )
 from nirnaya.models import Action
 
-ACCENT, MUTED = "#2a78d6", "#898781"  # emphasis: Nirnaya in the accent, baselines in gray
+ACCENT, MUTED = "#2F6B55", "#B9B2A6"  # Nirnaya in the theme's green, the baselines in stone
 
 load_dotenv()
 st.set_page_config(page_title="Nirnaya", page_icon="⚖️", layout="wide")
@@ -41,44 +52,78 @@ def session() -> DemoSession:
 
 with st.sidebar:
     st.title("Nirnaya")
-    st.caption("Dispute decisions for Airwallex merchants. Every claim verified.")
+    st.caption("Fights the card disputes worth fighting, accepts the rest, and proves every claim.")
     source = st.radio(
-        "Data",
-        ["Simulated Airwallex", "Sandbox run (view only)"],
-        help="The sandbox run is what `python -m nirnaya.sandbox_demo` wrote.",
+        "What to show",
+        ["Demo (offline)", "Live sandbox run (view only)"],
+        help="The live run is what `python -m nirnaya.sandbox_demo` did on Airwallex's sandbox.",
     )
-    if source == "Sandbox run (view only)":
+    if source == "Live sandbox run (view only)":
         sandbox = DemoSession.from_sandbox_run()
         if sandbox is None:
-            st.warning("No completed sandbox run found in .nirnaya/.")
+            st.warning("No live sandbox run found in .nirnaya/.")
         else:
             st.session_state.session = sandbox
     elif session().source != "offline":
         st.session_state.session = DemoSession.offline()
     if session().source == "sandbox":
-        st.markdown(f"**Agent in this run:** {agents_in_run(session())}")
-    else:
-        agent = os.environ.get("NIRNAYA_AGENT", "scripted")
-        model = (
-            f"{os.environ.get('NIRNAYA_LLM_PROVIDER', 'anthropic')}/"
-            f"{os.environ.get('NIRNAYA_MODEL', 'default')}"
+        used = agents_in_run(session())
+        st.markdown(
+            "**AI agent in this run:** "
+            + (used.replace("llm (", "Claude (") if used.startswith("llm") else "off (rule-based)")
         )
-        st.markdown(f"**Agent:** {agent}" + (f" ({model})" if agent == "llm" else ""))
-    st.markdown("**Merchant systems:** SYNTHETIC")
-    if st.button("Reset", key="reset"):
+    else:
+        on = os.environ.get("NIRNAYA_AGENT", "scripted") == "llm"
+        model = os.environ.get("NIRNAYA_MODEL", "claude-sonnet-5-5")
+        st.markdown("**AI agent:** " + (f"Claude ({model})" if on else "off (rule-based)"))
+    st.caption(
+        "Decisions, checks and every write to Airwallex are rule-based code. "
+        "The AI only gathers evidence and drafts."
+    )
+    st.caption("Merchant records in this demo are synthetic.")
+    if st.button("Start over", key="reset"):
         st.session_state.session = DemoSession.offline()
         st.rerun()
-    for line in session().log[-5:]:
-        st.caption(line)
+    if session().log:
+        st.markdown("**Activity**")
+        for line in session().log[-5:]:
+            st.caption(line)
 
 s = session()
-demo, review, detail, evals = st.tabs(["Kit 4 demo", "Review queue", "Case detail", "Evaluation"])
+
+# --- header -------------------------------------------------------------------------------------
+
+st.title("Card disputes, decided on evidence and money")
+steps = st.columns(3)
+for col, (name, text) in zip(
+    steps,
+    (
+        ("1 · Read", "Airwallex reports a dispute: how much, why, and the deadline."),
+        ("2 · Check", "Nirnaya looks only for the merchant records that could change the answer."),
+        (
+            "3 · Decide and prove",
+            "It fights, accepts or asks a person. Every claim it sends is checked first.",
+        ),
+    ),
+    strict=True,
+):
+    with col.container(border=True):
+        st.markdown(f"**{name}**")
+        st.caption(text)
+
+demo, review, detail, evals = st.tabs(["Demo", "Needs a person", "Case history", "Results"])
 
 
-# --- kit 4 demo ---------------------------------------------------------------------------------
+# --- demo ---------------------------------------------------------------------------------------
 
 
-def decision_line(view) -> str:  # noqa: ANN001
+def badge(action: str) -> None:
+    label, colour = verdict(action)
+    st.badge(label, color=colour)
+
+
+def details_line(view) -> str:  # noqa: ANN001
+    """The engine's numbers, for the Details panel."""
     if view is None:
         return "—"
     parts = [f"**{view.action}**"]
@@ -93,99 +138,135 @@ def decision_line(view) -> str:  # noqa: ANN001
     return " · ".join(parts)
 
 
-def sent(case_id: str) -> None:
-    """A finished demo case: what was written and the verified claims it carried."""
-    done = [f"{w.action} {w.status}" for w in s.store.writes(M, case_id)]
-    st.markdown("Status: " + (", ".join(done) or "no write"))
+def result_of(case_id: str) -> None:
+    """A finished scenario: what was sent and the claims it carried."""
+    sent = [f"{w.action.title()} {w.status.lower()}" for w in s.store.writes(M, case_id)]
+    st.markdown("**Result:** " + (", ".join(sent) or "nothing sent"))
     shown = case_detail(s, case_id)
     for c in shown.claims if shown is not None else ():
-        st.caption(md_escape(f"{c.status}: {c.text} ({c.source})"))
+        mark = "✅" if c.status == "VERIFIED" else "⛔"
+        st.caption(md_escape(f"{mark} {c.text} (from {c.source})"))
 
 
 with demo:
-    st.subheader("Kit 4: a chargeback queue, decided on evidence and economics")
-    left, right, _ = st.columns([1, 1, 3])
-    if left.button("Run kit cases 1–3", key="run_kit", disabled=not s.can_act):
+    if s.can_act:
+        st.markdown(
+            "Three disputes from the Airwallex kit. Press **Run the kit cases** to watch Nirnaya "
+            "decide each one."
+        )
+    else:
+        st.markdown(
+            "The recorded live run on Airwallex's sandbox: real disputes, real accept and "
+            "challenges. View only."
+        )
+    left, right, _ = st.columns([1, 1, 2])
+    if left.button("Run the kit cases", key="run_kit", disabled=not s.can_act, type="primary"):
         s.run_kit()
         st.rerun()
     k1 = kit_card(s, "K1")
     can_reject = (
         s.can_act and not s.rejected and k1 is not None and k1.dispute_status.endswith("CHALLENGED")
     )
-    if right.button("Issuer rejects case 1", key="reject", disabled=not can_reject):
+    if right.button("The bank rejects case 1", key="reject", disabled=not can_reject):
         s.reject_k1()
         st.rerun()
 
     cards = [c for c in (kit_card(s, k) for k in KIT) if c is not None]
     if not cards:
-        st.info("Run the kit cases to see each one decided step by step.")
-    for card in cards:
+        st.info("Run the kit cases to see each one decided, step by step.")
+    for n, card in enumerate(cards, start=1):
+        decided = [a for a in card.cycles if a.revised is not None]
+        last = decided[-1].revised if decided else None
         with st.container(border=True):
-            st.markdown(f"### {card.label} · {card.title}")
-            st.caption(
-                f"{card.amount} · {card.reason} · Airwallex: {card.dispute_status} · "
-                f"Nirnaya: {card.state}"
-            )
-            st.markdown(f"**Goal.** {card.goal}")
+            head, mark = st.columns([4, 1])
+            head.markdown(f"### Case {n} · {card.headline}")
+            head.caption(f"{card.amount} · at Airwallex: {status_text(card.dispute_status)}")
+            with mark:
+                if last is not None:
+                    badge(last.action)
+            st.markdown(f"**The question.** {card.goal}")
             for arc in card.cycles:
                 if len(card.cycles) > 1:
-                    st.markdown(f"**Cycle {arc.cycle} · {arc.stage}**")
-                cols = st.columns(4)
-                cols[0].markdown("**1. Initial plan** (Airwallex data only)")
-                cols[0].markdown(decision_line(arc.initial))
-                if arc.initial and arc.initial.worth_finding:
-                    cols[0].caption("Worth finding: " + "; ".join(arc.initial.worth_finding))
-                cols[1].markdown("**2. New information** (merchant systems)")
-                for info in arc.new_information or ("nothing needed",):
-                    cols[1].caption(info)
-                for why in arc.refused:
-                    cols[1].caption(f"refused: {why}")
-                cols[2].markdown("**3. Revised decision** (engine)")
-                cols[2].markdown(decision_line(arc.revised))
-                cols[3].markdown("**4. Status**")
-                for w in arc.writes:
-                    cols[3].markdown(f"✅ {w}")
-                if arc.referral:
-                    cols[3].markdown("🧑‍⚖️ Referred: " + ", ".join(arc.referral))
-                if not arc.writes and not arc.referral:
-                    cols[3].caption(arc.ended or "no action")
+                    st.markdown(f"**At the {stage_name(arc.stage)} stage**")
+                lines = []
+                if arc.initial is not None:
+                    lines.append(
+                        f"With Airwallex's data alone: *{verdict(arc.initial.action)[0].lower()}*."
+                    )
+                if arc.looked_up:
+                    found = "; ".join(arc.looked_up)
+                    lines.append(f"Checked the merchant's records: {found}.")
+                if arc.revised is not None:
+                    lines.append(
+                        f"Decided: **{verdict(arc.revised.action)[0].lower()}**. "
+                        + decision_sentence(arc.revised)
+                    )
+                if arc.sent:
+                    lines.append("Result: " + "; ".join(arc.sent) + ".")
+                elif arc.referral:
+                    lines.append("Result: waiting for a person (see **Needs a person**).")
+                elif arc.ended:
+                    lines.append(f"Result: {arc.ended}.")
+                st.markdown("\n".join(f"{i}. {line}" for i, line in enumerate(lines, start=1)))
                 if arc.airwallex_ai is not None:
-                    mark = {True: "🤝", False: "↔️", None: "🤖"}[arc.airwallex_ai.agree]
-                    st.caption(f"{mark} {arc.airwallex_ai.text}")
-                    if arc.airwallex_ai.evidence_to_submit:
-                        st.caption(
-                            "Airwallex AI would submit: "
-                            + ", ".join(arc.airwallex_ai.evidence_to_submit)
-                        )
+                    st.caption(arc.airwallex_ai.text)
+            with st.expander("Details: the numbers and rules behind it"):
+                for arc in card.cycles:
+                    st.markdown(f"**Cycle {arc.cycle} · {arc.stage}**")
+                    cols = st.columns(4)
+                    cols[0].markdown("**Initial plan** (Airwallex data only)")
+                    cols[0].markdown(details_line(arc.initial))
+                    if arc.initial and arc.initial.worth_finding:
+                        cols[0].caption("Worth finding: " + "; ".join(arc.initial.worth_finding))
+                    cols[1].markdown("**New information**")
+                    for info in arc.new_information or ("nothing needed",):
+                        cols[1].caption(info)
+                    for why in arc.refused:
+                        cols[1].caption(f"refused: {why}")
+                    cols[2].markdown("**Decision** (engine)")
+                    cols[2].markdown(details_line(arc.revised))
+                    cols[3].markdown("**Status**")
+                    for w in arc.writes:
+                        cols[3].markdown(w)
+                    if arc.referral:
+                        cols[3].markdown("Referred: " + ", ".join(arc.referral))
+                    if not arc.writes and not arc.referral:
+                        cols[3].caption(arc.ended or "no action")
+                st.caption(f"{card.reason} · Nirnaya state: {card.state}")
+
+    st.subheader("More scenarios")
 
     with st.container(border=True):
         check = fabrication_check(s)
-        st.markdown(f"### 2-C · {check.title}")
-        st.caption("An unguarded agent drafted this. The verifier checks it before anything ships.")
-        st.markdown(f"Verification: **{check.outcome}**")
+        st.markdown("### A made-up claim is caught")
+        st.markdown(
+            "An unsupervised AI drafted a response that says the parcel was *signed for by "
+            "J. Smith*. Before anything is sent, every claim is checked against the record it "
+            "cites."
+        )
         st.dataframe(
             [
                 {
-                    "claim": c.text,
-                    "cites": c.source,
-                    "status": c.status,
-                    "why": "; ".join(c.failures),
+                    "Claim": c.text,
+                    "Checked against": c.source,
+                    "Result": "✅ supported" if c.status == "VERIFIED" else "⛔ blocked",
+                    "Why": "; ".join(c.failures),
                 }  # fmt: skip
                 for c in check.claims
             ],
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
         for c in blocked(check):
-            st.error(f"Blocked: {c.text} ({c.source})")
+            st.error(f"Blocked: {c.text}. The delivery record has no signature, so it never ships.")
 
     with st.container(border=True):
-        st.markdown("### Beyond the kit · evidence only a driver's note holds")
-        st.caption(
-            "A 120 USD not-received chargeback. The carrier shows DELIVERED with no structured "
-            "signature, so the engine accepts (prior 0.60: 72 − 80 < 0). The driver's note says "
-            "a signature was captured. The agent may only propose the exact words; a person "
-            "confirms them in the review queue, and the verifier checks them word for word."
+        st.markdown("### Evidence hidden in a driver's note")
+        st.markdown(
+            "A 120 USD *never arrived* claim. The delivery record says *delivered* but has no "
+            "signature, so on its own Nirnaya would accept. The driver's note says a signature "
+            "was taken. The AI may only quote the note's exact words; a person confirms them, "
+            "and the quote is checked word for word."
         )
         staged = s.store.case(M, NOTE_CASE) is not None
         if st.button(
@@ -203,20 +284,18 @@ with demo:
             st.caption(f"The note was {s.note_source}.")
         for item in (i for i in queue(s) if i.case_id == NOTE_CASE):
             st.info(
-                f"{NOTE_CASE} is waiting in the review queue: "
-                f"{len(item.proposed)} proposed quote(s). {item.if_confirmed or ''}"
+                f"{NOTE_CASE} is waiting for a person: {len(item.proposed)} quote(s) to confirm "
+                "in **Needs a person**."
             )
         if staged and not any(i.case_id == NOTE_CASE for i in queue(s)):
-            sent(NOTE_CASE)
+            result_of(NOTE_CASE)
 
     with st.container(border=True):
-        st.markdown("### Self-correction · the agent fixes a draft the verifier blocked")
-        st.caption(
-            "N1, a not-received chargeback worth challenging. To show the loop, the agent's first "
-            "draft is broken on purpose: it adds 'signed for by J. Smith', which the carrier "
-            "record does not show (the 2-C fabrication). The verifier blocks it and the agent "
-            "gets the findings and drafts again. Because the first draft overreached, a person "
-            "approves the fixed draft before anything is sent."
+        st.markdown("### The AI fixes its own mistake")
+        st.markdown(
+            "To show this, the AI's first draft is broken on purpose with the same made-up "
+            "signature. The check blocks it, the AI is told why and drafts again. Because the "
+            "first draft claimed too much, a person approves the fixed one."
         )
         staged = s.store.case(M, REDRAFT_CASE) is not None
         if st.button("Run with a broken first draft", key="redraft_case",
@@ -229,13 +308,16 @@ with demo:
                 st.rerun()
         if s.redraft_source:
             st.caption(f"The draft was {s.redraft_source}.")
-        for item in (i for i in queue(s) if i.case_id == REDRAFT_CASE):
-            st.info(f"{REDRAFT_CASE} is waiting in the review queue: " + ", ".join(item.reasons))
+        if any(i.case_id == REDRAFT_CASE for i in queue(s)):
+            st.info(f"{REDRAFT_CASE} is waiting for a person in **Needs a person**.")
         if staged and not any(i.case_id == REDRAFT_CASE for i in queue(s)):
-            sent(REDRAFT_CASE)
+            result_of(REDRAFT_CASE)
 
 
-# --- review queue -------------------------------------------------------------------------------
+# --- needs a person -----------------------------------------------------------------------------
+
+labels = {v: f"Case {i}" for i, v in enumerate((s.kit_ids.get(k, k) for k in KIT), start=1)}
+labels |= {NOTE_CASE: "Evidence in a driver's note", REDRAFT_CASE: "The AI fixed its own mistake"}
 
 with review:
     if outage := airwallex_unreachable(s):
@@ -254,27 +336,42 @@ with review:
             f"landed: check it in Airwallex, do not resend. Request {stalled.request_id}, "
             f"ledger {stalled.ledger}, {stalled.hours_left} h left."
         )
-    st.subheader("Referrals: a person decides")
+    st.subheader("Cases waiting for a person")
     items = queue(s)
     if not items:
         st.info("Nothing waiting for a person.")
-    approver = st.text_input("Approver", "ops@example.test", key="approver")
+    approver = st.text_input("Your email (recorded with every decision)", "ops@example.test",
+                             key="approver")  # fmt: skip
     for item in items:
         with st.container(border=True):
-            flag = "🔴 URGENT · " if item.urgent else ""
-            st.markdown(f"**{flag}{item.case_id}** · {', '.join(item.reasons)}")
-            st.caption(f"Due {item.due_at:%Y-%m-%d %H:%M} UTC · {item.hours_left} h left")
+            flag = "Urgent · " if item.urgent else ""
+            name = labels.get(item.case_id, item.case_id)
+            st.markdown(f"### {flag}{name}")
+            due = f"{item.due_at:%d %b %Y %H:%M} UTC"
+            st.caption(f"{item.case_id} · due {due} · {item.hours_left} h left")
+            st.markdown("**Why it's here:** " + " ".join(reason_sentences(item.reasons)))
             if item.proposed:
                 st.markdown(
                     "**Evidence the agent found in a note.** Confirm a quote only if it shows "
-                    "the fact; the verifier then checks it word for word. Nothing counts until "
-                    "you confirm it."
+                    "the fact; the check then matches it word for word. Nothing counts until you "
+                    "confirm it."
                 )
                 if item.if_confirmed:
+                    st.markdown(
+                        "If you confirm, Nirnaya would "
+                        + (
+                            "**fight** instead of accept."
+                            if "→ CHALLENGE" in item.if_confirmed
+                            else "change its decision."
+                        )  # fmt: skip
+                    )
                     st.caption(item.if_confirmed)
                 confirmed = []
                 for q in item.proposed:
-                    st.markdown(f"`{q.fact}` · from {md_escape(q.source)}")
+                    st.markdown(
+                        f"The note would show that **{fact_text(q.fact)}**. "
+                        f"From {md_escape(q.source)}:"
+                    )
                     st.markdown("> " + q.note_markdown)
                     if not q.found:
                         st.warning("The quote is no longer word for word in this note.")
@@ -285,6 +382,7 @@ with review:
                     "Confirm and challenge",
                     key=f"qchal-{item.case_id}",
                     disabled=not s.can_act or not confirmed,
+                    type="primary",
                 ):
                     s.approve(item.case_id, Action.CHALLENGE, approver, tuple(confirmed))
                     st.rerun()
@@ -296,88 +394,104 @@ with review:
                     st.rerun()
             if item.redraft:
                 st.markdown(
-                    "**The agent fixed a blocked draft.** Its first draft claimed something its "
-                    "records do not support, so you approve the fixed draft. Approve challenge "
-                    "sends exactly this redraft, verified again."
+                    "**The AI fixed a blocked draft.** Its first draft claimed something the "
+                    "records don't show, so you approve the fixed one. **Fight it** sends "
+                    "exactly this draft, checked again."
                 )
                 for line in item.redraft.blocked:
                     st.error("First draft, blocked: " + md_escape(line))
                 for line in item.redraft.redraft:
                     st.success("Redraft, verified: " + md_escape(line))
-            with st.expander("Why it was referred"):
-                st.json(item.detail)
-            st.caption(
-                "An approval is bound to the amount, currency and evidence shown here; "
-                "an approved challenge must still pass verification."
-            )
             a, b, c = st.columns(3)
-            if a.button("Approve accept", key=f"acc-{item.case_id}", disabled=not s.can_act):
+            if a.button("Accept (refund the customer)", key=f"acc-{item.case_id}",
+                        disabled=not s.can_act):  # fmt: skip
                 s.approve(item.case_id, Action.ACCEPT, approver)
                 st.rerun()
-            if b.button("Approve challenge", key=f"chal-{item.case_id}", disabled=not s.can_act):
+            if b.button("Fight it", key=f"chal-{item.case_id}", disabled=not s.can_act):
                 s.approve(item.case_id, Action.CHALLENGE, approver)
                 st.rerun()
-            if c.button("Handle manually", key=f"man-{item.case_id}", disabled=not s.can_act):
+            if c.button("Handle it outside Nirnaya", key=f"man-{item.case_id}",
+                        disabled=not s.can_act):  # fmt: skip
                 s.close(item.case_id, approver, "handled outside Nirnaya")
                 st.rerun()
+            st.caption(
+                "Your decision is tied to the amount and evidence shown here. A fight must "
+                "still pass every check before it is sent."
+            )
+            with st.expander("Technical details"):
+                st.caption(", ".join(item.reasons))
+                st.json(item.detail)
 
 
-# --- case detail --------------------------------------------------------------------------------
+# --- case history -------------------------------------------------------------------------------
 
 with detail:
     ids = [s.kit_ids[k] for k in KIT if kit_card(s, k) is not None]
-    if s.store.case(M, NOTE_CASE) is not None:
-        ids.append(NOTE_CASE)
+    for extra in (NOTE_CASE, REDRAFT_CASE):
+        if s.store.case(M, extra) is not None:
+            ids.append(extra)
     if not ids:
         st.info("Run the kit cases first.")
     else:
-        chosen = st.selectbox("Case", ids, key="case")
+        chosen = st.selectbox(
+            "Case", ids, key="case", format_func=lambda i: f"{labels.get(i, i)} ({i})"
+        )
         d = case_detail(s, chosen)
         if d is not None:
-            st.markdown(f"**State:** {d.state}")
-            st.markdown("**Timeline** (from the hash-chained audit log)")
+            st.markdown(f"**Where it stands:** {d.state.lower().replace('_', ' ')}")
+            st.markdown("**What happened, step by step** (from the tamper-evident audit log)")
             st.code("\n".join(d.timeline) or "(empty)", language=None)
-            st.markdown("**Evidence** (hashed at capture)")
+            st.markdown("**Records Nirnaya looked at** (each fingerprinted when captured)")
             st.dataframe(
                 [
                     {k: v for k, v in e.items() if k != "fields"} | {"fields": str(e["fields"])}
                     for e in d.evidence
                 ],  # fmt: skip
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
-            st.markdown("**Claims and verification**")
+            st.markdown("**What it claimed, and whether each claim checked out**")
             st.dataframe(
                 [
                     {
                         "claim": c.text,
-                        "cites": c.source,
-                        "status": c.status,
-                        "failures": "; ".join(c.failures),
+                        "from": c.source,
+                        "result": c.status,
+                        "why it failed": "; ".join(c.failures),
                     }
                     for c in d.claims
                 ],  # fmt: skip
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
             if d.counterevidence:
-                st.markdown("**Counterevidence** (always shown to the approver)")
+                st.markdown("**Records that point the other way** (always shown to a person)")
                 for line in d.counterevidence:
                     st.warning(line)
             for note in d.notes:
                 st.info(note)
 
 
-# --- evaluation ---------------------------------------------------------------------------------
+# --- results ------------------------------------------------------------------------------------
 
 with evals:
     report = evaluation()
     if report is None:
         st.info("No report yet. Run `uv run python -m nirnaya.evaluation.report`.")
     else:
-        st.subheader(f"Nirnaya against three baselines on {report['cases']} synthetic cases")
-        st.caption(report["caveat"])
         policies = report["policies"]
+        ours = policies["nirnaya"]
+        st.subheader(f"How Nirnaya does on {report['cases']} test disputes")
+        m1, m2, m3 = st.columns(3)
+        m1.metric(
+            "Same decision as the expert",
+            f"{ours['financial']['agreement']}/{ours['financial']['cases']}",
+        )
+        unsupported = ours["integrity"]["unsupported_submitted"]
+        m2.metric("Claims sent that a record doesn't support", unsupported)
+        m3.metric("Merchant-policy breaks", ours["compliance"]["violations"])
+        st.caption(report["caveat"])
+        st.markdown("**Expected loss on the same disputes: lower is better**")
         losses = [
             {
                 "policy": p["name"],
@@ -386,8 +500,11 @@ with evals:
             }  # fmt: skip
             for key, p in policies.items()
         ]
+        # Highest loss at the top, lowest at the bottom. An explicit order: a computed sort is
+        # ignored when the label layer shares the axis.
+        order = [d["policy"] for d in sorted(losses, key=lambda d: -d["loss"])]
         base = alt.Chart(alt.Data(values=losses)).encode(
-            y=alt.Y("policy:N", sort="x", title=None),
+            y=alt.Y("policy:N", sort=order, title=None, axis=alt.Axis(labelLimit=320)),
             x=alt.X("loss:Q", title="Expected net loss (USD)", axis=alt.Axis(grid=False)),
         )
         bars = base.mark_bar(cornerRadiusEnd=4, height=22).encode(
@@ -399,7 +516,10 @@ with evals:
             .mark_text(align="left", dx=6)
             .encode(text=alt.Text("loss:Q", format=",.2f"))
         )
-        st.altair_chart((bars + label).properties(height=200), use_container_width=True)
+        st.altair_chart(
+            (bars + label).properties(height=44 * len(losses), background="transparent"),
+            width="stretch",
+        )
 
         rows = {
             "Expected net loss (USD)": lambda p: p["financial"]["expected_loss"],
@@ -418,19 +538,20 @@ with evals:
                 f"{p['coverage']['automated']}/{p['coverage']['referred']}"
             ),
         }
-        st.dataframe(
-            [
-                {"metric": label} | {p["name"]: str(get(p)) for p in policies.values()}
-                for label, get in rows.items()
-            ],  # fmt: skip
-            hide_index=True,
-            use_container_width=True,
-        )
-        for variant, m in (report.get("llm_only") or {}).items():
-            st.caption(
-                f"LLM only ({variant}): {m['provider']}/{m['model']}, answers cached "
-                f"{m['run_at'][:10]}."
+        with st.expander("All numbers, every approach"):
+            st.dataframe(
+                [
+                    {"metric": label} | {p["name"]: str(get(p)) for p in policies.values()}
+                    for label, get in rows.items()
+                ],  # fmt: skip
+                hide_index=True,
+                width="stretch",
             )
+            for variant, m in (report.get("llm_only") or {}).items():
+                st.caption(
+                    f"LLM only ({variant}): {m['provider']}/{m['model']}, answers cached "
+                    f"{m['run_at'][:10]}."
+                )
         with st.expander("Per case"):
             st.dataframe(
                 [
@@ -444,5 +565,5 @@ with evals:
                     for r in report["rows"]
                 ],  # fmt: skip
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )

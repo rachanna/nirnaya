@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from nirnaya.airwallex_ai import AiComparison, comparison
+from nirnaya.console.plain import lookup_sentence, write_sentence
 from nirnaya.console.session import DemoSession, M
 from nirnaya.engine import decide
 from nirnaya.evidence.derive import (
@@ -80,6 +81,14 @@ KIT_GOALS = {
 }
 
 
+# Short names for the kit cases, in plain words.
+KIT_HEADLINES = {
+    "K1": "A large fraud claim",
+    "K2": 'A small "it never arrived" claim',
+    "K3": '"My refund never came"',
+}
+
+
 def agents_in_run(session: DemoSession) -> str:
     """The agent the stored run actually used, read from its agent steps (not this console's
     own setting, which may differ when viewing a sandbox run)."""
@@ -103,6 +112,9 @@ class CycleArc:
     airwallex_ai: AiComparison | None = None
     # Why the cycle ended without a decision: Airwallex already settled it, or acts on its own.
     ended: str | None = None
+    # The same steps in plain words, for people outside payments.
+    looked_up: tuple[str, ...] = ()
+    sent: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -116,6 +128,7 @@ class KitCard:
     state: str
     dispute_status: str
     cycles: tuple[CycleArc, ...]
+    headline: str = ""
 
 
 def _airwallex_only(store: Store, case_id: str, dispute: Dispute, cycle: int) -> Decision | None:
@@ -217,6 +230,21 @@ def kit_card(session: DemoSession, label: str) -> KitCard | None:
                 else tuple(referral.reasons),
                 airwallex_ai=ai,
                 ended=ends[-1] if ends else None,
+                looked_up=tuple(
+                    lookup_sentence(e["body"]["tool"], e["body"]["key"], e["body"]["records"])
+                    for e in evs
+                    if e["event"] == "TOOL_CALL"
+                ),
+                sent=tuple(
+                    write_sentence(
+                        w.action,
+                        w.status,
+                        dry_run=w.dry_run,
+                        customer_info=bool(w.request.get("customer_info")),
+                    )
+                    for w in writes
+                    if w.cycle == cycle
+                ),
             )
         )
     case = session.cases.get(label)
@@ -230,6 +258,7 @@ def kit_card(session: DemoSession, label: str) -> KitCard | None:
         state=case_row.state,
         dispute_status=f"{dispute.stage} {dispute.status}",
         cycles=tuple(arcs),
+        headline=KIT_HEADLINES.get(label, case.title if case else label),
     )
 
 

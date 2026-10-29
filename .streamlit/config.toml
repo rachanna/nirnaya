@@ -5,3 +5,12 @@ headless = true
 
 [browser]
 gatherUsageStats = false
+
+# A light, warm theme: off-white page, beige panels, dark text, one green accent.
+[theme]
+base = "light"
+backgroundColor = "#FBF8F2"
+secondaryBackgroundColor = "#F2ECE1"
+textColor = "#2B2A27"
+primaryColor = "#2F6B55"
+borderColor = "#E3DBCB"

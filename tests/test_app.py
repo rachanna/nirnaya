@@ -27,12 +27,7 @@ def all_text(at) -> str:
 
 
 def test_the_console_renders_every_tab(app):
-    assert [t.label for t in app.tabs] == [
-        "Kit 4 demo",
-        "Review queue",
-        "Case detail",
-        "Evaluation",
-    ]
+    assert [t.label for t in app.tabs] == ["Demo", "Needs a person", "Case history", "Results"]
     assert "Run the kit cases" in "\n".join(i.value for i in app.info)
 
 
@@ -40,10 +35,11 @@ def test_running_the_kit_then_the_rejection_and_an_approval(app):
     app.button(key="run_kit").click().run()
     assert not app.exception
     text = all_text(app)
-    assert "K1 · " in text and "CHALLENGE" in text and "UNANSWERED_CUSTOMER_CONTACT" in text
+    assert "Case 1 · " in text and "Decided: **fight it**" in text
+    assert "never got a reply" in text  # case 3's reason, in plain words
     app.button(key="reject").click().run()
     assert not app.exception
-    assert "Cycle 2 · CHARGEBACK" in all_text(app)
+    assert "At the chargeback stage" in all_text(app)
     app.button(key="acc-K3").click().run()
     assert not app.exception
     assert "Nothing waiting for a person." in "\n".join(i.value for i in app.info)
@@ -72,7 +68,7 @@ def test_the_note_beat_runs_from_the_kit_tab(app):
     assert not app.exception
     text = all_text(app)
     assert "cached answer by" in text  # the committed Claude run, replayed and labelled
-    assert "AG-F1 is waiting in the review queue" in "\n".join(i.value for i in app.info)
+    assert "AG-F1 is waiting for a person" in "\n".join(i.value for i in app.info)
 
 
 def test_the_self_correction_beat_runs_and_is_approved_from_the_queue(app):
@@ -83,4 +79,4 @@ def test_the_self_correction_beat_runs_and_is_approved_from_the_queue(app):
     assert any("Redraft, verified" in x.value for x in app.success)
     app.button(key="chal-N1").click().run()
     assert not app.exception
-    assert "Status: CHALLENGE CONFIRMED" in all_text(app)
+    assert "**Result:** Challenge confirmed" in all_text(app)
