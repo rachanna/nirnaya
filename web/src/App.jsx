@@ -3,27 +3,117 @@ import { api } from "./api.js";
 import CasePanel from "./CasePanel.jsx";
 
 const DOT = { CHALLENGE: "good", ACCEPT: "warn", REFER: "info" };
+const POLL_MS = 700;
 
-export default function App() {
-  const [info, setInfo] = useState(null);
+function CaseTabs({ cases, active, setActive }) {
+  return (
+    <nav className="tabs" role="tablist" aria-label="Cases">
+      {cases.map((c, i) => (
+        <button key={c.label} role="tab" aria-selected={active === c.label}
+          className={active === c.label ? "tab on" : "tab"} onClick={() => setActive(c.label)}>
+          <span className={`dot ${c.running ? "busy" : c.verdict ? DOT[c.verdict] : "none"}`}
+            aria-hidden="true" />
+          <span className="tab-n">Case {i + 1}</span>
+          <span className="tab-h">{c.headline}</span>
+          <span className="tab-a">{c.amount}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function Recorded({ info }) {
+  const [data, setData] = useState(null);
+  const [active, setActive] = useState("K1");
+  const [error, setError] = useState(null);
+  useEffect(() => { api.recorded().then(setData).catch((e) => setError(e.message)); }, []);
+  if (error) return <p className="error" role="alert">{error}</p>;
+  if (!data) return null;
+  const i = data.cases.findIndex((c) => c.label === active);
+  return (
+    <>
+      <p className="mode-note">
+        A replay of the run on <strong>{info.recorded_on}</strong>: {data.models.join(", ")} as the
+        agent, against the <strong>{data.airwallex}</strong>. Every message below happened.
+      </p>
+      <CaseTabs cases={data.cases} active={active} setActive={setActive} />
+      <CasePanel key={`rec-${active}`} number={i + 1} story={data.cases[i]} recorded
+        model={data.models.join(", ")} />
+    </>
+  );
+}
+
+function Live({ info, round }) {
   const [cases, setCases] = useState(null);
   const [active, setActive] = useState("K1");
-  const [round, setRound] = useState(0); // bumps on "Start over" to remount the panels
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const running = cases?.some((c) => c.running);
 
   useEffect(() => {
-    api.info().then(setInfo).catch(() => {});
     api.cases().then(setCases).catch((e) => setError(e.message));
   }, [round]);
 
-  async function startOver() {
-    await api.reset();
-    setCases(null);
-    setRound((r) => r + 1);
+  useEffect(() => {
+    if (!running) return undefined;
+    const t = setInterval(() => api.cases().then(setCases).catch(() => {}), POLL_MS);
+    return () => clearInterval(t);
+  }, [running]);
+
+  if (!info.available) {
+    return (
+      <p className="error" role="alert">
+        The live tab needs a model: {info.why_not} Set it in .env and restart the server.
+      </p>
+    );
   }
 
-  function changed(next) {
-    setCases((all) => all.map((c) => (c.label === next.label ? next : c)));
+  async function act(label, what) {
+    setBusy(true);
+    setError(null);
+    try {
+      const call = { run: api.run, reject: api.reject }[what];
+      const next = call ? await call(label) : await api.decide(label, what);
+      setCases((all) => all.map((c) => (c.label === next.label ? next : c)));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (error && !cases) return <p className="error" role="alert">{error}</p>;
+  if (!cases) return null;
+  const i = cases.findIndex((c) => c.label === active);
+  return (
+    <>
+      <p className="mode-note">
+        Runs now, with real calls to <strong>{info.model}</strong>. Airwallex is{" "}
+        {info.airwallex} and the merchant records are synthetic, so nothing real is written.
+      </p>
+      {error && <p className="error" role="alert">{error}</p>}
+      <CaseTabs cases={cases} active={active} setActive={setActive} />
+      <CasePanel key={`live-${round}-${active}`} number={i + 1} story={cases[i]} model={info.model}
+        busy={busy || running} act={(what) => act(active, what)} />
+    </>
+  );
+}
+
+export default function App() {
+  const [info, setInfo] = useState(null);
+  const [mode, setMode] = useState("recorded");
+  const [round, setRound] = useState(0); // bumps on "Start over"
+  const [error, setError] = useState(null);
+
+  useEffect(() => { api.info().then(setInfo).catch((e) => setError(e.message)); }, []);
+
+  async function startOver() {
+    try {
+      await api.reset();
+      setRound((r) => r + 1);
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   return (
@@ -33,50 +123,46 @@ export default function App() {
           <h1>Nirnaya</h1>
           <p className="tag">Card disputes, decided on evidence and money.</p>
         </div>
-        <div className="top-right">
-          {info && (
-            <span className="pill" title="Decisions, checks and every write are rule-based code">
-              AI agent: {info.agent}
-            </span>
-          )}
-          {info && <span className="pill quiet">Airwallex: {info.airwallex}</span>}
+        {mode === "live" && info?.live.available && (
           <button className="quiet" onClick={startOver}>Start over</button>
-        </div>
+        )}
       </header>
 
       <ol className="how">
         <li><strong>1 · Read</strong> Airwallex reports a dispute: how much, why, and the deadline.</li>
         <li><strong>2 · Check</strong> Nirnaya looks only for the merchant records that could change the answer.</li>
-        <li><strong>3 · Decide and prove</strong> It fights, accepts or asks a person. Every claim it sends is checked first.</li>
+        <li><strong>3 · Decide and prove</strong> Rule-based code fights, accepts or asks a person. Claude writes the response, and code checks every claim before it is sent.</li>
       </ol>
 
       {error && <p className="error" role="alert">Can't reach the Nirnaya API: {error}</p>}
 
-      {cases && (
+      {info && (
         <>
-          <nav className="tabs" role="tablist" aria-label="Cases">
-            {cases.map((c, i) => (
-              <button key={c.label} role="tab" aria-selected={active === c.label}
-                className={active === c.label ? "tab on" : "tab"}
-                onClick={() => setActive(c.label)}>
-                <span className={`dot ${c.verdict ? DOT[c.verdict] : "none"}`} aria-hidden="true" />
-                <span className="tab-n">Case {i + 1}</span>
-                <span className="tab-h">{c.headline}</span>
-                <span className="tab-a">{c.amount}</span>
-              </button>
-            ))}
+          <nav className="modes" role="tablist" aria-label="Demo">
+            <button role="tab" aria-selected={mode === "recorded"}
+              className={mode === "recorded" ? "mode on" : "mode"} onClick={() => setMode("recorded")}
+              disabled={!info.recorded}>
+              <span className="mode-t">Recorded live run</span>
+              <span className="mode-s">
+                {info.recorded ? `${info.recorded.recorded_on} · Claude on the Airwallex sandbox` : "not available"}
+              </span>
+            </button>
+            <button role="tab" aria-selected={mode === "live"}
+              className={mode === "live" ? "mode on" : "mode"} onClick={() => setMode("live")}>
+              <span className="mode-t">Live with Claude</span>
+              <span className="mode-s">
+                {info.live.available ? `Real model calls now · ${info.live.model}` : "needs a model key"}
+              </span>
+            </button>
           </nav>
-          {cases.map((c, i) => (
-            <div key={`${round}-${c.label}`} role="tabpanel" hidden={active !== c.label}>
-              <CasePanel number={i + 1} initial={c} onChange={changed} />
-            </div>
-          ))}
+          {mode === "recorded" && info.recorded && <Recorded info={info.recorded} />}
+          {mode === "live" && <Live info={info.live} round={round} />}
         </>
       )}
 
       <footer className="foot">
         Merchant records are synthetic. Every decision, check and write is made by rule-based
-        code; the AI only gathers evidence and drafts.
+        code; Claude only gathers evidence and drafts.
       </footer>
     </div>
   );

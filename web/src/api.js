@@ -1,4 +1,4 @@
-// The Python API (nirnaya/web/api.py). Every call returns a case story or throws a readable error.
+// The Python API (nirnaya/web/api.py). Every call returns JSON or throws a readable error.
 
 async function call(path, options = {}) {
   const res = await fetch(`/api${path}`, {
@@ -15,6 +15,7 @@ async function call(path, options = {}) {
 
 export const api = {
   info: () => call("/info"),
+  recorded: () => call("/recorded"),
   cases: () => call("/cases"),
   run: (label) => call(`/cases/${label}/run`, { method: "POST" }),
   reject: (label) => call(`/cases/${label}/reject`, { method: "POST" }),

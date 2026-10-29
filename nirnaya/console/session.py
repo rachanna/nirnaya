@@ -109,10 +109,13 @@ class DemoSession:
         return cls(store, cases, {k: k for k in KIT}, now, aw=aw, orch=orch, note_case=note)
 
     @classmethod
-    def from_sandbox_run(cls, directory: Path = SANDBOX_DIR) -> "DemoSession | None":
-        """View the store the sandbox runner wrote. None when there is no completed staging."""
+    def from_sandbox_run(
+        cls, directory: Path = SANDBOX_DIR, db_name: str = "sandbox.db"
+    ) -> "DemoSession | None":
+        """View the store the sandbox runner wrote (or a kept copy of it, `db_name`). None when
+        there is no completed staging."""
         state_path = directory / "sandbox_state.json"
-        db_path = directory / "sandbox.db"
+        db_path = directory / db_name
         if not state_path.is_file() or not db_path.is_file():
             return None
         state = json.loads(state_path.read_text(encoding="utf-8"))

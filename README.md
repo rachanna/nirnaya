@@ -48,7 +48,7 @@ uv run pytest           # about 1,470 offline tests; no network, no keys needed
 
 | What | Command |
 |---|---|
-| **Web demo** (kit 4, one tab per case, each told as a playable message feed) | once: `cd web && npm install && npm run build`; then `uv run python -m nirnaya.web` and open http://localhost:8000 |
+| **Web demo** (kit 4 as playable message feeds: the recorded live run of 29 Oct, and a live tab showing each Claude call as it happens) | once: `cd web && npm install && npm run build`; then `uv run python -m nirnaya.web` and open http://localhost:8000 (the live tab needs the model key in `.env`) |
 | **Demo console** (kit 4 cases, review queue, evaluation) | `uv run streamlit run app/streamlit_app.py`, then open http://localhost:8501 |
 | Kit 4 in the terminal (offline) | `uv run python -m nirnaya.demo` |
 | **Evaluation report** (Nirnaya against three baselines) | `uv run python -m nirnaya.evaluation.report` |

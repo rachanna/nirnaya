@@ -43,7 +43,7 @@ button.primary { background: var(--green); border-color: var(--green); color: #f
 button.primary:hover:not(:disabled) { background: #275a48; }
 button.quiet { background: transparent; color: var(--muted); }
 
-.page { max-width: 1160px; margin: 0 auto; padding: 24px 16px 40px; }
+.page { max-width: 1440px; margin: 0 auto; padding: 24px 16px 40px; }
 
 /* Header */
 .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
@@ -82,10 +82,11 @@ button.quiet { background: transparent; color: var(--muted); }
 .dot.good { background: var(--green); }
 .dot.warn { background: var(--amber); }
 .dot.info { background: var(--blue); }
+.dot.busy { background: var(--amber); animation: blink 1s infinite ease-in-out; }
 
 /* Case panel */
-.panel { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
-.summary, .feed-wrap {
+.panel { display: grid; grid-template-columns: 280px minmax(0, 1fr) minmax(0, 400px); gap: 16px; align-items: start; }
+.summary, .feed-wrap, .calls {
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
 }
 .summary { padding: 18px; position: sticky; top: 16px; }
@@ -159,6 +160,57 @@ button.quiet { background: transparent; color: var(--muted); }
 
 .foot { margin-top: 28px; font-size: 13px; color: var(--muted); text-align: center; }
 
+/* Demo modes: recorded run / live with Claude */
+.modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+.mode {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  padding: 12px 16px; border-radius: var(--radius); background: var(--beige); border-color: var(--beige);
+}
+.mode.on { background: var(--text); border-color: var(--text); color: #fff; }
+.mode.on .mode-s { color: #e8e2d6; }
+.mode-t { font-weight: 700; font-size: 17px; }
+.mode-s { font-size: 14px; color: var(--muted); }
+.mode-note { margin: 0 0 14px; color: var(--muted); }
+.mode-note strong { color: var(--text); }
+
+/* Claude's calls */
+.calls { padding: 14px 14px 16px; position: sticky; top: 16px; max-height: 86vh; overflow-y: auto; }
+.calls-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.calls h3 { margin: 0; font-size: 17px; }
+.calls-total { font-size: 13px; color: var(--muted); }
+.calls-note { font-size: 13px; color: var(--muted); margin: 4px 0 12px; }
+.call-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.calls-empty { font-size: 14px; color: var(--muted); background: var(--beige); border-radius: 8px; padding: 10px 12px; }
+.call {
+  border: 1px solid var(--border); border-left: 4px solid var(--amber); border-radius: 10px;
+  background: #fff; padding: 10px 12px; animation: rise 0.35s ease-out; font-size: 14px;
+}
+.call.running { border-left-color: var(--amber); background: var(--amber-soft); }
+.call.failed { border-left-color: var(--red); }
+.call-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.call-n { font-weight: 700; color: var(--amber); }
+.call-step { font-weight: 700; }
+.call-turn { font-size: 12px; background: var(--beige); border-radius: 999px; padding: 0 8px; }
+.call-stats { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.call-purpose { margin: 4px 0 6px; }
+.call-line { margin: 2px 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.call-answer { margin: 6px 0 0; font-weight: 500; }
+.call-error { margin: 6px 0 0; color: var(--red); }
+.call-tools { margin: 6px 0 0; padding-left: 18px; }
+.call-tools code, .call code { font-size: 13px; background: var(--beige); border-radius: 4px; padding: 0 4px; }
+.call details { margin-top: 8px; }
+.call summary { cursor: pointer; color: var(--green); font-size: 13px; }
+.pre-label { margin: 8px 0 2px; font-size: 12px; color: var(--muted); }
+.call pre {
+  margin: 0; max-height: 220px; overflow: auto; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.bar { height: 4px; background: #fff; border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.bar span { display: block; height: 100%; width: 40%; background: var(--amber); animation: slide 1.2s infinite ease-in-out; }
+.typing-label { align-self: center; font-size: 14px; color: var(--muted); }
+
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes pop { from { transform: scale(0.85); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
@@ -168,8 +220,18 @@ button.quiet { background: transparent; color: var(--muted); }
   .dots span { animation: none; opacity: 0.6; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .call, .bar span, .dot.busy { animation: none; }
+}
+
+@media (max-width: 1180px) {
+  .panel { grid-template-columns: 280px minmax(0, 1fr); }
+  .calls { grid-column: 2; position: static; max-height: none; }
+}
+
 @media (max-width: 820px) {
-  .how, .tabs { grid-template-columns: 1fr; }
+  .how, .tabs, .modes { grid-template-columns: 1fr; }
   .panel { grid-template-columns: 1fr; }
   .summary { position: static; }
+  .calls { grid-column: auto; }
 }

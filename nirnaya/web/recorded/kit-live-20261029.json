@@ -1,0 +1,410 @@
+{
+ "recorded_on": "2026-10-29",
+ "airwallex": "Airwallex sandbox (live API, hosted checkout)",
+ "models": [
+  "anthropic/claude-sonnet-5-5"
+ ],
+ "cases": [
+  {
+   "case_id": "dst_sgpv8mrgwhno4n58w8s",
+   "label": "K1",
+   "headline": "A large fraud claim",
+   "amount": "1500.00 USD",
+   "question": "A large fraud claim at the information-request stage. Is it worth fighting, and can the merchant's own records prove the customer made this purchase?",
+   "state": "DEFERRED",
+   "verdict": "CHALLENGE",
+   "messages": [
+    {
+     "who": "airwallex",
+     "kind": "dispute",
+     "title": "New dispute",
+     "text": "1500.00 USD, reason: fraud (the cardholder says they didn't make it) (Visa 10.4), at the information request stage. Reply due 13 Nov 2026.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "plan",
+     "title": "First look, with Airwallex's data only",
+     "text": "On its own this would be: a person decides. Accepting at this stage refunds the full amount, so a person approves it.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Order ORD-K1: found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Support messages from CUST-K1: nothing found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "decision",
+     "title": "Decision: fight it",
+     "text": "Fighting is worth about 745.00 USD more than accepting, after fees and the risk of losing.",
+     "tone": "info",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Login history for CUST-K1: nothing found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "sweep",
+     "title": "Looking for anything that points the other way",
+     "text": "Checked every record that could contradict the response (1 more looked up).",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "ai",
+     "kind": "draft",
+     "title": "Response drafted",
+     "text": "Claude drafted 5 claims, each citing one field of one record.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "check",
+     "kind": "check",
+     "title": "Every claim checked",
+     "text": "All 5 claims match the records they cite.",
+     "tone": "good",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "evidence",
+     "title": "Evidence document ready",
+     "text": "A PDF of the checked claims, each with its source record.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "check",
+     "kind": "guard",
+     "title": "Final safety checks passed",
+     "text": "Re-read the dispute from Airwallex and re-checked its stage, amount, deadline and authority before writing.",
+     "tone": "good",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "sent",
+     "title": "Sent to Airwallex",
+     "text": "Challenge sent; Airwallex confirmed it.",
+     "tone": "good",
+     "cycle": 1
+    },
+    {
+     "who": "airwallex",
+     "kind": "update",
+     "title": "Airwallex updated the dispute",
+     "text": "It now shows the dispute as challenged.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "airwallex",
+     "kind": "rejected",
+     "title": "The bank rejected the evidence",
+     "text": "The dispute moved to the chargeback stage and needs a new answer.",
+     "tone": "warn",
+     "cycle": 2
+    },
+    {
+     "who": "nirnaya",
+     "kind": "plan",
+     "title": "First look, with Airwallex's data only",
+     "text": "On its own this would be: fight it. Fighting is worth about 70.00 USD more than accepting, after fees and the risk of losing.",
+     "tone": "neutral",
+     "cycle": 2
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Order ORD-K1: found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Support messages from CUST-K1: nothing found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "decision",
+     "title": "Decision: fight it",
+     "text": "Fighting is worth about 820.00 USD more than accepting, after fees and the risk of losing.",
+     "tone": "info",
+     "cycle": 2
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Login history for CUST-K1: nothing found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "sweep",
+     "title": "Looking for anything that points the other way",
+     "text": "Checked every record that could contradict the response (1 more looked up).",
+     "tone": "neutral",
+     "cycle": 2
+    },
+    {
+     "who": "ai",
+     "kind": "draft",
+     "title": "Response drafted",
+     "text": "Claude drafted 5 claims, each citing one field of one record.",
+     "tone": "neutral",
+     "cycle": 2
+    },
+    {
+     "who": "check",
+     "kind": "check",
+     "title": "Every claim checked",
+     "text": "All 5 claims match the records they cite.",
+     "tone": "good",
+     "cycle": 2
+    },
+    {
+     "who": "nirnaya",
+     "kind": "evidence",
+     "title": "Evidence document ready",
+     "text": "A PDF of the checked claims, each with its source record.",
+     "tone": "neutral",
+     "cycle": 2
+    },
+    {
+     "who": "check",
+     "kind": "guard",
+     "title": "Final safety checks passed",
+     "text": "Re-read the dispute from Airwallex and re-checked its stage, amount, deadline and authority before writing.",
+     "tone": "good",
+     "cycle": 2
+    },
+    {
+     "who": "nirnaya",
+     "kind": "sent",
+     "title": "Sent to Airwallex",
+     "text": "Challenge sent; Airwallex confirmed it (with the customer's device and IP).",
+     "tone": "good",
+     "cycle": 2
+    },
+    {
+     "who": "airwallex",
+     "kind": "update",
+     "title": "Moved to pre-arbitration",
+     "text": "Airwallex moved the dispute to pre-arbitration, its own review.",
+     "tone": "neutral",
+     "cycle": 3
+    },
+    {
+     "who": "nirnaya",
+     "kind": "deferred",
+     "title": "Handed back to Airwallex",
+     "text": "Pre-arbitration: Airwallex reviews it.",
+     "tone": "neutral",
+     "cycle": 3
+    }
+   ],
+   "can_reject": false,
+   "needs_person": false,
+   "calls": [
+    {
+     "n": 1,
+     "case_id": "dst_sgpv8mrgwhno4n58w8s",
+     "cycle": 1,
+     "step": "draft",
+     "model": "anthropic/claude-sonnet-5-5",
+     "prompts": [
+      "drafter_system@v1",
+      "drafter_user@v1",
+      "tools@v2"
+     ],
+     "status": "done",
+     "stop": "TOOL_USE",
+     "turns": 1,
+     "tool_calls": [],
+     "summary": "Drafted 5 claims, each citing a record.",
+     "input_tokens": 2030,
+     "output_tokens": 480
+    },
+    {
+     "n": 2,
+     "case_id": "dst_sgpv8mrgwhno4n58w8s",
+     "cycle": 2,
+     "step": "draft",
+     "model": "anthropic/claude-sonnet-5-5",
+     "prompts": [
+      "drafter_system@v1",
+      "drafter_user@v1",
+      "tools@v2"
+     ],
+     "status": "done",
+     "stop": "TOOL_USE",
+     "turns": 1,
+     "tool_calls": [],
+     "summary": "Drafted 5 claims, each citing a record.",
+     "input_tokens": 2035,
+     "output_tokens": 480
+    }
+   ]
+  },
+  {
+   "case_id": "dst_sgpv8mrgwhno4n5pedq",
+   "label": "K2",
+   "headline": "A small \"it never arrived\" claim",
+   "amount": "15.00 USD",
+   "question": "A small not-received claim. Is it worth what fighting would cost?",
+   "state": "CLOSED",
+   "verdict": "ACCEPT",
+   "messages": [
+    {
+     "who": "airwallex",
+     "kind": "dispute",
+     "title": "New dispute",
+     "text": "15.00 USD, reason: the item never arrived (Visa 13.1), at the chargeback stage. Reply due 13 Nov 2026.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "plan",
+     "title": "First look, with Airwallex's data only",
+     "text": "On its own this would be: accept it. Fighting would cost more than it could win back.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Order ORD-K2: found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Support messages from CUST-K2: nothing found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "decision",
+     "title": "Decision: accept it",
+     "text": "Fighting would cost more than it could win back.",
+     "tone": "info",
+     "cycle": 1
+    },
+    {
+     "who": "check",
+     "kind": "guard",
+     "title": "Final safety checks passed",
+     "text": "Re-read the dispute from Airwallex and re-checked its stage, amount, deadline and authority before writing.",
+     "tone": "good",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "sent",
+     "title": "Sent to Airwallex",
+     "text": "Accept sent; Airwallex confirmed it.",
+     "tone": "good",
+     "cycle": 1
+    }
+   ],
+   "can_reject": false,
+   "needs_person": false,
+   "calls": []
+  },
+  {
+   "case_id": "dst_sgpvfc6s8hno4n65o40",
+   "label": "K3",
+   "headline": "\"My refund never came\"",
+   "amount": "120.00 USD",
+   "question": "A credit-not-processed claim from a customer who wrote to support. Should Nirnaya act on its own, or does a person need to look first?",
+   "state": "REFERRED",
+   "verdict": "REFER",
+   "messages": [
+    {
+     "who": "airwallex",
+     "kind": "dispute",
+     "title": "New dispute",
+     "text": "120.00 USD, reason: a refund that was never processed (Visa 13.6), at the chargeback stage. Reply due 13 Nov 2026.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "plan",
+     "title": "First look, with Airwallex's data only",
+     "text": "On its own this would be: accept it. Accepting is about 68.00 USD better than fighting.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Order ORD-K3: found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Support messages from CUST-K3: 2 found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "decision",
+     "title": "Decision: a person decides",
+     "text": "The customer contacted support before the dispute and never got a reply.",
+     "tone": "info",
+     "cycle": 1
+    },
+    {
+     "who": "person",
+     "kind": "person",
+     "title": "Over to a person",
+     "text": "Waiting for a person to accept, fight, or handle it outside Nirnaya.",
+     "tone": "info",
+     "cycle": 1
+    }
+   ],
+   "can_reject": false,
+   "needs_person": false,
+   "calls": []
+  }
+ ]
+}
