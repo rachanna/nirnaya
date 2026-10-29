@@ -36,6 +36,7 @@ from nirnaya.evaluation.metrics import (
     priced,
 )
 from nirnaya.evaluation.policies import CaseResult, accept_all, fight_all, nirnaya
+from nirnaya.evaluation.self_correction import evaluate as evaluate_sc
 from nirnaya.evaluation.sensitivity import sensitivity
 from nirnaya.models.policy import MerchantPolicy
 
@@ -108,6 +109,7 @@ def build(
     repeats: dict[str, list[Cache]] | None = None,
     policy: MerchantPolicy = DEMO_POLICY,
     agentic: dict[str, Any] | None = None,
+    self_correction: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     cases = cases if cases is not None else load_cases()
     caches = caches or {}
@@ -197,6 +199,7 @@ def build(
         "policies": policies,
         "rows": rows,
         "agentic": agentic,
+        "self_correction": self_correction,
     }
 
 
@@ -366,6 +369,7 @@ def as_markdown(report: dict[str, Any]) -> str:
         )
         lines += ["", f"Within 0.05 of the break-even prior: {near or 'none'}."]
     lines += agentic_markdown(report.get("agentic"))
+    lines += self_correction_markdown(report.get("self_correction"))
     v = report["versions"]
     lines += [
         "",
@@ -466,6 +470,41 @@ def agentic_markdown(agentic: dict[str, Any] | None) -> list[str]:
     return lines
 
 
+def self_correction_markdown(sc: dict[str, Any] | None) -> list[str]:
+    if not sc:
+        return []
+    f, o = sc["summary"]["format"], sc["summary"]["overreach"]
+    return [
+        "",
+        "## Self-correction: the drafter fixes what the verifier blocked",
+        "",
+        f"Fault injection on the {f['cases']} cases that should end in a challenge: code breaks "
+        f"the first draft on purpose, then {sc['model']} gets the verifier's findings and "
+        "drafts once more. The redraft is verified from scratch.",
+        "",
+        "| | Values written as prose | An extra claim the record does not support |",
+        "|---|---|---|",
+        f"| Redraft passed verification | {f['repaired']}/{f['cases']} | "
+        f"{o['repaired']}/{o['cases']} |",
+        f"| Challenge sent with no person | {f['sent_automatically']} | "
+        f"{o['sent_automatically']} |",
+        f"| Sent to a person after the repair | {f['sent_to_a_person_after_repair']} | "
+        f"{o['sent_to_a_person_after_repair']} |",
+        f"| Not repaired (referred as before) | {f['not_repaired']} | {o['not_repaired']} |",
+        f"| Unsafe outcomes | {f['unsafe']} | {o['unsafe']} |",
+        f"| Model tokens | {f['tokens']} | {o['tokens']} |",
+        "",
+        "The breakage is code's, not the model's (its own drafts were never blocked on these "
+        "cases), and the findings name the failing field and check, so the repair is easy by "
+        "design: this shows the loop works end to end, not how often the model errs. Unsafe: a "
+        "challenge written from a draft that did not pass, or an overreach sent on without a "
+        "person.",
+        "",
+        f"{sc['model']}: prompts {', '.join(f'`{p}`' for p in sc['prompts'])}; "
+        f"run {sc['run_at'][:10]}.",
+    ]
+
+
 AGENTIC_COLUMNS = (
     ("found", "Deciding facts found"),
     ("wrong_proposals", "Wrong proposals (a person rejects)"),
@@ -549,6 +588,18 @@ def variance(
     return out
 
 
+def _self_correction(results: Path) -> dict[str, Any] | None:
+    from nirnaya.evaluation.self_correction import CACHES as SC
+    from nirnaya.evaluation.self_correction import latest_cache
+
+    cache = latest_cache(results / SC.relative_to(RESULTS))
+    if cache is None:
+        return None
+    result = evaluate_sc(cache)
+    result.pop("rows")
+    return result
+
+
 def main(out: Callable[[str], None] = print, results: Path = RESULTS) -> int:
     directory = results / CACHES.relative_to(RESULTS)
     report = build(
@@ -557,6 +608,7 @@ def main(out: Callable[[str], None] = print, results: Path = RESULTS) -> int:
         agentic=agentic_report(
             caches=load_llm_caches(results / AGENTIC_CACHES.relative_to(RESULTS))
         ),
+        self_correction=_self_correction(results),
     )
     results.mkdir(parents=True, exist_ok=True)
     (results / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")

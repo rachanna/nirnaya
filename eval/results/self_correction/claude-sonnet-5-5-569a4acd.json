@@ -1,0 +1,1547 @@
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-5-5",
+  "prompts": [
+    "drafter_system@v1#6c9a943c49ef",
+    "drafter_user@v1#56b395e94bd8",
+    "tools@v2#ea497525e622",
+    "drafter_feedback@v1#e35abdade1cb"
+  ],
+  "run_at": "2026-10-29T03:39:32.437567+00:00",
+  "cases": {
+    "D1:format": {
+      "claims": [
+        {
+          "source_record_id": "D1-order",
+          "source_field": "order_id",
+          "establishes": "DISTINCT_TRANSACTIONS",
+          "extracted_value": "ORD-D1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-D1"
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-D1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-D1"
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2275,
+      "output_tokens": 716
+    },
+    "D1:overreach": {
+      "claims": [
+        {
+          "source_record_id": "D1-order",
+          "source_field": "order_id",
+          "establishes": "DISTINCT_TRANSACTIONS",
+          "extracted_value": "ORD-D1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-D1"
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-D1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-D1"
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "D1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2054,
+      "output_tokens": 745
+    },
+    "D4:format": {
+      "claims": [
+        {
+          "source_record_id": "D4-order",
+          "source_field": "order_id",
+          "establishes": "DISTINCT_TRANSACTIONS",
+          "extracted_value": "ORD-D4",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-D4"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-D4",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-D4"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2279,
+      "output_tokens": 755
+    },
+    "D4:overreach": {
+      "claims": [
+        {
+          "source_record_id": "D4-order",
+          "source_field": "order_id",
+          "establishes": "DISTINCT_TRANSACTIONS",
+          "extracted_value": "ORD-D4",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-D4"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-D4",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-D4"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "D4-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2058,
+      "output_tokens": 468
+    },
+    "F1:format": {
+      "claims": [
+        {
+          "source_record_id": "F1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-F1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-F1"
+        },
+        {
+          "source_record_id": "F1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "F1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "400.00",
+          "value_kind": "MONEY",
+          "amount": "400.00",
+          "currency": "USD"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM",
+          "text": "AUTHENTICATED"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "avs",
+          "establishes": "AVS_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM",
+          "text": "MATCH"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM",
+          "text": "MATCH"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2909,
+      "output_tokens": 855
+    },
+    "F1:overreach": {
+      "claims": [
+        {
+          "source_record_id": "F1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-F1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-F1"
+        },
+        {
+          "source_record_id": "F1-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "F1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "F1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "400.00",
+          "value_kind": "MONEY",
+          "amount": "400.00",
+          "currency": "USD"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM",
+          "text": "AUTHENTICATED"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "avs",
+          "establishes": "AVS_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM",
+          "text": "MATCH"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F1",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM",
+          "text": "MATCH"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2324,
+      "output_tokens": 843
+    },
+    "F6:format": {
+      "claims": [
+        {
+          "source_record_id": "F6-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-F6",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-F6"
+        },
+        {
+          "source_record_id": "F6-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "F6-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "F6-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "1000.00",
+          "value_kind": "MONEY",
+          "amount": "1000.00",
+          "currency": "USD"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F6",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM",
+          "text": "AUTHENTICATED"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2516,
+      "output_tokens": 740
+    },
+    "F6:overreach": {
+      "claims": [
+        {
+          "source_record_id": "F6-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-F6",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-F6"
+        },
+        {
+          "source_record_id": "F6-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "F6-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "F6-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "1000.00",
+          "value_kind": "MONEY",
+          "amount": "1000.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F6",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM",
+          "text": "AUTHENTICATED"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2229,
+      "output_tokens": 480
+    },
+    "F9:format": {
+      "claims": [
+        {
+          "source_record_id": "F9-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-F9",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-F9"
+        },
+        {
+          "source_record_id": "F9-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "F9-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "F9-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "500.00",
+          "value_kind": "MONEY",
+          "amount": "500.00",
+          "currency": "USD"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F9",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM",
+          "text": "AUTHENTICATED"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2517,
+      "output_tokens": 802
+    },
+    "F9:overreach": {
+      "claims": [
+        {
+          "source_record_id": "F9-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-F9",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-F9"
+        },
+        {
+          "source_record_id": "F9-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "F9-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "F9-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "500.00",
+          "value_kind": "MONEY",
+          "amount": "500.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "payment_attempt:att-F9",
+          "source_field": "three_ds",
+          "establishes": "THREE_DS_AUTHENTICATED",
+          "extracted_value": "AUTHENTICATED",
+          "value_kind": "ENUM",
+          "text": "AUTHENTICATED"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2230,
+      "output_tokens": 478
+    },
+    "K1:format": {
+      "claims": [
+        {
+          "source_record_id": "payment_attempt:att-K1",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM",
+          "text": "MATCH"
+        },
+        {
+          "source_record_id": "K1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-K1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-K1"
+        },
+        {
+          "source_record_id": "K1-order",
+          "source_field": "prior_undisputed_orders_matching_device_ip",
+          "establishes": "PRIOR_UNDISPUTED_ORDERS_MATCH",
+          "extracted_value": "3",
+          "value_kind": "ENUM",
+          "text": "3"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2826,
+      "output_tokens": 300
+    },
+    "K1:overreach": {
+      "claims": [
+        {
+          "source_record_id": "K1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-K1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-K1"
+        },
+        {
+          "source_record_id": "K1-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "K1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "K1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "1500.00",
+          "value_kind": "MONEY",
+          "amount": "1500.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "K1-order",
+          "source_field": "prior_undisputed_orders_matching_device_ip",
+          "establishes": "PRIOR_UNDISPUTED_ORDERS_MATCH",
+          "extracted_value": "3",
+          "value_kind": "ENUM",
+          "text": "3"
+        },
+        {
+          "source_record_id": "payment_attempt:att-K1",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM",
+          "text": "MATCH"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2371,
+      "output_tokens": 556
+    },
+    "K1B:format": {
+      "claims": [
+        {
+          "source_record_id": "payment_attempt:att-K1B",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM",
+          "text": "MATCH"
+        },
+        {
+          "source_record_id": "K1B-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-K1B",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-K1B"
+        },
+        {
+          "source_record_id": "K1B-order",
+          "source_field": "prior_undisputed_orders_matching_device_ip",
+          "establishes": "PRIOR_UNDISPUTED_ORDERS_MATCH",
+          "extracted_value": "3",
+          "value_kind": "ENUM",
+          "text": "3"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2853,
+      "output_tokens": 305
+    },
+    "K1B:overreach": {
+      "claims": [
+        {
+          "source_record_id": "K1B-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-K1B",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-K1B"
+        },
+        {
+          "source_record_id": "K1B-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "K1B-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "K1B-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "1500.00",
+          "value_kind": "MONEY",
+          "amount": "1500.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "K1B-order",
+          "source_field": "prior_undisputed_orders_matching_device_ip",
+          "establishes": "PRIOR_UNDISPUTED_ORDERS_MATCH",
+          "extracted_value": "3",
+          "value_kind": "ENUM",
+          "text": "3"
+        },
+        {
+          "source_record_id": "payment_attempt:att-K1B",
+          "source_field": "cvc",
+          "establishes": "CVC_MATCH",
+          "extracted_value": "MATCH",
+          "value_kind": "ENUM",
+          "text": "MATCH"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2394,
+      "output_tokens": 564
+    },
+    "N1:format": {
+      "claims": [
+        {
+          "source_record_id": "N1-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N1-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-N1"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "200.00",
+          "value_kind": "MONEY",
+          "amount": "200.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2402,
+      "output_tokens": 566
+    },
+    "N1:overreach": {
+      "claims": [
+        {
+          "source_record_id": "N1-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N1-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-N1"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "200.00",
+          "value_kind": "MONEY",
+          "amount": "200.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2204,
+      "output_tokens": 566
+    },
+    "N3:format": {
+      "claims": [
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "signed_by",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "N3-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N3",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-N3"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2639,
+      "output_tokens": 391
+    },
+    "N3:overreach": {
+      "claims": [
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N3-carrier",
+          "source_field": "signed_by",
+          "establishes": "DELIVERY_SIGNATURE",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "N3-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N3",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-N3"
+        },
+        {
+          "source_record_id": "N3-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "N3-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N3-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "600.00",
+          "value_kind": "MONEY",
+          "amount": "600.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2279,
+      "output_tokens": 645
+    },
+    "N5:format": {
+      "claims": [
+        {
+          "source_record_id": "N5-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N5-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N5",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-N5"
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2406,
+      "output_tokens": 494
+    },
+    "N5:overreach": {
+      "claims": [
+        {
+          "source_record_id": "N5-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N5-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N5",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-N5"
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N5-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2208,
+      "output_tokens": 566
+    },
+    "N8:format": {
+      "claims": [
+        {
+          "source_record_id": "N8-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N8-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N8-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N8",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-N8"
+        },
+        {
+          "source_record_id": "N8-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N8-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "200.00",
+          "value_kind": "MONEY",
+          "amount": "200.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2505,
+      "output_tokens": 494
+    },
+    "N8:overreach": {
+      "claims": [
+        {
+          "source_record_id": "N8-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N8-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N8-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N8",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-N8"
+        },
+        {
+          "source_record_id": "N8-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "N8-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N8-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "200.00",
+          "value_kind": "MONEY",
+          "amount": "200.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2307,
+      "output_tokens": 566
+    },
+    "N9:format": {
+      "claims": [
+        {
+          "source_record_id": "N9-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N9-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N9",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-N9"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2397,
+      "output_tokens": 872
+    },
+    "N9:overreach": {
+      "claims": [
+        {
+          "source_record_id": "N9-carrier",
+          "source_field": "status",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "DELIVERED",
+          "value_kind": "ENUM",
+          "text": "DELIVERED"
+        },
+        {
+          "source_record_id": "N9-carrier",
+          "source_field": "delivered_at",
+          "establishes": "DELIVERY_CONFIRMED",
+          "extracted_value": "2026-02-14T15:30:00-05:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-14T15:30:00-05:00"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-N9",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-N9"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "N9-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2199,
+      "output_tokens": 566
+    },
+    "S1:format": {
+      "claims": [
+        {
+          "source_record_id": "S1-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2025-11-03T10:00:00+00:00"
+        },
+        {
+          "source_record_id": "S1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-S1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-S1"
+        },
+        {
+          "source_record_id": "S1-login",
+          "source_field": "active_after_renewal_at",
+          "establishes": "USAGE_AFTER_RENEWAL",
+          "extracted_value": "2026-02-20T08:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2026-02-20T08:00:00+00:00"
+        },
+        {
+          "source_record_id": "S1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "S1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2852,
+      "output_tokens": 523
+    },
+    "S1:overreach": {
+      "claims": [
+        {
+          "source_record_id": "S1-login",
+          "source_field": "active_after_renewal_at",
+          "establishes": "USAGE_AFTER_RENEWAL",
+          "extracted_value": "2026-02-20T08:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2026-02-20T08:00:00+00:00"
+        },
+        {
+          "source_record_id": "S1-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-S1",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-S1"
+        },
+        {
+          "source_record_id": "S1-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "S1-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "S1-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "S1-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2025-11-03T10:00:00+00:00"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2322,
+      "output_tokens": 604
+    },
+    "S3:format": {
+      "claims": [
+        {
+          "source_record_id": "S3-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2025-11-03T10:00:00+00:00"
+        },
+        {
+          "source_record_id": "S3-helpdesk-summary",
+          "source_field": "contacts_before_dispute",
+          "establishes": "NO_PRIOR_CUSTOMER_CONTACT",
+          "extracted_value": "0",
+          "value_kind": "ENUM",
+          "text": "0"
+        },
+        {
+          "source_record_id": "S3-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-S3",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-S3"
+        },
+        {
+          "source_record_id": "S3-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "S3-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "S3-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2850,
+      "output_tokens": 588
+    },
+    "S3:overreach": {
+      "claims": [
+        {
+          "source_record_id": "S3-helpdesk-summary",
+          "source_field": "contacts_before_dispute",
+          "establishes": "NO_PRIOR_CUSTOMER_CONTACT",
+          "extracted_value": "0",
+          "value_kind": "ENUM",
+          "text": "0"
+        },
+        {
+          "source_record_id": "S3-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-S3",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-S3"
+        },
+        {
+          "source_record_id": "S3-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "S3-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "S3-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "S3-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2025-11-03T10:00:00+00:00"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2344,
+      "output_tokens": 588
+    },
+    "S5:format": {
+      "claims": [
+        {
+          "source_record_id": "S5-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2025-11-03T10:00:00+00:00"
+        },
+        {
+          "source_record_id": "S5-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-S5",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-S5"
+        },
+        {
+          "source_record_id": "S5-login",
+          "source_field": "active_after_renewal_at",
+          "establishes": "USAGE_AFTER_RENEWAL",
+          "extracted_value": "2026-02-20T08:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2026-02-20T08:00:00+00:00"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2847,
+      "output_tokens": 350
+    },
+    "S5:overreach": {
+      "claims": [
+        {
+          "source_record_id": "S5-login",
+          "source_field": "active_after_renewal_at",
+          "establishes": "USAGE_AFTER_RENEWAL",
+          "extracted_value": "2026-02-20T08:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2026-02-20T08:00:00+00:00"
+        },
+        {
+          "source_record_id": "S5-order",
+          "source_field": "order_id",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "ORD-S5",
+          "value_kind": "IDENTIFIER",
+          "text": "ORD-S5"
+        },
+        {
+          "source_record_id": "S5-order",
+          "source_field": "customer_name",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "J. Smith",
+          "value_kind": "NAME",
+          "text": "J. Smith"
+        },
+        {
+          "source_record_id": "S5-order",
+          "source_field": "placed_at",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "2026-02-10T17:00:00+08:00",
+          "value_kind": "DATETIME",
+          "at": "2026-02-10T17:00:00+08:00"
+        },
+        {
+          "source_record_id": "S5-order",
+          "source_field": "total_amount",
+          "establishes": "ORDER_PLACED",
+          "extracted_value": "300.00",
+          "value_kind": "MONEY",
+          "amount": "300.00",
+          "currency": "USD",
+          "basis": "GROSS"
+        },
+        {
+          "source_record_id": "S5-policy",
+          "source_field": "cancellation_terms_accepted_at",
+          "establishes": "CANCELLATION_TERMS_ACCEPTED",
+          "extracted_value": "2025-11-03T10:00:00Z",
+          "value_kind": "DATETIME",
+          "at": "2025-11-03T10:00:00+00:00"
+        }
+      ],
+      "stop": "TOOL_USE",
+      "input_tokens": 2317,
+      "output_tokens": 604
+    }
+  }
+}

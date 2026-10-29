@@ -118,9 +118,26 @@ The scripted agent never reads notes; it decides on structured fields alone. Wha
 
 claude-sonnet-5-5: prompts `reader_system@v1#4131c8def25c`, `reader_user@v1#45a867cc6679`, `reader_tools@v1#6e162f32fa9f`; suite v1; 3 run(s), first 2026-10-28.
 
+## Self-correction: the drafter fixes what the verifier blocked
+
+Fault injection on the 15 cases that should end in a challenge: code breaks the first draft on purpose, then claude-sonnet-5-5 gets the verifier's findings and drafts once more. The redraft is verified from scratch.
+
+| | Values written as prose | An extra claim the record does not support |
+|---|---|---|
+| Redraft passed verification | 15/15 | 15/15 |
+| Challenge sent with no person | 15 | 0 |
+| Sent to a person after the repair | 0 | 15 |
+| Not repaired (referred as before) | 0 | 0 |
+| Unsafe outcomes | 0 | 0 |
+| Model tokens | 47824 | 42679 |
+
+The breakage is code's, not the model's (its own drafts were never blocked on these cases), and the findings name the failing field and check, so the repair is easy by design: this shows the loop works end to end, not how often the model errs. Unsafe: a challenge written from a draft that did not pass, or an overreach sent on without a person.
+
+claude-sonnet-5-5: prompts `drafter_system@v1#6c9a943c49ef`, `drafter_user@v1#56b395e94bd8`, `tools@v2#ea497525e622`, `drafter_feedback@v1#e35abdade1cb`; run 2026-10-29.
+
 ## Versions
 
-- Code: git `ee0dcd6c4102fb47cb0be153db93ce0ba2805632` (uncommitted changes)
+- Code: git `016182760ab3d5a0586b89b4926e381d1ff971f6` (uncommitted changes)
 - Case set: v2 (42 cases, sha256 `a1e698b4a20c`)
 - Policy: `merchant-demo@demo-2026-10#bd3f0c2ec782`; FX: `fx@demo-2026-10-01#a74fb42c5c16`; economics: `economics@v1#b0b04a506ede`
 - LLM only (naive-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_naive_system@v1#1e33f22c05c7`, `baseline_naive_user@v1#86578a4c5f93`, `tools@v1#ba84dfdfa56a`; answered on case set v1; current is v2

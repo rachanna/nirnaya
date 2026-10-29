@@ -49,7 +49,7 @@
   },
   "versions": {
     "git": {
-      "commit": "ee0dcd6c4102fb47cb0be153db93ce0ba2805632",
+      "commit": "016182760ab3d5a0586b89b4926e381d1ff971f6",
       "dirty": true
     },
     "case_set": {
@@ -3171,6 +3171,39 @@
         ],
         "case_set": "v1",
         "run_at": "2026-10-28T20:32:57.724189+00:00"
+      }
+    }
+  },
+  "self_correction": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "prompts": [
+      "drafter_system@v1#6c9a943c49ef",
+      "drafter_user@v1#56b395e94bd8",
+      "tools@v2#ea497525e622",
+      "drafter_feedback@v1#e35abdade1cb"
+    ],
+    "run_at": "2026-10-29T03:39:32.437567+00:00",
+    "summary": {
+      "format": {
+        "cases": 15,
+        "repaired": 15,
+        "sent_automatically": 15,
+        "sent_to_a_person_after_repair": 0,
+        "not_repaired": 0,
+        "other": [],
+        "unsafe": 0,
+        "tokens": 47824
+      },
+      "overreach": {
+        "cases": 15,
+        "repaired": 15,
+        "sent_automatically": 0,
+        "sent_to_a_person_after_repair": 15,
+        "not_repaired": 0,
+        "other": [],
+        "unsafe": 0,
+        "tokens": 42679
       }
     }
   }

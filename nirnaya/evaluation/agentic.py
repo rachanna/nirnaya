@@ -46,7 +46,7 @@ from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import Action, EvidenceType, ValidationStatus
 from nirnaya.models.evidence import EvidenceRecord
 from nirnaya.orchestrator.machine import Orchestrator
-from nirnaya.orchestrator.ports import Reader
+from nirnaya.orchestrator.ports import Drafter, Reader
 from nirnaya.orchestrator.referrals import approve
 from nirnaya.orchestrator.settings import Settings
 from nirnaya.store import Store, connect
@@ -210,7 +210,10 @@ class Run:
     unconfirmed_passes: int  # kept quotes that verify without confirmation (must be 0)
 
 
-def _pipeline(case: EvalCase, reader: Reader | None) -> tuple[Store, Orchestrator, datetime]:
+def pipeline(
+    case: EvalCase, reader: Reader | None = None, drafter: Drafter | None = None
+) -> tuple[Store, Orchestrator, datetime]:
+    """One case in a fresh store with the fake Airwallex, dry run, scripted investigator."""
     store = Store(connect())
     store.register_merchant(
         DEMO_POLICY.merchant_id,
@@ -230,7 +233,7 @@ def _pipeline(case: EvalCase, reader: Reader | None) -> tuple[Store, Orchestrato
         aw,
         synthetic_world([case]),
         ScriptedInvestigator(),
-        ScriptedDrafter(),
+        drafter or ScriptedDrafter(),
         Settings(dry_run=True),
         reader=reader,
     )
@@ -240,7 +243,7 @@ def _pipeline(case: EvalCase, reader: Reader | None) -> tuple[Store, Orchestrato
 def run_case(acase: AgenticCase, reader: Reader | None, *, careless: bool = False) -> Run:
     case = acase.case
     m, cid = case.dispute.merchant_id, case.dispute.id
-    store, orch, now = _pipeline(case, reader)
+    store, orch, now = pipeline(case, reader)
     orch.run_until_idle(now)
     writes = store.writes(m, cid)
     first = writes[0].action if writes else None

@@ -53,6 +53,7 @@ uv run pytest           # about 1,470 offline tests; no network, no keys needed
 | **Evaluation report** (Nirnaya against three baselines) | `uv run python -m nirnaya.evaluation.report` |
 | LLM-only baseline (opt-in, about 40 model calls, cached) | `NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline` |
 | Agentic suite: reading notes (offline; cached model runs) | `uv run python -m nirnaya.evaluation.agentic` (live: `NIRNAYA_LIVE_LLM=1 ... --live`, 10 model calls) |
+| Self-correction by fault injection (offline; cached model run) | `uv run python -m nirnaya.evaluation.self_correction` (live: `NIRNAYA_LIVE_LLM=1 ... --live`, 30 model calls) |
 | Kit 4 on the **Airwallex sandbox** | `uv run python -m nirnaya.sandbox_demo` (add `--checkout` to pay on Airwallex's hosted page, `--offline` for the fake, `--submit` for real writes) |
 | Read-only sandbox checks | `NIRNAYA_LIVE_AIRWALLEX=1 uv run pytest -m live_airwallex -s` |
 
@@ -134,6 +135,24 @@ On the 42 cases every fact sits in a structured field, so the Claude agent and t
 | Unsafe outcomes | 0 | 0 | 0 |
 
 What it shows: reading adds decisions the scripted agent cannot reach (six disputes it would have conceded), and the model's value over a phrase list is precision on the traps, identical across three runs. What it does not show: the cases and labels are the rule author's own, and the suite is small and fairly easy. The verifier checks a quote's words, not its meaning, so a person confirming every keyword proposal would have challenged three traps: confirmation is a real control. Unsafe outcomes (a write before a person acts, an unconfirmed quote verifying) are zero by construction for every reader.
+
+## The agent fixes what the verifier blocks (self-correction)
+
+When the verifier blocks a draft, the model drafter gets the findings back (which claim, which field, which check) as data, and drafts once more; the redraft is verified from scratch. Code decides what may be fixed and what happens next (`nirnaya/orchestrator/redraft.py`):
+- a value written in the wrong form, or a required fact left out: a passing redraft goes out on its own;
+- a claim its record does not support (overreach): a passing redraft still goes to a person, who sees both drafts;
+- records contradicting each other, changed evidence, or a quote claim: never redrafted, a person decides.
+
+Measured by fault injection on the 15 cases that should end in a challenge (code breaks the first draft on purpose; `claude-sonnet-5-5` redrafts):
+
+| | Values written as prose | An extra claim the record does not support |
+|---|---|---|
+| Redraft passed verification | 15/15 | 15/15 |
+| Challenge sent with no person | 15 | 0 |
+| Sent to a person after the repair | 0 | 15 |
+| Unsafe outcomes | 0 | 0 |
+
+The breakage is code's, not the model's (its own drafts were never blocked on these cases), and the findings name the failing field, so the repair is easy by design. It shows the loop works end to end and that an overreach always reaches a person; it does not measure how often the model errs.
 
 ## Versioned prompts and configuration
 
