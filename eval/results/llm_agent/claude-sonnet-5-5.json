@@ -6,10 +6,10 @@
     "investigator_user@v1#469b752adc64",
     "drafter_system@v1#6c9a943c49ef",
     "drafter_user@v1#56b395e94bd8",
-    "tools@v1#ba84dfdfa56a"
+    "tools@v2#ea497525e622"
   ],
   "case_set": "v2",
-  "run_at": "2026-10-28T17:31:18.820028+00:00",
+  "run_at": "2026-10-29T04:12:31.227627+00:00",
   "fabrication_cases": [
     "A3",
     "K2C"
@@ -21,14 +21,14 @@
     "scripted": {
       "unsupported": 0,
       "blocked": 1,
-      "lookups": 102,
+      "lookups": 104,
       "tokens": 0
     },
     "llm": {
       "unsupported": 0,
       "blocked": 0,
-      "lookups": 102,
-      "tokens": 107779
+      "lookups": 104,
+      "tokens": 113708
     }
   },
   "cases": {
@@ -46,7 +46,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 3029,
+        "tokens": 3044,
         "agent_stops": [
           "FINISH"
         ]
@@ -66,7 +66,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 2580,
+        "tokens": 2579,
         "agent_stops": [
           "FINISH"
         ]
@@ -107,7 +107,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 2707,
+        "tokens": 2708,
         "agent_stops": [
           "FINISH"
         ]
@@ -127,8 +127,9 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 2,
-        "tokens": 2446,
+        "tokens": 5170,
         "agent_stops": [
+          "TOOL_USE",
           "TOOL_USE"
         ]
       }
@@ -241,7 +242,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 2952,
+        "tokens": 2990,
         "agent_stops": [
           "FINISH"
         ]
@@ -261,7 +262,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 2939,
+        "tokens": 2946,
         "agent_stops": [
           "FINISH"
         ]
@@ -281,7 +282,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 2960,
+        "tokens": 2968,
         "agent_stops": [
           "FINISH"
         ]
@@ -339,7 +340,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 3039,
+        "tokens": 3101,
         "agent_stops": [
           "FINISH"
         ]
@@ -370,7 +371,7 @@
         "action": "CHALLENGE",
         "unsupported": 0,
         "blocked": 0,
-        "lookups": 2,
+        "lookups": 3,
         "tokens": 0,
         "agent_stops": []
       },
@@ -378,8 +379,8 @@
         "action": "CHALLENGE",
         "unsupported": 0,
         "blocked": 0,
-        "lookups": 2,
-        "tokens": 2836,
+        "lookups": 3,
+        "tokens": 2818,
         "agent_stops": [
           "TOOL_USE"
         ]
@@ -390,7 +391,7 @@
         "action": "CHALLENGE",
         "unsupported": 0,
         "blocked": 0,
-        "lookups": 2,
+        "lookups": 3,
         "tokens": 0,
         "agent_stops": []
       },
@@ -398,8 +399,8 @@
         "action": "CHALLENGE",
         "unsupported": 0,
         "blocked": 0,
-        "lookups": 2,
-        "tokens": 2604,
+        "lookups": 3,
+        "tokens": 3002,
         "agent_stops": [
           "TOOL_USE"
         ]
@@ -494,7 +495,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 2691,
+        "tokens": 2698,
         "agent_stops": [
           "FINISH"
         ]
@@ -514,7 +515,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 5302,
+        "tokens": 5304,
         "agent_stops": [
           "FINISH",
           "TOOL_USE"
@@ -535,7 +536,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 2846,
+        "tokens": 2820,
         "agent_stops": [
           "FINISH"
         ]
@@ -555,7 +556,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 5391,
+        "tokens": 5337,
         "agent_stops": [
           "FINISH",
           "TOOL_USE"
@@ -594,7 +595,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 2708,
+        "tokens": 2710,
         "agent_stops": [
           "FINISH"
         ]
@@ -614,7 +615,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 5573,
+        "tokens": 5569,
         "agent_stops": [
           "FINISH",
           "TOOL_USE"
@@ -635,7 +636,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 5120,
+        "tokens": 5110,
         "agent_stops": [
           "FINISH",
           "TOOL_USE"
@@ -656,7 +657,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 4,
-        "tokens": 8210,
+        "tokens": 8183,
         "agent_stops": [
           "FINISH",
           "FINISH",
@@ -678,10 +679,11 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 4,
-        "tokens": 7831,
+        "tokens": 10662,
         "agent_stops": [
           "FINISH",
           "FINISH",
+          "TOOL_USE",
           "TOOL_USE"
         ]
       }
@@ -700,7 +702,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 5424,
+        "tokens": 5431,
         "agent_stops": [
           "FINISH",
           "TOOL_USE"
@@ -721,7 +723,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 3,
-        "tokens": 2964,
+        "tokens": 2958,
         "agent_stops": [
           "FINISH"
         ]
@@ -741,7 +743,7 @@
         "unsupported": 0,
         "blocked": 0,
         "lookups": 4,
-        "tokens": 5827,
+        "tokens": 5800,
         "agent_stops": [
           "FINISH",
           "TOOL_USE"

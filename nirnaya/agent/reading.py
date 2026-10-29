@@ -83,7 +83,21 @@ def screen(
                 kept.append(q)
             continue
         dropped.append({"item": p._asdict(), "why": why})
-    return kept, dropped
+    # One quote per passage: a quote inside a fuller one for the same note and fact (the same
+    # sentence without its full stop, a phrase of it) would show the person a duplicate.
+    fuller = []
+    for q in kept:
+        if any(
+            o is not q
+            and (o.record_id, o.field, o.fact) == (q.record_id, q.field, q.fact)
+            and q.quote in o.quote
+            and len(o.quote) > len(q.quote)
+            for o in kept
+        ):
+            dropped.append({"item": q._asdict(), "why": "overlaps a fuller proposed quote"})
+        else:
+            fuller.append(q)
+    return fuller, dropped
 
 
 def quote_claim(dispute: Dispute, quote: Quote, n: int) -> Claim:

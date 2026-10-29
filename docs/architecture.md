@@ -607,15 +607,15 @@ Model: chosen by configuration through the provider-neutral `LLMClient` (`nirnay
 
 ### 8.7 Does the model agent beat the scripted one? (measured)
 
-**Not on these cases: they are equivalent.** On 2026-10-28 all 42 evaluation cases ran through the same pipeline twice, once with the scripted investigator and drafter and once with `LLMInvestigator` and `LLMDrafter` on `claude-sonnet-5-5` (`python -m nirnaya.evaluation.llm_agent`, cached in `eval/results/llm_agent/claude-sonnet-5-5.json`):
+**Not on these cases: they are equivalent.** On 2026-10-28, and again on 2026-10-29 after self-correction (§8.6) was added, all 42 evaluation cases ran through the same pipeline twice, once with the scripted investigator and drafter and once with `LLMInvestigator` and `LLMDrafter` on `claude-sonnet-5-5` (`python -m nirnaya.evaluation.llm_agent`, cached in `eval/results/llm_agent/claude-sonnet-5-5.json`):
 
 | | Scripted agent | Claude agent |
 |---|---|---|
 | Same route | 41 of 42 | 41 of 42 |
-| Lookups (code's intake lookups plus the agent's) | 102 | 102 |
+| Lookups (code's intake lookups plus the agent's) | 104 | 104 |
 | Unsupported claims submitted | 0 | 0 |
 | Drafted claims the verifier blocked | 1 (A3's deliberately careless fixture draft) | 0 |
-| Model tokens | 0 | about 108,000 |
+| Model tokens | 0 | about 114,000 |
 
 The one route difference is A3, a fabrication case where the scripted side uses a careless fixture draft by design (it overstates the amount and is blocked); the model's own draft stated the amount correctly, so its challenge went through. On every other case the two agents fetched the same records and reached the same decision, and the model never drafted a claim the verifier had to block.
 
@@ -648,6 +648,8 @@ Only merchant and third-party records count. Customer-written text is never show
 **What this does and does not guarantee.** No quote is written, decided on or verified on the model's word: those outcomes are zero by construction. The verifier checks a quote's words, not its meaning. Whether "no signature obtained" shows a signature is the person's call, which is why confirmation is required rather than offered.
 
 **Measured** (§14, `eval/agentic/`): on 10 synthetic cases, Claude found all 6 note-only facts and proposed nothing on the 4 traps, identically on three runs. A keyword baseline also found all 6 but sent 3 traps to a person. The scripted agent found none.
+
+With the model as investigator, drafter and reader together (`NIRNAYA_AGENT=llm`, a one-off live check on 2026-10-29, not cached): 6/6 found, 0/4 traps proposed, 6/6 challenged after a careful review, nothing written before a person, about 46,000 tokens. In one live console run Claude proposed the same sentence twice (with and without its full stop); `screen` now keeps only the fuller of two overlapping quotes for the same note and fact.
 
 ---
 

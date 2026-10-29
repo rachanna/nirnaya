@@ -164,3 +164,15 @@ def test_screen_keeps_only_quotes_from_allowed_notes_for_asked_facts():
         "not a record the reader was shown",
         "this note cannot establish this fact",
     ]
+
+
+def test_overlapping_proposals_reach_the_person_once_keeping_the_fuller_quote():
+    records = CASE.evidence_records()
+    asked = frozenset({E.DELIVERY_SIGNATURE})
+    readable = readable_records(CASE.dispute, records, asked)
+    full = Quote("NOTED-carrier", "driver_notes", E.DELIVERY_SIGNATURE, NOTE)
+    no_stop = full._replace(quote=NOTE.rstrip("."))
+    part = full._replace(quote=QUOTE)
+    kept, dropped = screen([no_stop, full, part], readable, asked)
+    assert kept == [full]
+    assert [d["why"] for d in dropped] == ["overlaps a fuller proposed quote"] * 2
