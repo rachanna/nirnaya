@@ -48,8 +48,10 @@ def test_k1_tells_the_arc_from_airwallex_data_alone_to_a_challenge(session):
     assert any("PRIOR_UNDISPUTED_ORDERS_MATCH" in w for w in arc.initial.worth_finding)
     # New information from the merchant's systems, then the revised decision.
     assert any(info.startswith("get_order(ORD-K1)") for info in arc.new_information)
-    # Prior orders alone already justify the challenge, so the search stops there (VoI).
-    assert arc.revised.action == "CHALLENGE" and arc.revised.p == "0.60"
+    # Prior orders alone already justify the challenge (VoI finds nothing to flip); then code
+    # fetches the signed delivery that makes the fight stronger: p 0.60 -> 0.75.
+    assert any(info.startswith("get_carrier_tracking(TRK-K1)") for info in arc.new_information)
+    assert arc.revised.action == "CHALLENGE" and arc.revised.p == "0.75"
 
 
 def test_k3_new_information_is_the_unanswered_emails(session):

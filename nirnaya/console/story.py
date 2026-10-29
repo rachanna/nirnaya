@@ -235,6 +235,23 @@ def case_story(session: DemoSession, label: str) -> Story:
                     cycle=cycle,
                 )
             elif to == "DECIDED" and arc is not None and arc.revised is not None:
+                if b.get("support"):
+                    n = len(b["support"])
+                    odds = (
+                        f". The odds of winning go from {_percent(b['p_before'])} to "
+                        f"{_percent(arc.revised.p)}"
+                        if b.get("p_before") and arc.revised.p
+                        else ""
+                    )
+                    say(
+                        "nirnaya",
+                        "support",
+                        "Making the fight stronger",
+                        f"It is worth fighting, so code looked up {n} more record(s) the response"
+                        f" can cite{odds}",
+                        "good",
+                        cycle,
+                    )
                 say(
                     "nirnaya",
                     "decision",
@@ -387,6 +404,10 @@ def case_story(session: DemoSession, label: str) -> Story:
         if case is not None and case.state == "REFERRED"
         else (),
     )
+
+
+def _percent(p: object) -> str:
+    return f"{round(float(str(p)) * 100)}%"
 
 
 def _amount(session: DemoSession, label: str) -> str:

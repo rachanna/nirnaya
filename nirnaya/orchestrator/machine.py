@@ -15,9 +15,14 @@ from typing import Any
 
 from nirnaya.agent.reading import quote_claim, readable_facts, readable_records, screen
 from nirnaya.agent.runs import AgentRun
-from nirnaya.agent.targets import counterevidence_lookups, investigation_targets, tools_for
-from nirnaya.agent.tools import MerchantSystems, Tool, ToolGateway
-from nirnaya.engine import decide
+from nirnaya.agent.targets import (
+    counterevidence_lookups,
+    investigation_targets,
+    support_targets,
+    tools_for,
+)
+from nirnaya.agent.tools import MerchantSystems, Tool, ToolGateway, ToolRefused
+from nirnaya.engine import decide, strengthening_sets
 from nirnaya.evidence.catalogue import Quote
 from nirnaya.evidence.derive import (
     contradictions,
@@ -36,6 +41,7 @@ from nirnaya.models.enums import (
     ValidationStatus,
 )
 from nirnaya.models.money import FxTable, Money
+from nirnaya.models.policy import MerchantPolicy
 from nirnaya.orchestrator import states
 from nirnaya.orchestrator.deferral import closed_reason, deferral_reason
 from nirnaya.orchestrator.ports import (
@@ -405,20 +411,72 @@ class Orchestrator:
     ) -> Decision:
         """The engine's decision on the case's records. `also` adds facts for a counterfactual
         (what the decision would be if proposed quotes were confirmed); it never decides."""
+        policy, present, inputs, found = self._engine_inputs(case, dispute, also)
+        return decide(
+            dispute,
+            policy,
+            present,
+            **inputs,
+            contradictions=[(c.record_id, c.contradicts, c.description) for c in found],
+        )
+
+    def _engine_inputs(
+        self, case: CaseRow, dispute: Dispute, also: frozenset[EvidenceType] = frozenset()
+    ) -> tuple[MerchantPolicy, frozenset[EvidenceType], dict[str, Any], list]:
+        """What the engine sees for this case: policy, facts present, and the other inputs."""
         cycle = self.store.cycle(case.merchant_id, case.case_id, case.cycle)
         policy = self.store.policy(case.merchant_id, cycle.policy_version)
         records = self.store.evidence(case.merchant_id, case.case_id)
         found = contradictions(records, dispute, also)
-        return decide(
-            dispute,
-            policy,
-            evidence_present(records, dispute) | also,
-            ownership_resolved=bool(cycle.ownership_resolved),
-            contradictory_record_ids=sorted({c.record_id for c in found}),
-            unanswered_contact_ids=unanswered_customer_contacts(records, dispute),
-            fx=self.fx,
-            contradictions=[(c.record_id, c.contradicts, c.description) for c in found],
-        )
+        inputs = {
+            "ownership_resolved": bool(cycle.ownership_resolved),
+            "contradictory_record_ids": sorted({c.record_id for c in found}),
+            "unanswered_contact_ids": unanswered_customer_contacts(records, dispute),
+            "fx": self.fx,
+        }
+        return policy, evidence_present(records, dispute) | also, inputs, found
+
+    def _supported(
+        self, case: CaseRow, dispute: Dispute, decision: Decision, tools: ToolGateway, now: datetime
+    ) -> tuple[Decision, dict[str, Any]]:
+        """Once the case is worth fighting, code fetches the records that would make the fight
+        stronger (a higher prior: engine.strengthening_sets), then decides again, so the numbers
+        include what the response will cite (architecture 8.2). Optional: skipped, never
+        referred, when these lookups and the sweep they would add do not fit the tool budget or
+        the deadline buffer. A fetched record that contradicts the case refers as any would."""
+        if decision.action is not Action.CHALLENGE:
+            return decision, {}
+        policy, present, inputs, _ = self._engine_inputs(case, dispute)
+        targets = support_targets(strengthening_sets(dispute, policy, present, **inputs))
+        called = tools.called()
+        lookups = [
+            lookup
+            for tool in tools_for(targets)
+            for key in tools.lookup_keys(tool)
+            if (lookup := f"{tool}:{key}") not in called
+        ]
+        if not lookups:
+            return decision, {}
+        records = self.store.evidence(case.merchant_id, case.case_id)
+        sweep = counterevidence_lookups(dispute, records, called | set(lookups), targets)
+        room = tools.calls_used + len(lookups) + len(sweep) <= self.settings.max_tool_calls
+        if not room or now >= dispute.due_at - self.settings.investigation_buffer[dispute.stage]:
+            return decision, {}
+        fetched = []
+        for lookup in lookups:
+            name, _, key = lookup.partition(":")
+            try:
+                tools.fetch(Tool(name), key)
+            except ToolRefused:
+                break
+            fetched.append(lookup)
+        if not fetched:
+            return decision, {}
+        after = self._decide(case, dispute)
+        body: dict[str, Any] = {"support": fetched}
+        if after.p != decision.p:
+            body["p_before"] = str(decision.p)
+        return after, body
 
     def _pending_calls(
         self, decision: Decision, dispute: Dispute, tools: ToolGateway, case: CaseRow
@@ -532,7 +590,8 @@ class Orchestrator:
             return self._decision_step(
                 case, dispute, decision, S.INVESTIGATING, now, pending=pending
             )
-        return self._decision_step(case, dispute, decision, S.DECIDED, now)
+        decision, support = self._supported(case, dispute, decision, tools, now)
+        return self._decision_step(case, dispute, decision, S.DECIDED, now, **support)
 
     def _investigating(self, case: CaseRow, now: datetime) -> _Step:
         dispute = self._dispute(case)
@@ -560,8 +619,9 @@ class Orchestrator:
                 tool_calls=used,
                 pending=pending,
             )
+        decision, support = self._supported(case, dispute, decision, tools, now)
         return self._decision_step(
-            case, dispute, decision, S.DECIDED, now, run=run, tool_calls=used
+            case, dispute, decision, S.DECIDED, now, run=run, tool_calls=used, **support
         )
 
     def _decided(self, case: CaseRow, now: datetime) -> _Step:

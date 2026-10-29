@@ -36,7 +36,11 @@ def test_case_1_reads_from_the_dispute_to_a_confirmed_challenge(session):
     first = story.messages[0]
     assert first.who == "airwallex" and "1500.00 USD" in first.text
     decision = next(m for m in story.messages if m.kind == "decision")
-    assert decision.title == "Decision: fight it" and "745.00 USD" in decision.text
+    assert decision.title == "Decision: fight it" and "970.00 USD" in decision.text
+    stronger = next(m for m in story.messages if m.kind == "support")
+    assert stronger.title == "Making the fight stronger"
+    assert "from 60% to 75%" in stronger.text
+    assert k.index("support") == k.index("decision") - 1
     sent = next(m for m in story.messages if m.kind == "sent")
     assert sent.tone == "good" and "Airwallex confirmed it" in sent.text
     assert story.can_reject and not story.needs_person

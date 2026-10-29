@@ -84,8 +84,13 @@ def test_a_model_cannot_hide_the_returned_parcel():
     assert h.store.case(M, "N1").state == CaseState.REFERRED
     assert not [w for w in h.store.writes(M, "N1") if w.action == "CHALLENGE"]
     assert "N1-carrier-b" in {r.id for r in h.store.evidence(M, "N1")}
-    (sweep,) = events(h, "N1", "COUNTEREVIDENCE_SWEEP")
-    assert "get_carrier_tracking:TRK-N1B" in sweep["fetched"]
+    # Code fetched it, whatever the model did: here the supporting lookups (a signature would
+    # make the fight stronger, so every carrier key is looked up) find it before the decision
+    # is recorded; without them the sweep before drafting would.
+    by_code = [b.get("support", []) for b in events(h, "N1", "STATE")] + [
+        b["fetched"] for b in events(h, "N1", "COUNTEREVIDENCE_SWEEP")
+    ]
+    assert any("get_carrier_tracking:TRK-N1B" in f for f in by_code)
 
 
 def compromised_account_case() -> EvalCase:
