@@ -253,7 +253,8 @@ stateDiagram-v2
     DRAFTING --> VERIFYING
     DRAFTING --> REFERRED: draft failed
     VERIFYING --> RENDERING: PASSED
-    VERIFYING --> REFERRED: BLOCKED or REFER
+    VERIFYING --> DRAFTING: BLOCKED and fixable, once (self-correction, §8.6)
+    VERIFYING --> REFERRED: BLOCKED or REFER, or a passing redraft after an overreach
     RENDERING --> PRE_WRITE_CHECK
     RENDERING --> REFERRED: file limits not met
 
@@ -286,7 +287,7 @@ stateDiagram-v2
 | `INVESTIGATING` | Agent searching for VoI evidence | One agent turn per tick (§8) | VoI empty, budget spent, or deadline buffer |
 | `DECIDED` | Engine has decided this cycle | Persist the `Decision`; route by `action` | Always |
 | `DRAFTING` | Agent drafts structured claims | Draft → `Claim`s (§8.6) | Drafts stored, or drafting failed |
-| `VERIFYING` | Verifier runs | `verify()` with stored records and captured hashes | Always |
+| `VERIFYING` | Verifier runs | `verify()` with stored records and captured hashes; a fixable BLOCKED draft goes back to a drafter that revises, once (§8.6) | Always |
 | `RENDERING` | Evidence files built | `render/` (§9.6) | Files within limits, or not |
 | `PRE_WRITE_CHECK` | Guardrails | §7 checklist | Pass or fail |
 | `SUBMITTING` | Write in flight | Write gateway call, ledger update | Acknowledged or rejected |
@@ -589,6 +590,17 @@ Code then:
 - builds `Claim`s.
 
 The status and contradiction ids are left for `verify()`, which ignores any incoming values.
+
+**Self-correction.** When the verifier blocks a draft, a drafter that revises (`LLMDrafter.revises`; the scripted drafter does not) gets one more try, and the redraft is verified from scratch. Code decides, deterministically (`orchestrator/redraft.py`):
+
+| First draft | Redraft? | If the redraft passes |
+|---|---|---|
+| FORMAT: the cited field establishes the fact; only how the value was written failed (`EXTRACTED_VALUE_MISMATCH`, `VALUE_MISMATCH`, `NAME_OR_ID_MISMATCH`) | yes | proceeds |
+| OMISSION: a required fact no claim tried to state | yes | proceeds |
+| OVERREACH: any other blocked claim (wrong record, a field that does not establish the fact, a wrong amount or date, another merchant's record, a reason-specific claim under an unknown reason) | yes | `REFERRED`, `REDRAFT_AFTER_OVERREACH`, both drafts in the detail, until a person approves |
+| Records contradict each other (outcome REFER), changed evidence (`HASH_MISMATCH`), a failing quote claim | no | — |
+
+The findings (each blocked claim's record, field, fact, value and failing checks; the required facts still missing) go to the model inside an untrusted-data block, with the versioned `drafter_feedback` prompt. At most `Settings.max_redrafts` (1) per cycle, within the cycle's token budget and before the investigation buffer. Every draft and verification stays stored, `REDRAFT_REQUESTED` is audited, and any referral after a redraft lists the earlier drafts. Measured by fault injection (§14).
 
 Model: chosen by configuration through the provider-neutral `LLMClient` (`nirnaya/llm/`): `NIRNAYA_LLM_PROVIDER` is `anthropic` (default) or `openai`, and `NIRNAYA_MODEL` sets the model (default `claude-sonnet-5-5` for Anthropic; required for OpenAI). Structured drafts ask for one named tool call (`force_tool`). The OpenAI adapter forces it with `tool_choice`. Current Claude models (Sonnet 5.5, Opus 5.5) reject a forced `tool_choice`, so the Anthropic adapter leaves it on auto, marks that tool `strict` (its schema closed with `additionalProperties: false`), names the tool in the system prompt and asks once more if the call is missing; after that the caller sees no tool call and fails closed. Data from records is passed only as tool results or messages wrapped by `untrusted()`; the system prompt is static.
 
@@ -1022,6 +1034,7 @@ flowchart LR
 
     Answers are cached as `eval/results/llm_only/<variant>-<system prompt version>.json` (repeat runs `.runN.json`), with the model, prompt versions and the case set they were given on. The report has one column per prompt version and a repeat-run section: each run's numbers, and every case whose decision or unsupported-claim count changed between runs.
 - **Agentic suite** (`eval/agentic/`, its own manifest; `python -m nirnaya.evaluation.agentic`): 10 SYNTHETIC cases for the note reader (§8.8), 6 where the deciding fact is only in a note and 4 traps. Every reader (none, a deterministic keyword baseline, cached LLM runs) goes through the full pipeline twice per case: a careful person confirms only labelled quotes, a careless one confirms every proposal. Reported: facts found, wrong proposals, traps sent to a person, challenges after review, traps challenged under careless review, unsafe outcomes (a write before a person acts or an unconfirmed quote verifying; zero for every reader) and tokens. Live runs: `NIRNAYA_LIVE_LLM=1 ... --live [--run N]`, cached in `eval/results/agentic/`.
+- **Self-correction** (`python -m nirnaya.evaluation.self_correction`, §8.6): on the 15 cases that should end in a challenge, code breaks the first draft on purpose (values written as prose; an extra claim citing a field the record lacks) and the real drafter redrafts from the findings through the full pipeline. Reported per injection: redrafts that passed, challenges sent with no person, sent to a person after repair, not repaired, unsafe outcomes (a challenge from a draft that did not pass, or an overreach sent on without a person) and tokens. Live: `NIRNAYA_LIVE_LLM=1 ... --live` (30 calls), cached in `eval/results/self_correction/`. On `claude-sonnet-5-5`: 15/15 repaired for each injection, format sent automatically, overreach to a person, unsafe 0. It measures repair, not how often the model errs.
 - **Nirnaya** is measured from real pipeline runs (dry run, scripted agent; the fabrication cases use their careless fixture drafter), never copied from the expectations.
 - **What 42/42 means.** The expected route of each case (`eval/EXPERT_POLICY.md`) was derived by hand, but by the same author as the engine, from the same rules. So 42/42 agreement measures **self-consistency** (the code does what the written policy says), not that the policy is right. The independent signals are: the LLM-only comparison (a different decider, the same cases and rules); the count of unsupported claims submitted, which the verifier checks against the records rather than against the policy; and, once prior calibration exists (§19), realised outcomes.
 - **Metrics**, reported separately (spec §9):
