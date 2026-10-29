@@ -31,6 +31,7 @@ from nirnaya.orchestrator.ports import AirwallexError, WriteOutcomeUnknown
 
 SANDBOX_API = "https://api.sandbox.airwallex.com"
 SANDBOX_FILES = "https://files.sandbox.airwallex.com"
+USER_AGENT = "nirnaya/0.1 (+https://github.com/rachanna/nirnaya)"
 _ALLOWED_HOSTS = frozenset({SANDBOX_API, SANDBOX_FILES})
 
 # Refresh the 30-minute token this long before it expires.
@@ -108,6 +109,11 @@ def _error(response: Response) -> AirwallexError:
         body = {}
     code = str(body.get("code") or f"http_{response.status}")
     message = str(body.get("message") or "")
+    if not body and response.body:
+        # Not Airwallex's JSON: an edge or proxy answered (e.g. Cloudflare "error code: 1010").
+        text = response.body[:200].decode("utf-8", "replace").strip()
+        server = response.headers.get("server")
+        message = f"{text} (server {server})" if server else text
     # Airwallex support looks requests up by trace_id, so keep it with the error.
     if trace := body.get("trace_id"):
         message = f"{message} (trace_id {trace})".strip()
@@ -233,6 +239,9 @@ class AirwallexHttp:
     def _send(
         self, method: str, url: str, headers: dict[str, str], body: bytes | None, *, write: bool
     ) -> Response:
+        # Every call names its client: the files host's Cloudflare blocks the bare urllib
+        # signature with HTTP 403 "error code: 1010" (seen on the sandbox, 29 October 2026).
+        headers = {"User-Agent": USER_AGENT, **headers}
         try:
             return self._transport.send(
                 method, url, headers=headers, body=body, timeout=self._timeout

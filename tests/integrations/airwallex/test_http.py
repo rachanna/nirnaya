@@ -178,3 +178,23 @@ def test_the_base_url_may_be_given_with_or_without_api_v1(value):
         {"AIRWALLEX_CLIENT_ID": "c", "AIRWALLEX_API_KEY": "k", "AIRWALLEX_BASE_URL": value}
     )
     assert creds.base_url == SANDBOX_API
+
+
+def test_every_request_names_its_client():
+    """Cloudflare in front of the files host blocks the bare urllib signature with HTTP 403
+    'error code: 1010' (seen on the sandbox 2026-10-29); every call, login included, sends a
+    User-Agent."""
+    http, transport, _ = session(LOGIN, ok({"id": "d"}), ok({"file_id": "f"}, status=201))
+    http.get("/api/v1/pa/payment_disputes/d")
+    http.upload(f"{SANDBOX_FILES}/api/v1/files/upload", filename="e.pdf", content=b"%PDF",
+                notes="n")  # fmt: skip
+    for call in transport.sent:
+        assert call.headers["User-Agent"].startswith("nirnaya/")
+
+
+def test_a_non_json_error_body_is_kept_in_the_message():
+    http, _, _ = session(LOGIN, Response(403, b"error code: 1010\n", {"server": "cloudflare"}))
+    with pytest.raises(AirwallexError) as e:
+        http.get("/api/v1/pa/payment_disputes/d")
+    assert e.value.code == "http_403"
+    assert "error code: 1010" in str(e.value) and "cloudflare" in str(e.value)
