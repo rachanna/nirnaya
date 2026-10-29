@@ -10,7 +10,7 @@ const VERDICT = {
 
 // One case: what it is and its controls, the story as a playable feed, and Claude's calls.
 // `act` is null for the recorded run (it takes no actions).
-export default function CasePanel({ number, story, recorded = false, model, act, busy }) {
+export default function CasePanel({ number, eyebrow, story, recorded = false, model, act, busy }) {
   const [done, setDone] = useState(false);
   const onDone = useCallback((d) => setDone(d), []);
   const running = story.running;
@@ -20,7 +20,7 @@ export default function CasePanel({ number, story, recorded = false, model, act,
   return (
     <section className="panel" aria-label={`Case ${number}`}>
       <aside className="summary">
-        <p className="eyebrow">Case {number}</p>
+        <p className="eyebrow">{eyebrow ?? `Case ${number}`}</p>
         <h2>{story.headline}</h2>
         <p className="amount">{story.amount}</p>
         <p className="question">{story.question}</p>
@@ -39,6 +39,16 @@ export default function CasePanel({ number, story, recorded = false, model, act,
             {ready && story.needs_person && (
               <div className="decide">
                 <p className="hint">You decide:</p>
+                {story.proposed_quotes?.length > 0 && (
+                  <>
+                    <blockquote className="quote">
+                      {story.proposed_quotes.map((q, i) => <p key={i}>“{q}”</p>)}
+                    </blockquote>
+                    <button className="primary" onClick={() => act("confirm")}>
+                      Confirm the quote and fight it
+                    </button>
+                  </>
+                )}
                 <button onClick={() => act("accept")}>Accept (refund the customer)</button>
                 <button onClick={() => act("fight")}>Fight it</button>
                 <button className="quiet" onClick={() => act("manual")}>

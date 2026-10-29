@@ -48,6 +48,8 @@ CACHES = REPO / "eval" / "results" / "self_correction"
 Injection = Literal["format", "overreach"]
 INJECTIONS: tuple[Injection, ...] = ("format", "overreach")
 
+INJECTED_CLAIM = "claim-injected"  # the planted claim (the kit 2-C fabrication)
+
 
 def challenge_cases() -> list[EvalCase]:
     return [c for c in load_cases() if c.expected.route is Route.CHALLENGE]
@@ -72,7 +74,7 @@ def break_draft(
     field = next(f for f in ("signed_by", "signature_image_id") if f not in cited.fields)
     value = TextValue(kind="NAME", text="J. Smith")
     extra = Claim(
-        id="claim-injected",
+        id=INJECTED_CLAIM,
         case_id=cited.case_id,
         merchant_id=cited.merchant_id,
         text=render_claim_text(EvidenceType.DELIVERY_SIGNATURE, value),

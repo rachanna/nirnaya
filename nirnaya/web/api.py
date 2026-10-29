@@ -23,7 +23,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from nirnaya.console.session import KIT, DemoSession
+from nirnaya.console.session import KIT, NOTE_CASE, REDRAFT_CASE, DemoSession
 from nirnaya.console.story import case_story
 from nirnaya.llm.factory import llm_settings_from_env, make_llm
 from nirnaya.llm.types import LLMConfigError
@@ -31,6 +31,9 @@ from nirnaya.web import recorded
 from nirnaya.web.recording import RecordingLLM
 
 WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
+# The live tab: the kit, then two cases beyond it that show Claude's other jobs (reading a
+# note and proposing quotes; fixing a draft the checks blocked).
+CASES = (*KIT, NOTE_CASE, REDRAFT_CASE)
 
 
 @dataclass
@@ -53,7 +56,7 @@ def live_session(env: Mapping[str, str] = os.environ) -> Live:
 
 
 class Decision(BaseModel):
-    choice: Literal["accept", "fight", "manual"]
+    choice: Literal["accept", "fight", "confirm", "manual"]
     approver: str = "ops@example.test"
 
 
@@ -70,7 +73,7 @@ def create_app(
 
     def snapshot() -> dict[str, dict[str, Any]]:
         session = state["live"].session
-        return {} if session is None else {k: asdict(case_story(session, k)) for k in KIT}
+        return {} if session is None else {k: asdict(case_story(session, k)) for k in CASES}
 
     def reset() -> None:
         with lock:
@@ -84,8 +87,8 @@ def create_app(
     reset()
 
     def view(label: str) -> dict[str, Any]:
-        if label not in KIT:
-            raise HTTPException(404, f"no case {label!r}: the cases are {', '.join(KIT)}")
+        if label not in CASES:
+            raise HTTPException(404, f"no case {label!r}: the cases are {', '.join(CASES)}")
         live: Live = state["live"]
         if live.session is None:
             raise HTTPException(503, live.why_not or "the live tab is not available")
@@ -103,7 +106,7 @@ def create_app(
         current = view(label)
         with guard:
             if state["busy"] is not None:
-                n = KIT.index(state["busy"]) + 1
+                n = CASES.index(state["busy"]) + 1
                 raise HTTPException(409, f"Nirnaya is still working on case {n}")
             problem = check(current)
             if problem:
@@ -154,7 +157,7 @@ def create_app(
 
     @app.get("/api/cases")
     def cases() -> list[dict[str, Any]]:
-        return [view(label) for label in KIT]
+        return [view(label) for label in CASES]
 
     @app.get("/api/cases/{label}")
     def get_case(label: str) -> dict[str, Any]:
@@ -182,7 +185,13 @@ def create_app(
     def decide(label: str, decision: Decision) -> dict[str, Any]:
         return start(
             label,
-            lambda s: None if s["needs_person"] else "this case is not waiting for a person",
+            lambda s: (
+                "this case is not waiting for a person"
+                if not s["needs_person"]
+                else "there is no proposed quote to confirm"
+                if decision.choice == "confirm" and not s["proposed_quotes"]
+                else None
+            ),
             lambda session: session.decide(
                 state["stories"][label]["case_id"], decision.choice, decision.approver
             ),

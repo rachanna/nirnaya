@@ -5,15 +5,17 @@ import CasePanel from "./CasePanel.jsx";
 const DOT = { CHALLENGE: "good", ACCEPT: "warn", REFER: "info" };
 const POLL_MS = 700;
 
+const KIT_SIZE = 3; // after the kit's three cases come the two beyond it
+
 function CaseTabs({ cases, active, setActive }) {
   return (
-    <nav className="tabs" role="tablist" aria-label="Cases">
+    <nav className={`tabs n${cases.length}`} role="tablist" aria-label="Cases">
       {cases.map((c, i) => (
         <button key={c.label} role="tab" aria-selected={active === c.label}
           className={active === c.label ? "tab on" : "tab"} onClick={() => setActive(c.label)}>
           <span className={`dot ${c.running ? "busy" : c.verdict ? DOT[c.verdict] : "none"}`}
             aria-hidden="true" />
-          <span className="tab-n">Case {i + 1}</span>
+          <span className="tab-n">{i < KIT_SIZE ? `Case ${i + 1}` : "Beyond the kit"}</span>
           <span className="tab-h">{c.headline}</span>
           <span className="tab-a">{c.amount}</span>
         </button>
@@ -89,11 +91,14 @@ function Live({ info, round }) {
     <>
       <p className="mode-note">
         Runs now, with real calls to <strong>{info.model}</strong>. Airwallex is{" "}
-        {info.airwallex} and the merchant records are synthetic, so nothing real is written.
+        {info.airwallex} and the merchant records are synthetic, so nothing real is written. In the
+        kit's three cases Claude writes the response; the two cases beyond the kit show it reading
+        a note, and fixing a draft the checks blocked.
       </p>
       {error && <p className="error" role="alert">{error}</p>}
       <CaseTabs cases={cases} active={active} setActive={setActive} />
       <CasePanel key={`live-${round}-${active}`} number={i + 1} story={cases[i]} model={info.model}
+        eyebrow={i < KIT_SIZE ? `Case ${i + 1}` : "Beyond the kit"}
         busy={busy || running} act={(what) => act(active, what)} />
     </>
   );

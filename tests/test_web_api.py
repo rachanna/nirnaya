@@ -38,7 +38,7 @@ def settle(c: TestClient, label: str) -> dict:
 
 def test_the_three_cases_are_listed_before_anything_runs():
     cases = client().get("/api/cases").json()
-    assert [x["label"] for x in cases] == ["K1", "K2", "K3"]
+    assert [x["label"] for x in cases] == ["K1", "K2", "K3", "AG-F1", "N1"]
     assert all(x["state"] == "NOT_RUN" and x["messages"] == [] for x in cases)
     assert all(x["running"] is False and x["calls"] == [] for x in cases)
     assert cases[0]["headline"] == "A large fraud claim"
@@ -67,6 +67,20 @@ def test_case_1_rejection_and_case_3_decision():
     ok = c.post("/api/cases/K3/decide", json={"choice": "fight", "approver": "a@b.test"})
     assert ok.status_code == 200
     assert not settle(c, "K3")["needs_person"]
+
+
+def test_the_note_case_waits_for_a_person_to_confirm_the_quote():
+    c = client()
+    assert c.post("/api/cases/K3/run").status_code == 200
+    settle(c, "K3")
+    assert c.post("/api/cases/K3/decide", json={"choice": "confirm"}).status_code == 409
+    c.post("/api/cases/AG-F1/run")
+    story = settle(c, "AG-F1")
+    assert story["needs_person"] and len(story["proposed_quotes"]) == 1
+    assert c.post("/api/cases/AG-F1/decide", json={"choice": "confirm"}).status_code == 200
+    after = settle(c, "AG-F1")
+    assert after["verdict"] == "CHALLENGE" and after["error"] is None
+    assert not after["needs_person"] and after["proposed_quotes"] == []
 
 
 def test_errors_are_plain_and_nothing_is_guessed():

@@ -152,7 +152,12 @@ class DemoSession:
         self.log.append("Ran kit cases 1, 2 and 3.")
 
     def run_case(self, label: str) -> None:
-        """One kit case on its own: staged at Airwallex, then decided."""
+        """One case on its own: a kit case staged at Airwallex and decided, or one of the two
+        cases beyond the kit (the driver's note, the self-correction)."""
+        if label == NOTE_CASE:
+            return self.run_note_case()
+        if label == REDRAFT_CASE:
+            return self.run_redraft_case()
         if label not in KIT:
             raise KeyError(label)
         aw, orch = self._require()
@@ -161,8 +166,21 @@ class DemoSession:
         self.log.append(f"Ran kit case {KIT.index(label) + 1}.")
 
     def decide(self, case_id: str, choice: str, approver: str) -> None:
-        """A person's decision on a referred case: accept, fight, or handle it outside."""
-        if choice == "accept":
+        """A person's decision on a referred case: accept, fight, fight confirming the quotes
+        the reader proposed (word for word, as shown), or handle it outside."""
+        if choice == "confirm":
+            case = self.store.case(M, case_id)
+            if case is None:
+                raise KeyError(case_id)
+            proposed = tuple(
+                f.finding_id
+                for f in self.store.findings(M, case_id, case.cycle)
+                if f.status == "PROPOSED"
+            )
+            if not proposed:
+                raise ValueError("no proposed quote to confirm")
+            self.approve(case_id, Action.CHALLENGE, approver, confirm=proposed)
+        elif choice == "accept":
             self.approve(case_id, Action.ACCEPT, approver)
         elif choice == "fight":
             self.approve(case_id, Action.CHALLENGE, approver)

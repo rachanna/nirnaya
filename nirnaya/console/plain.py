@@ -39,7 +39,7 @@ REASON_TEXT = {
     ),
     "PROPOSED_EVIDENCE": "The agent found evidence in a written note. A person must confirm it.",
     "REDRAFT_AFTER_OVERREACH": (
-        "The agent's first draft claimed more than the records show. A person checks the fix."
+        "The first draft claimed more than the records show. A person checks the fix."
     ),
     "VERIFICATION_BLOCKED": "A drafted claim failed its check against the records.",
     "VERIFICATION_REFER": "The records behind the response disagree with each other.",

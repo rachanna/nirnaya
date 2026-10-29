@@ -77,6 +77,61 @@ def test_the_banks_rejection_starts_a_second_round(session):
     assert not story.can_reject
 
 
+def test_the_note_case_shows_the_proposed_quote_and_waits_for_a_person(session):
+    session.run_case("AG-F1")  # scripted: a cached Claude reading, replayed
+    story = case_story(session, "AG-F1")
+    assert story.headline == "Proof only in a driver's note" and story.amount == "120.00 USD"
+    k = kinds(story)
+    assert k.index("decision") < k.index("read") < k.index("quote") < k.index("person")
+    quote = next(m for m in story.messages if m.kind == "quote")
+    assert quote.who == "ai" and "signature captured" in quote.text
+    assert story.messages[-1].text.startswith("The agent found evidence in a written note")
+    assert story.needs_person and story.proposed_quotes == (
+        "Handed to the customer in person at the door; signature captured on the handheld device.",
+    )
+    session.decide("AG-F1", "confirm", "ops@example.test")
+    after = case_story(session, "AG-F1")
+    approved = next(m for m in after.messages if m.kind == "approved")
+    assert "confirming 1 quote(s) word for word" in approved.text
+    assert after.verdict == "CHALLENGE"  # the person's decision, over the engine's accept
+    assert after.messages[-1].kind in {"sent", "update"} and not after.proposed_quotes
+
+
+def test_lookups_claude_chose_are_credited_to_claude(session):
+    session.run_case("AG-F1")  # scripted: code made every lookup
+    before = case_story(session, "AG-F1")
+    assert all(m.who == "nirnaya" for m in before.messages if m.kind == "lookup")
+    # What a live investigation adds: an agent run naming the lookup the model chose.
+    body = {"kind": "INVESTIGATE", "cycle": 1, "tool_calls": ["get_carrier_tracking:TRK-AG-F1:OK"]}
+    session.store.audit("merchant-demo", "AG-F1", "AGENT_RUN", body, session.now)
+    lookups = [m for m in case_story(session, "AG-F1").messages if m.kind == "lookup"]
+    assert [m.who for m in lookups] == ["nirnaya", "nirnaya", "ai"]
+    assert lookups[-1].title == "Claude looked up a record" and "TRK-AG-F1" in lookups[-1].text
+
+
+def test_confirming_needs_a_proposed_quote(session):
+    session.run_case("K3")
+    with pytest.raises(ValueError, match="no proposed quote"):
+        session.decide("K3", "confirm", "ops@example.test")
+
+
+def test_the_self_correction_case_names_the_planted_claim_and_the_fix(session):
+    session.run_case("N1")  # scripted: Claude's cached redraft, replayed
+    story = case_story(session, "N1")
+    titles = [m.title for m in story.messages]
+    planted = titles.index("A first draft, broken on purpose")
+    assert titles[planted + 1] == "A claim was blocked"
+    assert "planted claim was blocked" in story.messages[planted + 1].text
+    redraft = story.messages[planted + 2]
+    assert redraft.who == "ai" and redraft.title == "Response drafted"
+    assert titles[planted + 3] == "Every claim checked"
+    assert story.messages[-1].text.startswith("The first draft claimed more than")
+    session.decide("N1", "fight", "ops@example.test")
+    after = case_story(session, "N1")
+    assert any(m.title == "The reviewed draft goes out" for m in after.messages)
+    assert after.verdict == "CHALLENGE" and after.messages[-1].kind in {"sent", "update"}
+
+
 def test_every_message_is_plain_words_and_the_feed_is_deterministic(session):
     session.run_case("K1")
     a, b = case_story(session, "K1"), case_story(session, "K1")

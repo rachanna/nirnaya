@@ -4,11 +4,12 @@ Built from the audit log and the decisions on record; wording comes from console
 here decides or recomputes anything: it narrates what the engine, verifier and gateway did.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from nirnaya.console.plain import (
     decision_sentence,
+    fact_text,
     lookup_sentence,
     reason_sentences,
     reason_type_text,
@@ -16,9 +17,27 @@ from nirnaya.console.plain import (
     verdict,
     write_sentence,
 )
-from nirnaya.console.session import KIT, DemoSession, M
+from nirnaya.console.session import KIT, NOTE_CASE, REDRAFT_CASE, DemoSession, M
 from nirnaya.console.views import KIT_GOALS, KIT_HEADLINES, kit_card
-from nirnaya.models.enums import DisputeStatus, Stage
+from nirnaya.evaluation.self_correction import INJECTED_CLAIM
+from nirnaya.models.enums import Action, DisputeStatus, Stage
+
+# The two cases beyond the kit: what each shows, in the merchant's terms.
+EXTRA_HEADLINES = {
+    NOTE_CASE: "Proof only in a driver's note",
+    REDRAFT_CASE: "A draft that claims too much",
+}
+EXTRA_GOALS = {
+    NOTE_CASE: (
+        'An "it never arrived" claim. The carrier record has no signature, but the driver wrote'
+        " one in a note. Can Claude find it, and does Nirnaya wait for a person to confirm it?"
+    ),
+    REDRAFT_CASE: (
+        'An "it never arrived" claim worth fighting. For this demo the first draft is broken on'
+        " purpose: it says the parcel was signed for. Do the checks catch it, and can Claude fix"
+        " it?"
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -43,6 +62,7 @@ class Story:
     messages: tuple[Message, ...]
     can_reject: bool
     needs_person: bool
+    proposed_quotes: tuple[str, ...] = ()  # quotes waiting for a person to confirm
 
 
 def _sentence(text: str) -> str:
@@ -61,9 +81,14 @@ def case_story(session: DemoSession, label: str) -> Story:
     messages: list[Message] = []
     ai_drafted = False
     drafted = 0
+    approved: str | None = None  # a person's decision in the latest round overrides the engine's
+    lookups: dict[tuple[int, str, str], int] = {}  # (cycle, tool, key) -> its message's index
 
     def say(who: str, kind: str, title: str, text: str, tone: str = "neutral", cycle: int = 1):
         messages.append(Message(who, kind, title, _sentence(text), tone, cycle))
+
+    def findings(cycle: int) -> list:
+        return store.findings(M, case_id, cycle) if case is not None else []
 
     def plan(cycle: int) -> None:
         arc = arcs.get(cycle)
@@ -93,6 +118,7 @@ def case_story(session: DemoSession, label: str) -> Story:
             )
             plan(1)
         elif event == "NEW_CYCLE":
+            approved = None
             stage = str(b.get("stage"))
             if stage == Stage.PRE_ARBITRATION:
                 say(
@@ -123,6 +149,7 @@ def case_story(session: DemoSession, label: str) -> Story:
                     cycle=cycle,
                 )
         elif event == "TOOL_CALL":
+            lookups[(cycle, str(b["tool"]), str(b["key"]))] = len(messages)
             say(
                 "nirnaya",
                 "lookup",
@@ -143,13 +170,47 @@ def case_story(session: DemoSession, label: str) -> Story:
             )
         elif event == "AGENT_RUN" and b.get("kind") == "DRAFT":
             ai_drafted = True
+        elif event == "AGENT_RUN" and b.get("kind") == "INVESTIGATE":
+            for call in b.get("tool_calls") or []:  # "tool:key:outcome"; Claude chose these
+                tool, key, _ = (str(call).split(":", 2) + ["", ""])[:3]
+                i = lookups.get((cycle, tool, key))
+                if i is not None:
+                    messages[i] = replace(messages[i], who="ai", title="Claude looked up a record")
+        elif event == "AGENT_RUN" and b.get("kind") == "READ":
+            found = findings(cycle)
+            say(
+                "ai",
+                "read",
+                "Read the written notes",
+                f"Claude proposed {len(found)} exact quote(s). A quote counts only after code finds"
+                " it word for word in the note and a person confirms it"
+                if found
+                else "Claude found nothing in the notes that the response could use",
+                cycle=cycle,
+            )
+            for f in found:
+                say(
+                    "ai",
+                    "quote",
+                    "Proposed quote",
+                    f"From the {f.field.replace('_', ' ')} of {f.record_id}: \u201c{f.quote}\u201d "
+                    f"It would show: {fact_text(str(f.fact))}",
+                    "info",
+                    cycle,
+                )
         elif event == "APPROVED":
-            word = verdict(str(b.get("action")))[0].lower()
+            approved = str(b.get("action"))
+            word = verdict(approved)[0].lower()
             say(
                 "person",
                 "approved",
                 "A person decided",
-                f"{b.get('approver')} chose: {word}",
+                f"The approver, {b.get('approver')}, chose: {word}"
+                + (
+                    f", confirming {len(b['confirmed_findings'])} quote(s) word for word"
+                    if b.get("confirmed_findings")
+                    else ""
+                ),
                 "info",
                 cycle,
             )
@@ -158,7 +219,7 @@ def case_story(session: DemoSession, label: str) -> Story:
                 "person",
                 "closed",
                 "Handled outside Nirnaya",
-                f"{b.get('approver')} took the case over",
+                f"The approver, {b.get('approver')}, took the case over",
                 "info",
                 cycle,
             )
@@ -182,16 +243,35 @@ def case_story(session: DemoSession, label: str) -> Story:
                     "info",
                     cycle,
                 )
+            elif frm == "DRAFTING" and to == "VERIFYING" and b.get("reuse_draft"):
+                say(
+                    "nirnaya",
+                    "draft",
+                    "The reviewed draft goes out",
+                    "No new draft: what is sent is exactly what the person saw, checked again",
+                    cycle=cycle,
+                )
             elif frm == "DRAFTING" and to == "VERIFYING":
                 drafted = len(b.get("claims") or [])
                 by = "Claude drafted" if ai_drafted else "Drafted"
-                say(
-                    "ai" if ai_drafted else "nirnaya",
-                    "draft",
-                    "Response drafted",
-                    f"{by} {drafted} claims, each citing one field of one record",
-                    cycle=cycle,
-                )
+                if INJECTED_CLAIM in (b.get("claims") or []):
+                    say(
+                        "nirnaya",
+                        "draft",
+                        "A first draft, broken on purpose",
+                        f"For this demo, code wrote a {drafted}-claim draft and planted one claim:"
+                        " that the parcel was signed for, which the carrier record doesn't show",
+                        "warn",
+                        cycle,
+                    )
+                else:
+                    say(
+                        "ai" if ai_drafted else "nirnaya",
+                        "draft",
+                        "Response drafted",
+                        f"{by} {drafted} claims, each citing one field of one record",
+                        cycle=cycle,
+                    )
                 ai_drafted = False
             elif frm == "VERIFYING" and to == "RENDERING":
                 say(
@@ -207,8 +287,17 @@ def case_story(session: DemoSession, label: str) -> Story:
                     "check",
                     "blocked",
                     "A claim was blocked",
-                    "A claim didn't match its record. The AI is told why and drafts once more",
+                    f"{_blocked(b)}. Claude is told why and drafts once more",
                     "warn",
+                    cycle,
+                )
+            elif frm == "VERIFYING" and to == "REFERRED" and b.get("outcome") == "PASSED":
+                say(
+                    "check",
+                    "check",
+                    "Every claim checked",
+                    f"All {drafted} claims match the records they cite",
+                    "good",
                     cycle,
                 )
             elif frm == "VERIFYING" and to == "REFERRED":
@@ -254,14 +343,18 @@ def case_story(session: DemoSession, label: str) -> Story:
                 say("nirnaya", "sent", "Sent to Airwallex", text, "good", cycle)
             if to == "REFERRED":
                 codes = b.get("reasons") or (
-                    [f"VERIFICATION_{b['outcome']}"]
+                    ["REDRAFT_AFTER_OVERREACH"]  # the one referral after a passing draft
+                    if b.get("outcome") == "PASSED"
+                    else [f"VERIFICATION_{b['outcome']}"]
                     if b.get("outcome")
                     else [str(b["failure"])]
                     if b.get("failure")
                     else []
                 )
                 why = " ".join(reason_sentences(codes)) or str(b.get("why", "A person decides"))
-                if frm == "DECIDED":  # the decision just said why
+                said = arc is not None and arc.revised is not None
+                if frm == "DECIDED" and said and arc.revised.action == Action.REFER:
+                    # the decision just said why
                     why = "Waiting for a person to accept, fight, or handle it outside Nirnaya"
                 say("person", "person", "Over to a person", why, "info", cycle)
             elif to in ("DEFERRED", "CLOSED") and b.get("why"):
@@ -273,11 +366,13 @@ def case_story(session: DemoSession, label: str) -> Story:
     return Story(
         case_id=case_id,
         label=label,
-        headline=KIT_HEADLINES.get(label, label),
-        amount=str(session.cases[label].dispute.amount) if label in session.cases else "",
-        question=KIT_GOALS.get(label, ""),
+        headline=KIT_HEADLINES.get(label) or EXTRA_HEADLINES.get(label, label),
+        amount=_amount(session, label),
+        question=KIT_GOALS.get(label) or EXTRA_GOALS.get(label, ""),
         state="NOT_RUN" if case is None else case.state,
-        verdict=decided[-1].revised.action if decided else None,
+        verdict=approved
+        or ("REFER" if case is not None and case.state == "REFERRED" else None)
+        or (decided[-1].revised.action if decided else None),
         messages=tuple(messages),
         can_reject=(
             label == KIT[0]
@@ -288,4 +383,22 @@ def case_story(session: DemoSession, label: str) -> Story:
             and latest.status is DisputeStatus.CHALLENGED
         ),
         needs_person=case is not None and case.state == "REFERRED",
+        proposed_quotes=tuple(f.quote for f in findings(case.cycle) if f.status == "PROPOSED")
+        if case is not None and case.state == "REFERRED"
+        else (),
     )
+
+
+def _amount(session: DemoSession, label: str) -> str:
+    if label in session.cases:
+        return str(session.cases[label].dispute.amount)
+    note = session.note_case
+    return str(note.case.dispute.amount) if note is not None and note.case.id == label else ""
+
+
+def _blocked(body: dict[str, Any]) -> str:
+    blocked = body.get("blocked") or {}
+    if INJECTED_CLAIM in blocked:
+        return "The planted claim was blocked: its record has no field that shows a signature"
+    n = len(blocked)
+    return f"{n} claim(s) didn't match their records" if n else "A claim didn't match its record"

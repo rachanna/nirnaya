@@ -233,6 +233,7 @@
    ],
    "can_reject": false,
    "needs_person": false,
+   "proposed_quotes": [],
    "calls": [
     {
      "n": 1,
@@ -342,6 +343,7 @@
    ],
    "can_reject": false,
    "needs_person": false,
+   "proposed_quotes": [],
    "calls": []
   },
   {
@@ -404,6 +406,7 @@
    ],
    "can_reject": false,
    "needs_person": false,
+   "proposed_quotes": [],
    "calls": []
   }
  ]
