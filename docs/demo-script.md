@@ -27,7 +27,7 @@ A run sheet for presenting Nirnaya live. Every number here comes from the repo; 
 | 4:20 | README agentic and self-correction tables | "Where the model adds value: reading notes, Claude found all 6 note-only facts and fell for none of the 4 traps, identically across 3 runs; a keyword list sent 3 traps to a person. And fixing blocked drafts: with first drafts broken on purpose, it repaired 15 of 15 of each kind, and every overreach still went to a person. Unsafe outcomes: zero, by construction." |
 | 4:50 | Close | "Fight what pays, prove what you claim, and put a person where judgement is needed." |
 
-Demo B (an early pre-chargeback accept, promised in the idea entry) is in the evaluation, not the console: the sandbox auto-accepts pre-chargebacks within a second, so it runs offline only (cases F5, N6). Mention it in one line if asked.
+Demo B (an early pre-chargeback accept, promised in the idea entry) runs offline only, because the sandbox auto-accepts pre-chargebacks within a second. It is the web demo's live tab "Cheaper to settle early" (case F5: 1,000 USD fraud, nothing on file; Claude looks for login history, finds none, and Nirnaya settles now, about 40 USD better than fighting). The **Results** view shows every baseline on the 42 cases. Say plainly that a well-prompted model comes close on loss; the difference is guarantees.
 
 ## Say / don't say
 

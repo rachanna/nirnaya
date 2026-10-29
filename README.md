@@ -48,7 +48,7 @@ uv run pytest           # about 1,470 offline tests; no network, no keys needed
 
 | What | Command |
 |---|---|
-| **Web demo** (kit 4 as playable message feeds: the recorded live run of 29 Oct, and a live tab showing each Claude call as it happens) | once: `cd web && npm install && npm run build`; then `uv run python -m nirnaya.web` and open http://localhost:8000 (the live tab needs the model key in `.env`) |
+| **Web demo** (kit 4 as playable message feeds: the recorded live run of 29 Oct; a live tab showing each Claude call as it happens, with an early pre-chargeback accept and two cases beyond the kit; and the baseline comparison) | once: `cd web && npm install && npm run build`; then `uv run python -m nirnaya.web` and open http://localhost:8000 (the live tab needs the model key in `.env`) |
 | **Demo console** (kit 4 cases, review queue, evaluation) | `uv run streamlit run app/streamlit_app.py`, then open http://localhost:8501 |
 | Kit 4 in the terminal (offline) | `uv run python -m nirnaya.demo` |
 | **Evaluation report** (Nirnaya against three baselines) | `uv run python -m nirnaya.evaluation.report` |
@@ -70,7 +70,7 @@ uv run pytest           # about 1,470 offline tests; no network, no keys needed
 
 **Live on the Airwallex sandbox (29 October 2026).** The whole kit ran against real sandbox disputes with real writes (`python -m nirnaya.sandbox_demo --checkout --submit`, LLM agent on `claude-sonnet-5-5`). Test-card payments were made on Airwallex's hosted checkout, and Visa disputes 10.4, 13.1 and 13.6 were raised on them.
 - **K1:** challenged at RFI with the evidence PDF uploaded (this run predates the supporting lookups, so it cited the prior orders, not yet the signature); the rejection escalated it to chargeback; challenged again with the customer's device and IP. Airwallex then moved it to pre-arbitration, pending its decision, where Nirnaya defers by design.
-- **K2:** accepted.
+- **K2:** accepted. Read back on 30 Oct: the dispute is `CHARGEBACK` / `ACCEPTED`, and `GET /pa/refunds` lists no refund on the payment (none on K1 or K3 either). Accepting at the chargeback stage created no separate refund object.
 - **K3:** referred to a person.
 - Audit chain intact.
 
