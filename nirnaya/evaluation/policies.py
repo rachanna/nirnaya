@@ -18,8 +18,6 @@ from nirnaya.agent.runs import DraftResult
 from nirnaya.agent.scripted import ScriptedDrafter, ScriptedInvestigator
 from nirnaya.config.demo import DEMO_POLICY
 from nirnaya.evaluation.cases import EvalCase, synthetic_world
-from nirnaya.evidence.catalogue import record_establishes
-from nirnaya.evidence.derive import case_records
 from nirnaya.integrations.mocks.airwallex_fake import FakeAirwallex
 from nirnaya.integrations.mocks.systems import SyntheticWorld
 from nirnaya.models.claim import Claim
@@ -29,11 +27,12 @@ from nirnaya.models.evidence import EvidenceRecord
 from nirnaya.orchestrator.deferral import deferral_reason
 from nirnaya.orchestrator.machine import Orchestrator
 from nirnaya.orchestrator.ports import Drafter, Investigator
+from nirnaya.orchestrator.redraft import is_format_only
 from nirnaya.orchestrator.settings import Settings
 from nirnaya.orchestrator.states import CaseState
 from nirnaya.store import Store, connect
 from nirnaya.store.repository import WriteRow
-from nirnaya.verifier import CheckName, verify
+from nirnaya.verifier import verify
 
 
 class Act(StrEnum):
@@ -74,9 +73,6 @@ def score_claims(case: EvalCase, claims: list[Claim]) -> int:
 
 
 # Failures that only concern how a value was written, not whether the record supports the fact.
-FORMAT_ONLY = frozenset(
-    {CheckName.EXTRACTED_VALUE_MISMATCH, CheckName.VALUE_MISMATCH, CheckName.NAME_OR_ID_MISMATCH}
-)
 
 
 def score_claims_split(case: EvalCase, claims: list[Claim]) -> tuple[int, int]:
@@ -86,20 +82,10 @@ def score_claims_split(case: EvalCase, claims: list[Claim]) -> tuple[int, int]:
     the record shows, a wrong amount or date: substantive."""
     if not claims:
         return 0, 0
-    records = {r.id: r for r in case_records(case.evidence_records(), case.dispute)}
-    result = verify(case.dispute, claims, case.evidence_records())
+    records = case.evidence_records()
+    result = verify(case.dispute, claims, records)
     blocked = [c for c in result.claims if c.claim.validation_status is ValidationStatus.BLOCKED]
-    fmt = 0
-    for c in blocked:
-        record = records.get(c.claim.source_record_id)
-        checks = {f.check for f in c.failures}
-        if (
-            record is not None
-            and c.claim.establishes in record_establishes(record, c.claim.source_field)
-            and checks <= FORMAT_ONLY
-        ):
-            fmt += 1
-    return len(blocked), fmt
+    return len(blocked), sum(is_format_only(c, records, case.dispute) for c in blocked)
 
 
 def fight_all(case: EvalCase) -> CaseResult:
