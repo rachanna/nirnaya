@@ -50,6 +50,16 @@ REASON_TEXT = {
     "DEFERRAL_UNCONFIRMED": "Airwallex was expected to act on its own and hasn't.",
 }
 
+# Airwallex's dispute reason types, in words.
+REASON_TYPES = {
+    "FRAUDULENT": "fraud (the cardholder says they didn't make it)",
+    "UNRECOGNIZED_CHARGE": "the cardholder doesn't recognise the charge",
+    "PRODUCT_NOT_RECEIVED": "the item never arrived",
+    "CREDIT_NOT_PROCESSED": "a refund that was never processed",
+    "DUPLICATE_CHARGE": "charged twice",
+    "SUBSCRIPTION_CANCELLED": "a cancelled subscription",
+}
+
 # What a quoted note would show, for the facts a note may state (architecture 8.8).
 FACTS = {
     "DELIVERY_SIGNATURE": "the customer signed for the delivery",
@@ -76,6 +86,12 @@ class _Decision(Protocol):
 def verdict(action: str) -> tuple[str, str]:
     """The verdict in words and its badge colour."""
     return VERDICTS.get(action, (action.title(), "gray"))
+
+
+def reason_type_text(reason_type: str | None) -> str:
+    if not reason_type:
+        return "not given"
+    return REASON_TYPES.get(reason_type, reason_type.lower().replace("_", " "))
 
 
 def fact_text(fact: str) -> str:

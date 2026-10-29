@@ -131,19 +131,42 @@ class DemoSession:
             raise RuntimeError("this session only views a sandbox run")
         return self.aw, self.orch
 
+    def _stage(self, aw: FakeAirwallex, label: str) -> None:
+        case = self.cases[label]
+        if self.store.case(M, label) is None:
+            rec = simulated_ai(label, case.dispute.stage)
+            aw.add_dispute(
+                case.dispute.model_copy(update={"ai_recommendation": rec}),
+                attempt=case.payment_attempt,
+                intent_owner="same" if case.ownership_resolved else None,
+            )
+
     def run_kit(self) -> None:
         aw, orch = self._require()
         for label in KIT:
-            case = self.cases[label]
-            if self.store.case(M, label) is None:
-                rec = simulated_ai(label, case.dispute.stage)
-                aw.add_dispute(
-                    case.dispute.model_copy(update={"ai_recommendation": rec}),
-                    attempt=case.payment_attempt,
-                    intent_owner="same" if case.ownership_resolved else None,
-                )
+            self._stage(aw, label)
         orch.run_until_idle(self.now)
         self.log.append("Ran kit cases 1, 2 and 3.")
+
+    def run_case(self, label: str) -> None:
+        """One kit case on its own: staged at Airwallex, then decided."""
+        if label not in KIT:
+            raise KeyError(label)
+        aw, orch = self._require()
+        self._stage(aw, label)
+        orch.run_until_idle(self.now)
+        self.log.append(f"Ran kit case {KIT.index(label) + 1}.")
+
+    def decide(self, case_id: str, choice: str, approver: str) -> None:
+        """A person's decision on a referred case: accept, fight, or handle it outside."""
+        if choice == "accept":
+            self.approve(case_id, Action.ACCEPT, approver)
+        elif choice == "fight":
+            self.approve(case_id, Action.CHALLENGE, approver)
+        elif choice == "manual":
+            self.close(case_id, approver, "handled outside Nirnaya")
+        else:
+            raise ValueError(f"unknown choice {choice!r}")
 
     def reject_k1(self) -> None:
         """Kit beat 1b: the issuer rejects case 1's evidence; Airwallex escalates it."""
