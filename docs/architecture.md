@@ -1113,6 +1113,10 @@ What a model is told, and the configuration decisions depend on, live in files r
 | 14 | **Evidence upload host** | `POST https://files.sandbox.airwallex.com/api/v1/files/upload` for the sandbox. | The kit 4 guide lists it (checked 2026-10-27). |
 | 2 | **Reason mapping** | `UNRECOGNIZED_CHARGE` and `NOT_RECOGNIZED` → FRAUD; `CANCELLED_PRODUCT` stays SUBSCRIPTION; every other type stays UNKNOWN (`nirnaya/models/reasons.py`). | An unrecognised charge is a known reason whose defence is fraud evidence. As UNKNOWN, the verifier would block exactly those claims. SUBSCRIPTION's requirements also fit a cancelled one-off order, and splitting the two by `original_code` needs an unverified code format. |
 
+| 16 | **Sandbox reason types** | Observed on the live run (29 October 2026): Visa 10.4 → `FRAUDULENT` (FRAUD), 13.1 → `PRODUCT_NOT_RECEIVED` (NON_RECEIPT), 13.6 → `CREDIT_NOT_PROCESSED` (UNKNOWN), as the mapping expected. | Simulated disputes on paid sandbox intents. |
+| 19 | **Evidence format** | PDF accepted: the evidence PDF uploaded (HTTP 201) and both K1 challenges were confirmed. Every Airwallex call sends a User-Agent, since the files host's Cloudflare blocks unnamed clients (HTTP 403, "error code: 1010"). Whether a dated header reads better to issuers stays a judgement call (§9.6). | Live sandbox run, 29 October 2026. |
+| 20 | **Sandbox AI recommendation** | None was sent on the live run's RFI or CHARGEBACK disputes; the console's offline examples stay labelled SIMULATED. | Live sandbox run, 29 October 2026. |
+
 ### 17.2 Still open
 
 | # | Decision | Options | Impact | Resolve by |
@@ -1125,9 +1129,6 @@ What a model is told, and the configuration decisions depend on, live in files r
 | 11 | Polling interval and backoff | e.g. 60 s | API load versus latency | M5 |
 | 12 | Auto-accept threshold source | merchant config, or read from Airwallex if exposed | Deferral correctness | M5 |
 | 15 | Is there a fee for accepting at RFI (`fee_rfi_accept`, default 0)? | per Airwallex pricing | RFI economics | Before any real merchant |
-| 16 | Which `reason.type` does the sandbox assign to Visa codes 10.4, 13.1 and 13.6? | observe on simulated disputes | Whether the demo cases map to FRAUD, NON_RECEIPT and UNKNOWN as expected | M5 |
-| 19 | Evidence file formats: JPG or PDF (kit guide) or JPG, PNG, WEBP (challenge reference); and whether the evidence document should carry a dated header (§9.6) | observe on a live upload | Whether PDF evidence is accepted, and how it reads to the issuer | Live sandbox run |
-| 20 | Does the sandbox return an `AVAILABLE` AI recommendation? | observe on a simulated CHARGEBACK dispute | Whether the live demo shows a real recommendation | Live sandbox run |
 | 18 | Can a **pre-chargeback** be challenged? The disputes guide says yes (it escalates to chargeback); the Challenge API reference lists only RFI and CHARGEBACK | check with the Docs MCP | Pre-chargeback challenges (`FakeAirwallex` refuses them); sandbox pre-chargebacks auto-accept anyway | M5 |
 
 ---

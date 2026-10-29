@@ -67,6 +67,14 @@ uv run pytest           # about 1,470 offline tests; no network, no keys needed
 | **2-C. A fabricated signature** | An unguarded draft says "signed for by J. Smith". The carrier record has no signature, so the verifier blocks it and says why. |
 | **3. Credit not processed** (120 USD, chargeback, Visa 13.6) | The customer emailed support twice with no reply. The maths would accept, but a person decides. |
 
+**Live on the Airwallex sandbox (29 October 2026).** The whole kit ran against real sandbox disputes with real writes (`python -m nirnaya.sandbox_demo --checkout --submit`, LLM agent on `claude-sonnet-5-5`). Test-card payments were made on Airwallex's hosted checkout, and Visa disputes 10.4, 13.1 and 13.6 were raised on them.
+- **K1:** challenged at RFI with the evidence PDF uploaded; the rejection escalated it to chargeback; challenged again with the customer's device and IP. Airwallex then moved it to pre-arbitration, pending its decision, where Nirnaya defers by design.
+- **K2:** accepted.
+- **K3:** referred to a person.
+- Audit chain intact.
+
+The first submit attempt found one integration bug: Cloudflare in front of Airwallex's file host blocked the upload (HTTP 403, "error code: 1010") because no User-Agent was sent. Nirnaya failed safe by referring K1 instead of challenging without evidence. Fixed in `nirnaya/integrations/airwallex/http.py`.
+
 ## Device and IP on a chargeback challenge
 
 At the chargeback stage Nirnaya also sends Airwallex the customer's device ID and IP address (`customer_info`), taken only from the merchant's own order record that the verified claims cite, and only if valid. In the kit, K1's second challenge (after the issuer rejects the first) carries them.
@@ -170,6 +178,6 @@ Set `LANGSMITH_API_KEY` (and `LANGSMITH_ENDPOINT` for a non-default region) in `
 
 - **Merchant systems are synthetic.** The order, carrier, login, helpdesk and policy data are mocks labelled SYNTHETIC. Airwallex is real in the sandbox runner and an in-memory fake elsewhere.
 - **Win probabilities are fixed priors** shown as priors, not predictions. Fees and priors are merchant configuration; the demo values are assumptions.
-- **The live sandbox run** depends on sandbox card processing. Airwallex reported degraded sandbox simulation features from 26 October 2026.
+- **The live sandbox run** used Airwallex's hosted checkout to pay the test intents: server-side card confirmation ("native API") is still not enabled on the sandbox account. Airwallex sent no AI recommendation on the sandbox disputes.
 - **Unresolved Airwallex details** are marked `TODO(verify-airwallex-docs)` in the code rather than guessed.
 - **Evidence completeness is only as good as the contradiction catalogue.** Before any challenge is drafted, code fetches every record that could contradict it (so the model cannot hide one by not looking), but "could contradict" means a rule in `nirnaya/evidence/catalogue.py`; a kind of counterevidence with no rule is not sought.
