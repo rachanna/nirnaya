@@ -4,8 +4,10 @@ import json
 
 import pytest
 
+from nirnaya.agent.runs import AgentRun
 from nirnaya.console.session import DemoSession
 from nirnaya.console.views import (
+    agents_in_run,
     blocked,
     case_detail,
     evaluation,
@@ -14,6 +16,7 @@ from nirnaya.console.views import (
     queue,
 )
 from nirnaya.models import Action
+from nirnaya.models.enums import DisputeStatus
 
 SCRIPTED = {"NIRNAYA_AGENT": "scripted"}
 
@@ -108,3 +111,32 @@ def test_a_sandbox_run_is_viewable_but_cannot_act(tmp_path):
     offline = DemoSession.offline(env=SCRIPTED)
     with pytest.raises(RuntimeError):
         DemoSession(offline.store, offline.cases, {}, offline.now).run_kit()
+
+
+def test_the_goal_states_the_question_not_an_expected_calculation(session):
+    """The evaluation rationale assumes every record was fetched, so its prior and margin can
+    contradict the decision on the card; the goal carries no numbers of its own."""
+    for label in ("K1", "K2", "K3"):
+        goal = kit_card(session, label).goal.lower()
+        assert goal and "prior" not in goal and "margin" not in goal and "=" not in goal
+
+
+def test_the_run_names_the_agent_it_actually_used(session):
+    assert agents_in_run(session) == "scripted (no model calls)"
+    run = AgentRun(kind="DRAFT", provider="anthropic", model="claude-sonnet-5-5", turns=1,
+                   stop="TOOL_USE")  # fmt: skip
+    with session.store.transaction():
+        session.store.add_agent_run("merchant-demo", "K1", 1, run, session.now)
+    assert agents_in_run(session) == "llm (anthropic/claude-sonnet-5-5)"
+
+
+def test_a_cycle_that_ends_without_action_says_why(session):
+    """Seen on the live sandbox run: a dispute Airwallex already settled, and a pre-arbitration
+    Airwallex reviews itself, showed only 'no action'."""
+    k2 = session.cases["K2"].dispute
+    settled = k2.model_copy(update={"id": "K2-SETTLED", "status": DisputeStatus.ACCEPTED})
+    session.aw.add_dispute(settled, intent_owner="same")
+    session.orch.run_until_idle(session.now)
+    (arc,) = kit_card(session, "K2-SETTLED").cycles
+    assert arc.writes == () and arc.revised is None
+    assert arc.ended == "Closed: dispute already ACCEPTED"

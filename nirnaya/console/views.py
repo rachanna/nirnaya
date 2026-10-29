@@ -68,6 +68,27 @@ class DecisionView:
         )
 
 
+# The merchant's question for each kit case (the guide's "goal"). Numbers are left to the
+# decisions shown under it: the evaluation rationale assumes every record was fetched, so its
+# prior and margin can differ from what the engine decided on the records it actually needed.
+KIT_GOALS = {
+    "K1": "A large fraud claim at the information-request stage. Is it worth fighting, and can "
+    "the merchant's own records prove the customer made this purchase?",
+    "K2": "A small not-received claim. Is it worth what fighting would cost?",
+    "K3": "A credit-not-processed claim from a customer who wrote to support. Should Nirnaya act "
+    "on its own, or does a person need to look first?",
+}
+
+
+def agents_in_run(session: DemoSession) -> str:
+    """The agent the stored run actually used, read from its agent steps (not this console's
+    own setting, which may differ when viewing a sandbox run)."""
+    models = session.store.agent_models(M)
+    if not models:
+        return "scripted (no model calls)"
+    return "llm (" + ", ".join(f"{p}/{m}" for p, m in models) + ")"
+
+
 @dataclass(frozen=True)
 class CycleArc:
     cycle: int
@@ -80,6 +101,8 @@ class CycleArc:
     referral: tuple[str, ...]
     # Airwallex's AI recommendation at this stage beside Nirnaya's decision (comparison only).
     airwallex_ai: AiComparison | None = None
+    # Why the cycle ended without a decision: Airwallex already settled it, or acts on its own.
+    ended: str | None = None
 
 
 @dataclass(frozen=True)
@@ -154,6 +177,13 @@ def kit_card(session: DemoSession, label: str) -> KitCard | None:
             )
         )
         evs = events.get(cycle, [])
+        ends = [
+            f"{'Deferred' if e['body']['to'] == 'DEFERRED' else 'Closed'}: {e['body']['why']}"
+            for e in evs
+            if e["event"] == "STATE"
+            and e["body"].get("to") in ("DEFERRED", "CLOSED")
+            and e["body"].get("why")
+        ]
         arcs.append(
             CycleArc(
                 cycle=cycle,
@@ -186,6 +216,7 @@ def kit_card(session: DemoSession, label: str) -> KitCard | None:
                 if referral is None or referral.cycle != cycle
                 else tuple(referral.reasons),
                 airwallex_ai=ai,
+                ended=ends[-1] if ends else None,
             )
         )
     case = session.cases.get(label)
@@ -193,7 +224,7 @@ def kit_card(session: DemoSession, label: str) -> KitCard | None:
         label=label,
         case_id=case_id,
         title=case.title if case else label,
-        goal=case.expected.rationale if case else "",
+        goal=KIT_GOALS.get(label, case.title if case else ""),
         amount=str(dispute.amount),
         reason=f"{dispute.reason.type} (code {dispute.reason.original_code})",
         state=case_row.state,

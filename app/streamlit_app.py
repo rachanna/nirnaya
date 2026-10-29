@@ -11,6 +11,7 @@ import streamlit as st
 from nirnaya.config.env import load_dotenv
 from nirnaya.console.session import KIT, NOTE_CASE, REDRAFT_CASE, DemoSession, M
 from nirnaya.console.views import (
+    agents_in_run,
     airwallex_unreachable,
     blocked,
     case_detail,
@@ -54,12 +55,15 @@ with st.sidebar:
             st.session_state.session = sandbox
     elif session().source != "offline":
         st.session_state.session = DemoSession.offline()
-    agent = os.environ.get("NIRNAYA_AGENT", "scripted")
-    model = (
-        f"{os.environ.get('NIRNAYA_LLM_PROVIDER', 'anthropic')}/"
-        f"{os.environ.get('NIRNAYA_MODEL', 'default')}"
-    )
-    st.markdown(f"**Agent:** {agent}" + (f" ({model})" if agent == "llm" else ""))
+    if session().source == "sandbox":
+        st.markdown(f"**Agent in this run:** {agents_in_run(session())}")
+    else:
+        agent = os.environ.get("NIRNAYA_AGENT", "scripted")
+        model = (
+            f"{os.environ.get('NIRNAYA_LLM_PROVIDER', 'anthropic')}/"
+            f"{os.environ.get('NIRNAYA_MODEL', 'default')}"
+        )
+        st.markdown(f"**Agent:** {agent}" + (f" ({model})" if agent == "llm" else ""))
     st.markdown("**Merchant systems:** SYNTHETIC")
     if st.button("Reset", key="reset"):
         st.session_state.session = DemoSession.offline()
@@ -144,7 +148,7 @@ with demo:
                 if arc.referral:
                     cols[3].markdown("🧑‍⚖️ Referred: " + ", ".join(arc.referral))
                 if not arc.writes and not arc.referral:
-                    cols[3].caption("no action")
+                    cols[3].caption(arc.ended or "no action")
                 if arc.airwallex_ai is not None:
                     mark = {True: "🤝", False: "↔️", None: "🤖"}[arc.airwallex_ai.agree]
                     st.caption(f"{mark} {arc.airwallex_ai.text}")

@@ -640,6 +640,15 @@ class Store:
         )
         return [json.loads(r["run_json"]) for r in rows]
 
+    def agent_models(self, merchant_id: str) -> list[tuple[str, str]]:
+        """Every (provider, model) that ran an agent step for this merchant, in name order."""
+        rows = self.conn.execute(
+            "SELECT DISTINCT provider, model FROM agent_runs WHERE merchant_id = ?"
+            " ORDER BY provider, model",
+            (merchant_id,),
+        )
+        return [(r["provider"], r["model"]) for r in rows]
+
     def agent_tokens(self, merchant_id: str, case_id: str, cycle: int) -> int:
         row = self.conn.execute(
             "SELECT COALESCE(SUM(input_tokens + output_tokens), 0) FROM agent_runs"
