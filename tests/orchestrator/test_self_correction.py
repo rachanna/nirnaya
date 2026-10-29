@@ -77,7 +77,7 @@ def test_a_value_in_the_wrong_form_is_fixed_and_the_challenge_goes_out_on_its_ow
 
 
 def test_a_fixed_overreach_still_goes_to_a_person_who_sees_both_drafts():
-    h, orch, _ = run([DELIVERED, SIGNED], [DELIVERED], [DELIVERED])
+    h, orch, llm = run([DELIVERED, SIGNED], [DELIVERED])
     assert writes(h) == []
     referral = h.store.open_referral_for(M, CID)
     assert referral.reasons == ["REDRAFT_AFTER_OVERREACH"]
@@ -88,6 +88,8 @@ def test_a_fixed_overreach_still_goes_to_a_person_who_sees_both_drafts():
     approve(h.store, M, CID, Action.CHALLENGE, approver="ops@example.test", now=h.now(CASE))
     orch.run_until_idle(h.now(CASE))
     assert writes(h) == [("CHALLENGE", "DRY_RUN")]
+    # What goes out is the redraft the person reviewed (verified again), not a new draft.
+    assert len(llm.calls) == 2 and h.store.latest_draft(M, CID, 1) == 2
 
 
 def test_one_redraft_only_then_a_person_sees_every_draft():

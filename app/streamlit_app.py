@@ -9,7 +9,7 @@ import altair as alt
 import streamlit as st
 
 from nirnaya.config.env import load_dotenv
-from nirnaya.console.session import KIT, NOTE_CASE, DemoSession, M
+from nirnaya.console.session import KIT, NOTE_CASE, REDRAFT_CASE, DemoSession, M
 from nirnaya.console.views import (
     airwallex_unreachable,
     blocked,
@@ -87,6 +87,15 @@ def decision_line(view) -> str:  # noqa: ANN001
     if view.referral_reasons:
         parts.append("a person decides: " + ", ".join(view.referral_reasons))
     return " · ".join(parts)
+
+
+def sent(case_id: str) -> None:
+    """A finished demo case: what was written and the verified claims it carried."""
+    done = [f"{w.action} {w.status}" for w in s.store.writes(M, case_id)]
+    st.markdown("Status: " + (", ".join(done) or "no write"))
+    shown = case_detail(s, case_id)
+    for c in shown.claims if shown is not None else ():
+        st.caption(md_escape(f"{c.status}: {c.text} ({c.source})"))
 
 
 with demo:
@@ -194,11 +203,32 @@ with demo:
                 f"{len(item.proposed)} proposed quote(s). {item.if_confirmed or ''}"
             )
         if staged and not any(i.case_id == NOTE_CASE for i in queue(s)):
-            done = [f"{w.action} {w.status}" for w in s.store.writes(M, NOTE_CASE)]
-            st.markdown("Status: " + (", ".join(done) or "no write"))
-            note = case_detail(s, NOTE_CASE)
-            for c in note.claims if note is not None else ():
-                st.caption(f"{c.status}: {c.text} ({c.source})")
+            sent(NOTE_CASE)
+
+    with st.container(border=True):
+        st.markdown("### Self-correction · the agent fixes a draft the verifier blocked")
+        st.caption(
+            "N1, a not-received chargeback worth challenging. To show the loop, the agent's first "
+            "draft is broken on purpose: it adds 'signed for by J. Smith', which the carrier "
+            "record does not show (the 2-C fabrication). The verifier blocks it and the agent "
+            "gets the findings and drafts again. Because the first draft overreached, a person "
+            "approves the fixed draft before anything is sent."
+        )
+        staged = s.store.case(M, REDRAFT_CASE) is not None
+        if st.button("Run with a broken first draft", key="redraft_case",
+                     disabled=not s.can_act or staged):  # fmt: skip
+            try:
+                s.run_redraft_case()
+            except RuntimeError as e:
+                st.error(str(e))
+            else:
+                st.rerun()
+        if s.redraft_source:
+            st.caption(f"The draft was {s.redraft_source}.")
+        for item in (i for i in queue(s) if i.case_id == REDRAFT_CASE):
+            st.info(f"{REDRAFT_CASE} is waiting in the review queue: " + ", ".join(item.reasons))
+        if staged and not any(i.case_id == REDRAFT_CASE for i in queue(s)):
+            sent(REDRAFT_CASE)
 
 
 # --- review queue -------------------------------------------------------------------------------
@@ -260,6 +290,16 @@ with review:
                     ids = tuple(q.finding_id for q in item.proposed)
                     s.reject_quotes(item.case_id, ids, approver)
                     st.rerun()
+            if item.redraft:
+                st.markdown(
+                    "**The agent fixed a blocked draft.** Its first draft claimed something its "
+                    "records do not support, so you approve the fixed draft. Approve challenge "
+                    "sends exactly this redraft, verified again."
+                )
+                for line in item.redraft.blocked:
+                    st.error("First draft, blocked: " + md_escape(line))
+                for line in item.redraft.redraft:
+                    st.success("Redraft, verified: " + md_escape(line))
             with st.expander("Why it was referred"):
                 st.json(item.detail)
             st.caption(

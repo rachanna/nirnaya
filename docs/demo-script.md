@@ -19,12 +19,12 @@ A run sheet for presenting Nirnaya live. Every number here comes from the repo; 
 | 1:15 | K2, K3 cards | "K2: 15 USD, fees exceed the amount, accept with LOW_VALUE_TRANSACTION. K3: the customer emailed support twice with no reply, so a person decides; Nirnaya never denies a complaint exists." Point at the Airwallex AI line: "Airwallex's own AI recommendation sits beside ours (simulated offline, labelled)." |
 | 1:40 | **Issuer rejects case 1** | "The issuer rejects; Airwallex escalates to chargeback. A new cycle re-decides on the new stage and challenges again, with the device and IP sent as customer_info." |
 | 2:00 | 2-C card | "An unguarded agent claims 'signed for by J. Smith'. The carrier record has no signature field, so the verifier blocks it with the reason. Nothing unverified ships." |
-| 2:25 | Terminal: `uv run python -m nirnaya.demo`, scroll to N1 | Demo A: "N1 starts as accept, margin −60. Value of information says a delivery scan would flip it, so the agent looks only for that, finds it, and the decision flips to challenge, +40, verified." |
-| 2:55 | Console → **Read the driver's note** | "Now evidence only a free-text note holds. The carrier shows delivered with no signature field, so the engine accepts. The driver's note says a signature was captured. The model may only propose the exact words." Point at the label: "This is a recorded Claude reading, replayed." |
-| 3:15 | Review queue → AG-F1 | "A person sees the quote in its whole note and what confirming would change: accept to challenge, prior 0.60 to 0.80. Tick, **Confirm and challenge**." |
-| 3:35 | Back to the card | "Challenge sent. The quote claim is VERIFIED: code checked it word for word in the record, and that a person confirmed exactly that quote." |
+| 2:15 | **Run with a broken first draft** → Review queue → N1 | "So what does our own agent do when it's blocked? Here its first draft is broken on purpose with that same fabrication. The verifier blocks it, the agent gets the findings and drafts again: red is what was blocked and why, green is the redraft that passed. Because the first draft overreached, a person still approves." Click **Approve challenge**: "This sends exactly the draft I reviewed, verified again." Point at the label: a recorded Claude redraft, replayed. |
+| 2:45 | Terminal: `uv run python -m nirnaya.demo`, scroll to N1 | Demo A: "N1 starts as accept, margin −60. Value of information says a delivery scan would flip it, so the agent looks only for that, finds it, and the decision flips to challenge, +40, verified." |
+| 3:10 | Console → **Read the driver's note** → Review queue → AG-F1 | "Evidence only a free-text note holds. The carrier shows delivered with no signature field, so the engine accepts; the driver's note says a signature was captured. The model may only propose the exact words. A person sees the quote in its whole note and what confirming changes: accept to challenge, prior 0.60 to 0.80." Tick, **Confirm and challenge**. |
+| 3:40 | Back to the card | "Challenge sent; the quote claim is VERIFIED word for word, and confirmed by a person." |
 | 3:50 | Evaluation tab / README tables | "42 synthetic cases against fight-all, accept-all and the model alone. Honestly: a well-prompted Claude agrees on 39 of 42, close to us. Our edge is guarantees that don't depend on a prompt or a run: rules are tested code, every claim is checked, the same answer every time, and the model never controls a write." |
-| 4:25 | README agentic table | "Where the model does add value: reading notes. On 10 note cases Claude found all 6 note-only facts and proposed nothing on the 4 traps, identically across 3 runs. A keyword list found the same 6 but sent 3 traps to a person. Unsafe outcomes: zero for every reader, by construction." |
+| 4:20 | README agentic and self-correction tables | "Where the model adds value: reading notes, Claude found all 6 note-only facts and fell for none of the 4 traps, identically across 3 runs; a keyword list sent 3 traps to a person. And fixing blocked drafts: with first drafts broken on purpose, it repaired 15 of 15 of each kind, and every overreach still went to a person. Unsafe outcomes: zero, by construction." |
 | 4:50 | Close | "Fight what pays, prove what you claim, and put a person where judgement is needed." |
 
 Demo B (an early pre-chargeback accept, promised in the idea entry) is in the evaluation, not the console: the sandbox auto-accepts pre-chargebacks within a second, so it runs offline only (cases F5, N6). Mention it in one line if asked.
@@ -40,11 +40,13 @@ Demo B (an early pre-chargeback accept, promised in the idea entry) is in the ev
 | "Unsafe outcomes zero by construction" | "The model never makes mistakes" |
 | "A small synthetic suite, labelled by us" | Any real-world accuracy claim |
 | K1's flip comes from code's intake lookup; N1 shows the agent's search | "The agent found K1's evidence" |
+| "With first drafts broken on purpose, it repaired 15 of 15" | "The model fixes its own mistakes" (the breakage was code's, and the findings name the field) |
 
 ## If something breaks
 
 - **Console error or blank page:** press **Reset**, then rerun. Fallback: `uv run python -m nirnaya.demo` shows K1–K3, S5 and N1 in the terminal.
 - **"No cached reading" on the note button:** the cache is committed in `eval/results/agentic/`; check you're on `main`. Live fallback: `NIRNAYA_AGENT=llm` (one model call).
+- **"No cached redraft" on the self-correction button:** the cache is in `eval/results/self_correction/`. Live fallback: `NIRNAYA_AGENT=llm` (one model call).
 - **Questions about numbers:** `eval/results/report.md` has every table, the variance across runs and the sensitivity section.
 
 ## Likely questions
@@ -52,5 +54,6 @@ Demo B (an early pre-chargeback accept, promised in the idea entry) is in the ev
 - **"What if the fees or priors are wrong?"** They are merchant configuration, labelled assumptions. The report re-runs every decision with one assumption changed: q from 0.10 to 0.25 flips 14 of 40. A merchant sets them; `docs/calibration.md` describes learning priors from outcomes.
 - **"Why not just let the LLM decide?"** It nearly can on these cases. But one rule it wasn't told (a subscription needs a second piece of evidence) was silently not applied; in Nirnaya that rule is code and tested. And its results vary by run; ours don't.
 - **"Can a note inject instructions?"** It's shown to the model only as data. At most it becomes a proposed quote, which must be word for word in the note, confirmed by a person, and verified. Customer text is never shown to the model.
+- **"If the agent can fix its draft, why does a person still approve?"** A draft that claimed something its records don't support is a sign the model overreached; the fix passing the verifier proves the new words are supported, not that the model is now right about the case. Format slips (a true value in the wrong form) go out without a person.
 - **"What does a person do that code can't?"** Judge meaning. The verifier checks a quote's words, not what they mean, so confirmation is required, not optional.
 - **"Is this on the real Airwallex API?"** The client, guardrails, idempotent writes and dispute simulation are built against the sandbox; login, listing disputes and creating payment intents work there. Live writes wait on sandbox card payments, which currently fail with provider_unavailable (raised in the hackathon Slack).

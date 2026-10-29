@@ -1,7 +1,8 @@
 """A demo session for the console: a store, the simulated Airwallex and the orchestrator.
 
 The console shows the kit 4 cases (1, 1b, 2, 2-C, 3) end to end, then one case beyond the kit
-whose deciding fact is only in a driver's note (architecture 8.8). Offline, Airwallex is the
+whose deciding fact is only in a driver's note (architecture 8.8), and one where the agent
+fixes a draft the verifier blocked (architecture 8.6). Offline, Airwallex is the
 in-memory fake and merchant systems are SYNTHETIC; writes land only in the fake. A sandbox run
 written by `python -m nirnaya.sandbox_demo` can be opened to view instead (no actions).
 """
@@ -13,13 +14,19 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from nirnaya.agent.llm_drafter import LLMDrafter
+from nirnaya.agent.runs import DraftResult
 from nirnaya.config.demo import DEMO_POLICY
 from nirnaya.evaluation.agentic import AgenticCase, Cached, load_agentic_cases, load_llm_caches
 from nirnaya.evaluation.cases import EvalCase, load_cases, synthetic_world
+from nirnaya.evaluation.self_correction import Injected, Recording
+from nirnaya.evaluation.self_correction import latest_cache as latest_redraft_cache
 from nirnaya.integrations.mocks.airwallex_ai import simulated as simulated_ai
 from nirnaya.integrations.mocks.airwallex_fake import FakeAirwallex
 from nirnaya.llm.base import LLMClient
+from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import Action, Stage
+from nirnaya.models.evidence import EvidenceRecord
 from nirnaya.orchestrator.machine import Orchestrator
 from nirnaya.orchestrator.referrals import approve, close_manually, reject_findings
 from nirnaya.orchestrator.settings import Settings
@@ -28,6 +35,28 @@ from nirnaya.store import Store, connect
 
 KIT = ("K1", "K2", "K3")
 NOTE_CASE = "AG-F1"  # the agentic suite's signature-in-a-driver's-note case
+REDRAFT_CASE = "N1"  # not received, worth challenging; its first draft is broken on purpose
+
+
+class _OneCaseBroken:
+    """The session's drafter, except that one case's first draft is broken on purpose (the
+    self-correction demo); every other case drafts as configured."""
+
+    revises = True
+
+    def __init__(self, drafter: object, case_id: str, injected: Injected) -> None:
+        self.drafter, self.case_id, self.injected = drafter, case_id, injected
+
+    def draft(
+        self, dispute: Dispute, records: list[EvidenceRecord], feedback: dict | None = None
+    ) -> DraftResult:
+        if dispute.id == self.case_id:
+            return self.injected.draft(dispute, records, feedback=feedback)
+        if feedback is not None and getattr(self.drafter, "revises", False):
+            return self.drafter.draft(dispute, records, feedback=feedback)  # type: ignore[attr-defined]
+        return self.drafter.draft(dispute, records)  # type: ignore[attr-defined]
+
+
 M = DEMO_POLICY.merchant_id
 SANDBOX_DIR = Path(".nirnaya")
 
@@ -48,6 +77,8 @@ class DemoSession:
     note_case: AgenticCase | None = None
     # How the note was read: a live model call or a replayed cached answer (labelled).
     note_source: str | None = None
+    # How the self-correction case was redrafted: live, or a replayed cached answer (labelled).
+    redraft_source: str | None = None
 
     @property
     def can_act(self) -> bool:
@@ -154,6 +185,39 @@ class DemoSession:
             aw.add_dispute(case.dispute, attempt=case.payment_attempt, intent_owner="same")
         orch.run_until_idle(self.now)
         self.log.append(f"Ran {case.id}: the driver's note was {self.note_source}.")
+
+    def run_redraft_case(self, cache: dict | None = None) -> None:
+        """Self-correction: N1's first draft adds "signed for by J. Smith", which the carrier
+        record does not show (the kit 2-C fabrication), on purpose. The verifier blocks it; the
+        agent gets the findings and redrafts. In llm mode the redraft is a live model call;
+        otherwise Claude's redraft from the self-correction evaluation is replayed, labelled."""
+        aw, orch = self._require()
+        if getattr(orch.drafter, "revises", False) and not isinstance(orch.drafter, _OneCaseBroken):
+            inner = orch.drafter
+            llm = getattr(inner, "llm", None)
+            who = "the configured drafter" if llm is None else f"{llm.provider}/{llm.model}"
+            self.redraft_source = f"redrafted live by {who}"
+        else:
+            run = cache if cache is not None else latest_redraft_cache()
+            answer = None if run is None else run.get("cases", {}).get(f"{REDRAFT_CASE}:overreach")
+            if run is None or answer is None:
+                raise RuntimeError(
+                    "no cached redraft: run NIRNAYA_LIVE_LLM=1 uv run python -m "
+                    "nirnaya.evaluation.self_correction --live, or start with NIRNAYA_AGENT=llm"
+                )
+            replay = Recording(None, run["provider"], run["model"], answer)
+            inner = LLMDrafter(replay, env={})  # type: ignore[arg-type]
+            self.redraft_source = (
+                f"redrafted from a cached answer by {run['provider']}/{run['model']}, recorded "
+                f"{run['run_at'][:10]} and replayed (no model call now)"
+            )
+        if not isinstance(orch.drafter, _OneCaseBroken):
+            orch.drafter = _OneCaseBroken(orch.drafter, REDRAFT_CASE, Injected(inner, "overreach"))
+        case = self.cases[REDRAFT_CASE]
+        if self.store.case(M, case.id) is None:
+            aw.add_dispute(case.dispute, attempt=case.payment_attempt, intent_owner="same")
+        orch.run_until_idle(self.now)
+        self.log.append(f"Ran {case.id} with a broken first draft; it was {self.redraft_source}.")
 
     def approve(
         self, case_id: str, action: Action, approver: str, confirm: tuple[str, ...] = ()

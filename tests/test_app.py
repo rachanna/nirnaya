@@ -73,3 +73,14 @@ def test_the_note_beat_runs_from_the_kit_tab(app):
     text = all_text(app)
     assert "cached answer by" in text  # the committed Claude run, replayed and labelled
     assert "AG-F1 is waiting in the review queue" in "\n".join(i.value for i in app.info)
+
+
+def test_the_self_correction_beat_runs_and_is_approved_from_the_queue(app):
+    app.button(key="redraft_case").click().run()
+    assert not app.exception
+    assert "cached answer by" in all_text(app)  # the committed Claude redraft, replayed
+    assert any("First draft, blocked" in e.value for e in app.error)
+    assert any("Redraft, verified" in x.value for x in app.success)
+    app.button(key="chal-N1").click().run()
+    assert not app.exception
+    assert "Status: CHALLENGE CONFIRMED" in all_text(app)

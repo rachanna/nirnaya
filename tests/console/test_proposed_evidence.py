@@ -135,3 +135,43 @@ def test_without_a_cached_reading_the_note_beat_says_how_to_get_one():
         assert "--live" in str(e)
     else:
         raise AssertionError("expected a clear error")
+
+
+REDRAFT_RUN = {
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "prompts": ["drafter_feedback@v1#x"],
+    "run_at": "2026-10-29T00:00:00+00:00",
+    "cases": {
+        "N1:overreach": {
+            "claims": [
+                {
+                    "source_record_id": "N1-carrier",
+                    "source_field": "status",
+                    "establishes": "DELIVERY_CONFIRMED",
+                    "extracted_value": "DELIVERED",
+                    "value_kind": "ENUM",
+                    "text": "DELIVERED",
+                }
+            ],
+            "stop": "TOOL_USE",
+        }
+    },
+}
+
+
+def test_the_self_correction_beat_shows_both_drafts_and_sends_the_reviewed_one():
+    s = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
+    s.run_kit()
+    s.run_redraft_case(cache=REDRAFT_RUN)
+    assert "cached answer by anthropic/claude-sonnet-5-5" in s.redraft_source
+    (item,) = [i for i in queue(s) if i.case_id == "N1"]
+    assert item.reasons == ("REDRAFT_AFTER_OVERREACH",)
+    (blocked,) = item.redraft.blocked
+    assert "N1-carrier.signed_by" in blocked and "FIELD_MISSING" in blocked
+    assert item.redraft.redraft == ("Delivery confirmed by carrier: DELIVERED (N1-carrier.status)",)
+    s.approve("N1", Action.CHALLENGE, "ops@example.test")
+    assert [(w.action, w.status) for w in s.store.writes(M, "N1")] == [("CHALLENGE", "CONFIRMED")]
+    assert s.store.latest_draft(M, "N1", 1) == 2  # the reviewed redraft, not a new one
+    # Kit cases still draft as configured.
+    assert [(w.action, w.status) for w in s.store.writes(M, "K2")] == [("ACCEPT", "CONFIRMED")]

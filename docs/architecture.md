@@ -597,7 +597,7 @@ The status and contradiction ids are left for `verify()`, which ignores any inco
 |---|---|---|
 | FORMAT: the cited field establishes the fact; only how the value was written failed (`EXTRACTED_VALUE_MISMATCH`, `VALUE_MISMATCH`, `NAME_OR_ID_MISMATCH`) | yes | proceeds |
 | OMISSION: a required fact no claim tried to state | yes | proceeds |
-| OVERREACH: any other blocked claim (wrong record, a field that does not establish the fact, a wrong amount or date, another merchant's record, a reason-specific claim under an unknown reason) | yes | `REFERRED`, `REDRAFT_AFTER_OVERREACH`, both drafts in the detail, until a person approves |
+| OVERREACH: any other blocked claim (wrong record, a field that does not establish the fact, a wrong amount or date, another merchant's record, a reason-specific claim under an unknown reason) | yes | `REFERRED`, `REDRAFT_AFTER_OVERREACH`, both drafts in the detail, until a person approves; the approval sends exactly the redraft they reviewed, verified again, with no new draft |
 | Records contradict each other (outcome REFER), changed evidence (`HASH_MISMATCH`), a failing quote claim | no | — |
 
 The findings (each blocked claim's record, field, fact, value and failing checks; the required facts still missing) go to the model inside an untrusted-data block, with the versioned `drafter_feedback` prompt. At most `Settings.max_redrafts` (1) per cycle, within the cycle's token budget and before the investigation buffer. Every draft and verification stays stored, `REDRAFT_REQUESTED` is audited, and any referral after a redraft lists the earlier drafts. Measured by fault injection (§14).
@@ -1060,7 +1060,7 @@ The kit demo tells each case as the guide's arc. The **initial plan** is the eng
 
 | Tab | Shows | Actions |
 |---|---|---|
-| Kit 4 demo | Kit cases 1, 1b, 2, 2-C and 3, each as goal → initial plan → new information → revised decision → status, with Airwallex's AI recommendation beside the decision (offline: labelled SIMULATED) and any `customer_info` sent | Run the kit · simulate the issuer's rejection |
+| Kit 4 demo | Kit cases 1, 1b, 2, 2-C and 3, each as goal → initial plan → new information → revised decision → status, with Airwallex's AI recommendation beside the decision (offline: labelled SIMULATED) and any `customer_info` sent; then two cases beyond the kit: evidence only a driver's note holds, and self-correction (a first draft broken on purpose, fixed by the agent, approved by a person); in scripted mode both replay a recorded Claude answer, labelled | Run the kit · simulate the issuer's rejection · read a driver's note (§8.8) · run with a broken first draft (§8.6) |
 | Review queue | An Airwallex outage banner; disputes Nirnaya could not read (no case: handle in Airwallex); stalled writes; then referrals by urgency: reason, failed claims, counterevidence, time left; for `PROPOSED_EVIDENCE`, each quote highlighted in its whole note, its source, and what confirming would change (action, prior, margin, conflicting records) | Approve accept · approve challenge (still verified) · handle manually · confirm quotes and challenge · reject quotes |
 | Case detail | Timeline; the decision maths and priors (shown as priors, not predictions); VoI; evidence records with hashes; claims and verification results; **counterevidence** | none |
 | Evaluation | Nirnaya against the baselines on the five metrics, with the expected-loss chart and per-case table | none (the report is generated offline) |

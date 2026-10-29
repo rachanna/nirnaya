@@ -677,6 +677,9 @@ class Orchestrator:
                 "the challenge was looked at",
             }
             return _Step(S.REFERRED, detail, referral=["COUNTEREVIDENCE_INCOMPLETE"], detail=detail)
+        if (reviewed := self._reviewed_redraft(case)) is not None:
+            # A person approved this passing redraft: send what they saw, verified again.
+            return _Step(S.VERIFYING, {"reuse_draft": reviewed})
         records = self.store.evidence(case.merchant_id, case.case_id)
         feedback = self._redraft_feedback(case, dispute, records)
         if feedback is None:
@@ -868,6 +871,22 @@ class Orchestrator:
                 plan = redraft_plan(dispute, v, records)
                 out.append({"draft": n, **plan.feedback})
         return out
+
+    def _reviewed_redraft(self, case: CaseRow) -> int | None:
+        """The passing redraft a person approved after an overreach, if that is the latest
+        draft of the cycle."""
+        m, cid = case.merchant_id, case.case_id
+        approval = self.store.latest_approval(m, cid, case.cycle)
+        if approval is None or approval.approval is None:
+            return None
+        if approval.approval.get("action") != Action.CHALLENGE.value or (
+            "REDRAFT_AFTER_OVERREACH" not in approval.approval.get("referral_reasons", [])
+        ):
+            return None
+        draft = self.store.latest_draft(m, cid, case.cycle)
+        verification = self.store.verification(m, cid, case.cycle, draft) if draft else None
+        passed = verification is not None and verification.outcome is VerificationOutcome.PASSED
+        return draft if passed else None
 
     def _overreach_approved(self, case: CaseRow) -> bool:
         """A person approved a challenge after seeing the failed draft."""

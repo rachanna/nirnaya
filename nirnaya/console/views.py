@@ -338,6 +338,28 @@ def _if_confirmed(detail: dict[str, Any]) -> str | None:
 
 
 @dataclass(frozen=True)
+class RedraftView:
+    """A redraft after an overreach: what the first draft claimed and why it was blocked, and
+    the redraft that passed. Text is the agent's and the records', so the UI escapes it."""
+
+    blocked: tuple[str, ...]
+    redraft: tuple[str, ...]
+
+
+def _redraft(detail: dict[str, Any]) -> RedraftView | None:
+    if "redraft" not in detail:
+        return None
+    blocked = tuple(
+        f"{c['establishes']} = {c['extracted_value']!r} from {c['source_record_id']}."
+        f"{c['source_field']}: " + "; ".join(f"{f['check']} ({f['detail']})" for f in c["failures"])
+        for d in detail.get("earlier_drafts", [])
+        for c in d["blocked_claims"]
+    )
+    redraft = tuple(f"{c['text']} ({c['source']})" for c in detail["redraft"]["claims"])
+    return RedraftView(blocked, redraft)
+
+
+@dataclass(frozen=True)
 class QueueItem:
     case_id: str
     urgent: bool
@@ -347,6 +369,7 @@ class QueueItem:
     hours_left: int
     proposed: tuple[ProposedQuote, ...] = ()
     if_confirmed: str | None = None
+    redraft: RedraftView | None = None
 
 
 def queue(session: DemoSession) -> list[QueueItem]:
@@ -366,6 +389,7 @@ def queue(session: DemoSession) -> list[QueueItem]:
                 hours_left=int((case.due_at - session.now).total_seconds() // 3600),
                 proposed=proposed_quotes(session.store, case.case_id, case.cycle),
                 if_confirmed=_if_confirmed(detail),
+                redraft=_redraft(detail),
             )
         )
     return sorted(items, key=lambda i: (not i.urgent, i.due_at, i.case_id))
