@@ -17,17 +17,23 @@ from nirnaya.console.plain import (
     verdict,
     write_sentence,
 )
-from nirnaya.console.session import KIT, NOTE_CASE, REDRAFT_CASE, DemoSession, M
+from nirnaya.console.session import EARLY_CASE, KIT, NOTE_CASE, REDRAFT_CASE, DemoSession, M
 from nirnaya.console.views import KIT_GOALS, KIT_HEADLINES, kit_card
 from nirnaya.evaluation.self_correction import INJECTED_CLAIM
 from nirnaya.models.enums import Action, DisputeStatus, Stage
 
 # The two cases beyond the kit: what each shows, in the merchant's terms.
 EXTRA_HEADLINES = {
+    EARLY_CASE: "Cheaper to settle early",
     NOTE_CASE: "Proof only in a driver's note",
     REDRAFT_CASE: "A draft that claims too much",
 }
 EXTRA_GOALS = {
+    EARLY_CASE: (
+        "A 1,000 USD fraud claim at the pre-chargeback stage, with nothing on file to fight it."
+        " Is it cheaper to settle now than to let it become a chargeback? Offline only: the"
+        " Airwallex sandbox accepts pre-chargebacks by itself within a second."
+    ),
     NOTE_CASE: (
         'An "it never arrived" claim. The carrier record has no signature, but the driver wrote'
         " one in a note. Can Claude find it, and does Nirnaya wait for a person to confirm it?"
@@ -98,7 +104,7 @@ def case_story(session: DemoSession, label: str) -> Story:
                 "nirnaya",
                 "plan",
                 "First look, with Airwallex's data only",
-                f"On its own this would be: {word}. {decision_sentence(arc.initial)}",
+                f"On its own this would be: {word}. {decision_sentence(arc.initial, arc.stage)}",
                 cycle=cycle,
             )
 
@@ -256,7 +262,7 @@ def case_story(session: DemoSession, label: str) -> Story:
                     "nirnaya",
                     "decision",
                     f"Decision: {verdict(arc.revised.action)[0].lower()}",
-                    decision_sentence(arc.revised),
+                    decision_sentence(arc.revised, arc.stage),
                     "info",
                     cycle,
                 )

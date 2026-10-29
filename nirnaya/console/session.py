@@ -36,6 +36,9 @@ from nirnaya.store import Store, connect
 KIT = ("K1", "K2", "K3")
 NOTE_CASE = "AG-F1"  # the agentic suite's signature-in-a-driver's-note case
 REDRAFT_CASE = "N1"  # not received, worth challenging; its first draft is broken on purpose
+# Demo B: fraud at pre-chargeback with nothing to fight with, settled early. Offline only:
+# the sandbox auto-accepts pre-chargebacks within a second.
+EARLY_CASE = "F5"
 
 
 class _OneCaseBroken:
@@ -152,18 +155,20 @@ class DemoSession:
         self.log.append("Ran kit cases 1, 2 and 3.")
 
     def run_case(self, label: str) -> None:
-        """One case on its own: a kit case staged at Airwallex and decided, or one of the two
-        cases beyond the kit (the driver's note, the self-correction)."""
+        """One case on its own: a kit case staged at Airwallex and decided, or one of the
+        cases beyond the kit (the early accept, the driver's note, the self-correction)."""
         if label == NOTE_CASE:
             return self.run_note_case()
         if label == REDRAFT_CASE:
             return self.run_redraft_case()
-        if label not in KIT:
+        if label not in (*KIT, EARLY_CASE):
             raise KeyError(label)
         aw, orch = self._require()
         self._stage(aw, label)
         orch.run_until_idle(self.now)
-        self.log.append(f"Ran kit case {KIT.index(label) + 1}.")
+        self.log.append(
+            f"Ran kit case {KIT.index(label) + 1}." if label in KIT else f"Ran {label}."
+        )
 
     def decide(self, case_id: str, choice: str, approver: str) -> None:
         """A person's decision on a referred case: accept, fight, fight confirming the quotes

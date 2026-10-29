@@ -115,8 +115,9 @@ def reason_sentences(codes: Sequence[str]) -> list[str]:
     ]
 
 
-def decision_sentence(view: _Decision) -> str:
-    """One sentence on why, using the engine's own number."""
+def decision_sentence(view: _Decision, stage: str | None = None) -> str:
+    """One sentence on why, using the engine's own number. At pre-chargeback an accept settles
+    before the dispute becomes a chargeback, so it says so."""
     if view.action == "REFER":
         return " ".join(reason_sentences(view.referral_reasons)) or "A person decides."
     if view.action == "CHALLENGE":
@@ -126,6 +127,11 @@ def decision_sentence(view: _Decision) -> str:
         )
     if view.accept_reason == "LOW_VALUE_TRANSACTION":
         return "Fighting would cost more than it could win back."
+    if view.margin is not None and stage == "PRE_CHARGEBACK":
+        return (
+            f"Settling now, before it becomes a chargeback, is about {view.margin.lstrip('-')} "
+            "USD better than fighting."
+        )
     if view.margin is not None:
         return f"Accepting is about {view.margin.lstrip('-')} USD better than fighting."
     return "Accepting is the better choice."

@@ -37,6 +37,20 @@ def test_the_why_is_one_plain_sentence_with_the_engines_own_number():
     assert decision_sentence(refer) == REASON_TEXT["UNANSWERED_CUSTOMER_CONTACT"]
 
 
+def test_an_early_accept_says_it_settles_before_the_chargeback():
+    early = view("ACCEPT", margin="-40.00", accept_reason="OTHERS")
+    assert decision_sentence(early, stage="PRE_CHARGEBACK") == (
+        "Settling now, before it becomes a chargeback, is about 40.00 USD better than fighting."
+    )
+    assert decision_sentence(early, stage="CHARGEBACK") == (
+        "Accepting is about 40.00 USD better than fighting."
+    )
+    low = view("ACCEPT", margin="-68.00", accept_reason="LOW_VALUE_TRANSACTION")
+    assert decision_sentence(low, stage="PRE_CHARGEBACK") == (
+        "Fighting would cost more than it could win back."
+    )
+
+
 def test_every_engine_referral_reason_has_a_sentence():
     assert {r.value for r in ReferralReason} <= set(REASON_TEXT)
     assert reason_sentences(["SOMETHING_NEW"]) == ["SOMETHING_NEW"]  # unknown codes stay visible

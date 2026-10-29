@@ -16,6 +16,7 @@ async function call(path, options = {}) {
 export const api = {
   info: () => call("/info"),
   recorded: () => call("/recorded"),
+  results: () => call("/results"),
   cases: () => call("/cases"),
   run: (label) => call(`/cases/${label}/run`, { method: "POST" }),
   reject: (label) => call(`/cases/${label}/reject`, { method: "POST" }),

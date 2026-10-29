@@ -38,7 +38,7 @@ def settle(c: TestClient, label: str) -> dict:
 
 def test_the_three_cases_are_listed_before_anything_runs():
     cases = client().get("/api/cases").json()
-    assert [x["label"] for x in cases] == ["K1", "K2", "K3", "AG-F1", "N1"]
+    assert [x["label"] for x in cases] == ["K1", "K2", "K3", "F5", "AG-F1", "N1"]
     assert all(x["state"] == "NOT_RUN" and x["messages"] == [] for x in cases)
     assert all(x["running"] is False and x["calls"] == [] for x in cases)
     assert cases[0]["headline"] == "A large fraud claim"
@@ -81,6 +81,30 @@ def test_the_note_case_waits_for_a_person_to_confirm_the_quote():
     after = settle(c, "AG-F1")
     assert after["verdict"] == "CHALLENGE" and after["error"] is None
     assert not after["needs_person"] and after["proposed_quotes"] == []
+
+
+def test_the_early_accept_runs_offline_without_a_model():
+    c = client()
+    assert c.post("/api/cases/F5/run").status_code == 200
+    story = settle(c, "F5")
+    assert story["verdict"] == "ACCEPT" and story["error"] is None and not story["needs_person"]
+
+
+def test_the_results_are_the_evaluation_report():
+    results = client().get("/api/results").json()
+    assert results["cases"] == 42 and results["caveat"]
+    assert [p["name"] for p in results["policies"]][:3] == [
+        "Nirnaya",
+        "Fight everything",
+        "Accept everything",
+    ]
+    assert results["policies"][0]["ours"] and results["policies"][0]["unsupported"] == 0
+
+
+def test_missing_results_are_a_plain_404(tmp_path: Path):
+    c = TestClient(create_app(lambda: live_session(env={}), results_path=tmp_path / "none.json"))
+    assert c.get("/api/results").status_code == 404
+    assert c.get("/api/info").json()["results"] is False
 
 
 def test_errors_are_plain_and_nothing_is_guessed():

@@ -136,6 +136,18 @@ def test_the_self_correction_case_names_the_planted_claim_and_the_fix(session):
     assert after.verdict == "CHALLENGE" and after.messages[-1].kind in {"sent", "update"}
 
 
+def test_the_early_accept_case_settles_before_the_chargeback(session):
+    session.run_case("F5")  # demo B: offline only, the sandbox auto-accepts pre-chargebacks
+    story = case_story(session, "F5")
+    assert story.headline == "Cheaper to settle early" and story.amount == "1000.00 USD"
+    assert "pre-chargeback" in story.question
+    assert story.verdict == "ACCEPT" and not story.needs_person
+    decision = next(m for m in story.messages if m.kind == "decision")
+    assert decision.text.startswith("Settling now, before it becomes a chargeback")
+    assert "40.00 USD" in decision.text
+    assert next(m for m in story.messages if m.kind == "sent").text.startswith("Accept sent")
+
+
 def test_every_message_is_plain_words_and_the_feed_is_deterministic(session):
     session.run_case("K1")
     a, b = case_story(session, "K1"), case_story(session, "K1")

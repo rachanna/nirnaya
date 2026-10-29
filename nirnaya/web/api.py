@@ -6,12 +6,14 @@ Recorded: the live run of 29 Oct 2026 (Claude on the Airwallex sandbox), replaye
 nirnaya/web/recorded/. Live: the kit run now, with real model calls (NIRNAYA_AGENT=llm on the
 provider and model the environment names) against the in-memory fake Airwallex and SYNTHETIC
 merchant records. A live action runs in the background; the page polls the case and sees each
-model call the moment it starts (RecordingLLM).
+model call the moment it starts (RecordingLLM). Results: the evaluation report, every approach on
+the same SYNTHETIC cases.
 
 Thin, like the Streamlit console: every action goes through the demo session's commands, so the
 engine, verifier and write gateway behave exactly as they do everywhere else.
 """
 
+import json
 import os
 import threading
 from collections.abc import Callable, Mapping
@@ -23,17 +25,21 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from nirnaya.console.session import KIT, NOTE_CASE, REDRAFT_CASE, DemoSession
+from nirnaya.console.results import results_view
+from nirnaya.console.session import EARLY_CASE, KIT, NOTE_CASE, REDRAFT_CASE, DemoSession
 from nirnaya.console.story import case_story
 from nirnaya.llm.factory import llm_settings_from_env, make_llm
 from nirnaya.llm.types import LLMConfigError
 from nirnaya.web import recorded
 from nirnaya.web.recording import RecordingLLM
 
-WEB_DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
-# The live tab: the kit, then two cases beyond it that show Claude's other jobs (reading a
-# note and proposing quotes; fixing a draft the checks blocked).
-CASES = (*KIT, NOTE_CASE, REDRAFT_CASE)
+ROOT = Path(__file__).resolve().parents[2]
+WEB_DIST = ROOT / "web" / "dist"
+RESULTS = ROOT / "eval" / "results" / "report.json"
+# The live tab: the kit, then cases beyond it: an early accept at pre-chargeback (offline only:
+# the sandbox auto-accepts those), and two that show Claude's other jobs (reading a note and
+# proposing quotes; fixing a draft the checks blocked).
+CASES = (*KIT, EARLY_CASE, NOTE_CASE, REDRAFT_CASE)
 
 
 @dataclass
@@ -65,6 +71,7 @@ def create_app(
     *,
     static_dir: Path = WEB_DIST,
     recorded_path: Path = recorded.RECORDED,
+    results_path: Path = RESULTS,
 ) -> FastAPI:
     app = FastAPI(title="Nirnaya demo API")
     lock = threading.Lock()  # the session: one action at a time
@@ -146,7 +153,14 @@ def create_app(
             "recorded": None
             if rec is None
             else {k: rec[k] for k in ("recorded_on", "airwallex", "models")},
+            "results": results_path.is_file(),
         }
+
+    @app.get("/api/results")
+    def results() -> dict[str, Any]:
+        if not results_path.is_file():
+            raise HTTPException(404, "no evaluation report: python -m nirnaya.evaluation.report")
+        return asdict(results_view(json.loads(results_path.read_text(encoding="utf-8"))))
 
     @app.get("/api/recorded")
     def recorded_run() -> dict[str, Any]:

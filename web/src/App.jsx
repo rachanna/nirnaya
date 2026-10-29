@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import CasePanel from "./CasePanel.jsx";
+import Results from "./Results.jsx";
 
 const DOT = { CHALLENGE: "good", ACCEPT: "warn", REFER: "info" };
 const POLL_MS = 700;
 
-const KIT_SIZE = 3; // after the kit's three cases come the two beyond it
+const KIT_SIZE = 3; // after the kit's three cases come the ones beyond it
 
 function CaseTabs({ cases, active, setActive }) {
   return (
@@ -94,8 +95,9 @@ function Live({ info, round }) {
       <p className="mode-note">
         Runs now, with real calls to <strong>{info.model}</strong>. Airwallex is{" "}
         {info.airwallex} and the merchant records are synthetic, so nothing real is written. In the
-        kit's three cases Claude writes the response; the two cases beyond the kit show it reading
-        a note, and fixing a draft the checks blocked.
+        kit's three cases Claude writes the response. Beyond the kit: an early accept at the
+        pre-chargeback stage (offline only, as the sandbox accepts those by itself), then Claude
+        reading a note, and fixing a draft the checks blocked.
       </p>
       {error && <p className="error" role="alert">{error}</p>}
       <CaseTabs cases={cases} active={active} setActive={setActive} />
@@ -161,9 +163,18 @@ export default function App() {
                 {info.live.available ? `Real model calls now · ${info.live.model}` : "needs a model key"}
               </span>
             </button>
+            <button role="tab" aria-selected={mode === "results"}
+              className={mode === "results" ? "mode on" : "mode"} onClick={() => setMode("results")}
+              disabled={!info.results}>
+              <span className="mode-t">Results</span>
+              <span className="mode-s">
+                {info.results ? "Every approach on the same synthetic disputes" : "no evaluation report"}
+              </span>
+            </button>
           </nav>
           {mode === "recorded" && info.recorded && <Recorded info={info.recorded} />}
           {mode === "live" && <Live info={info.live} round={round} />}
+          {mode === "results" && info.results && <Results />}
         </>
       )}
 
