@@ -33,6 +33,18 @@ class VoIEntry(DomainModel):
     final_action_if_present: Action
 
 
+class StrengthEntry(DomainModel):
+    """Missing evidence that, if all of it were found, would raise the win prior p.
+
+    Value of information asks what would flip the decision; this asks what would make it
+    stronger. A set is dropped when part of it already raises p as far.
+    """
+
+    evidence: EvidenceSet
+    p_if_present: Dec
+    margin_if_present: Dec
+
+
 class Decision(DomainModel):
     """The engine's output.
 

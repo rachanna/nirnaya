@@ -1,7 +1,7 @@
 """Pydantic domain models."""
 
 from nirnaya.models.claim import Claim, DateTimeValue, DateValue, MoneyValue, TextValue
-from nirnaya.models.decision import Decision, ReferralReason, VoIEntry
+from nirnaya.models.decision import Decision, ReferralReason, StrengthEntry, VoIEntry
 from nirnaya.models.dispute import AiRecommendation, Dispute
 from nirnaya.models.enums import (
     AcceptReason,
@@ -61,5 +61,6 @@ __all__ = [
     "TextValue",
     "ThreeDSResult",
     "ValidationStatus",
+    "StrengthEntry",
     "VoIEntry",
 ]

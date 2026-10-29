@@ -1,10 +1,10 @@
 import pytest
 
 from nirnaya.agent.scripted import FIELD_KIND, ScriptedDrafter, ScriptedInvestigator
-from nirnaya.agent.targets import TOOL_FOR, investigation_targets
+from nirnaya.agent.targets import TOOL_FOR, investigation_targets, support_targets
 from nirnaya.agent.tools import Tool, ToolGateway, ToolRefused
 from nirnaya.config.demo import DEMO_POLICY
-from nirnaya.engine import decide
+from nirnaya.engine import decide, strengthening_sets
 from nirnaya.evaluation.cases import load_cases
 from nirnaya.evidence.catalogue import FIELD_RULES, REASON_SPECIFIC
 from nirnaya.evidence.derive import evidence_present
@@ -150,6 +150,21 @@ def test_present_evidence_is_never_a_target():
     assert E.DELIVERY_CONFIRMED not in investigation_targets(
         d, dispute, frozenset({E.DELIVERY_CONFIRMED})
     )
+
+
+def test_support_targets_take_whole_sets_a_tool_can_complete():
+    # Kit case 1 (fraud, prior orders + CVC): the signed delivery (carrier) raises p to 0.75;
+    # 3-D Secure (p 0.70) is a payment-attempt fact no tool can fetch, so it is dropped.
+    dispute = make_dispute(
+        reason=DisputeReason(type="FRAUDULENT"), stage="RFI", amount=usd("1500.00")
+    )
+    present = frozenset({E.PRIOR_UNDISPUTED_ORDERS_MATCH, E.CVC_MATCH})
+    entries = strengthening_sets(dispute, DEMO_POLICY, present, ownership_resolved=True)
+    assert support_targets(entries) == [E.DELIVERY_SIGNATURE]
+
+
+def test_support_targets_are_empty_without_entries():
+    assert support_targets(()) == []
 
 
 # --- scripted investigator -------------------------------------------------------------------

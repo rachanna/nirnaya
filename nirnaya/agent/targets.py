@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from nirnaya.agent.tools import Tool, allowed_keys
 from nirnaya.evidence.catalogue import CONTRADICTION_RULES, REQUIRED_EVIDENCE
 from nirnaya.evidence.derive import evidence_present
-from nirnaya.models.decision import Decision
+from nirnaya.models.decision import Decision, StrengthEntry
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import Action, EvidenceType, SourceSystem
 from nirnaya.models.evidence import EvidenceRecord
@@ -48,6 +48,17 @@ def investigation_targets(
             if not group & present:
                 wanted |= group
     return sorted(t for t in wanted - present if TOOL_FOR[t] is not None)
+
+
+def support_targets(entries: Iterable[StrengthEntry]) -> list[EvidenceType]:
+    """Evidence that would make a challenge stronger (engine.strengthening_sets), limited to
+    whole sets some tool can complete: a set holding a payment-attempt fact is dropped, as in
+    investigation_targets. Fetched by code once the case is worth fighting, never the agent."""
+    wanted: set[EvidenceType] = set()
+    for entry in entries:
+        if all(TOOL_FOR[t] is not None for t in entry.evidence):
+            wanted |= entry.evidence
+    return sorted(wanted)
 
 
 def tools_for(targets: list[EvidenceType]) -> list[Tool]:
