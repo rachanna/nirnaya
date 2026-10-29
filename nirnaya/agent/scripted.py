@@ -107,8 +107,11 @@ class ScriptedDrafter:
     """One claim per fact the case's records establish, from the first matching field rule.
 
     It never drafts a reason-specific claim under an UNKNOWN reason, and never denies a
-    customer contact when a customer-authored record is on file.
+    customer contact when a customer-authored record is on file. It does not revise: given
+    the same records it would draft the same claims, so it is never asked to redraft.
     """
+
+    revises = False
 
     def __init__(self, fx: FxTable | None = None) -> None:
         self._fx = fx

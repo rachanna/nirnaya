@@ -26,6 +26,7 @@ from nirnaya.evidence.derive import case_records
 from nirnaya.llm.base import LLMClient
 from nirnaya.llm.tracing import annotate
 from nirnaya.llm.types import LLMError, Message, ToolSpec
+from nirnaya.llm.untrusted import untrusted
 from nirnaya.models.claim import Claim, DateTimeValue, DateValue, MoneyValue, TextValue
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import AmountBasis, EvidenceType, ReasonCategory, RecordAuthor
@@ -177,6 +178,9 @@ def build_claims(
 
 
 class LLMDrafter:
+    # Given the verifier's findings on a blocked draft, it drafts again (architecture 8.6).
+    revises = True
+
     def __init__(
         self, llm: LLMClient, *, max_tokens: int = 4096, env: Mapping[str, str] | None = None
     ) -> None:
@@ -185,10 +189,18 @@ class LLMDrafter:
         env = os.environ if env is None else env
         self.system = assets.prompt("drafter_system", env)
         self.user = assets.prompt("drafter_user", env)
+        self.feedback_prompt = assets.prompt("drafter_feedback", env)
         self.tools_asset, tools = assets.prompt_table("tools", env)
         self.wording: dict[str, Any] = tools["drafter"]["submit_claims"]
 
-    def draft(self, dispute: Dispute, records: list[EvidenceRecord]) -> DraftResult:
+    def draft(
+        self,
+        dispute: Dispute,
+        records: list[EvidenceRecord],
+        feedback: dict[str, Any] | None = None,
+    ) -> DraftResult:
+        """Draft claims; with `feedback` (the verifier's findings on the previous draft),
+        draft again. The findings are passed as data, never as instructions."""
         own = citable(dispute, records)
         if not own:
             return DraftResult(claims=())
@@ -203,15 +215,21 @@ class LLMDrafter:
             records=records_block(own, source="citable-records"),
             field_guide=field_guide(pairs),
         )
+        prompts: tuple[str, ...] = (self.system.ref, self.user.ref, self.tools_asset.ref)
+        if feedback is not None:
+            prompt += "\n\n" + assets.render(
+                self.feedback_prompt, feedback=untrusted(feedback, source="verifier-feedback")
+            )
+            prompts += (self.feedback_prompt.ref,)
         run_base = {
             "kind": "DRAFT",
             "provider": self.llm.provider,
             "model": self.llm.model,
-            "prompts": (self.system.ref, self.user.ref, self.tools_asset.ref),
+            "prompts": prompts,
         }
         try:
             with annotate(
-                step="draft",
+                step="draft" if feedback is None else "redraft",
                 case_id=dispute.id,
                 merchant_id=dispute.merchant_id,
                 stage=str(dispute.stage),
@@ -240,6 +258,8 @@ class LLMDrafter:
             turns=1,
             stop=str(resp.stop),
             dropped=tuple(dropped),
-            transcript=({"submitted": len(call.arguments["claims"])},),
+            transcript=(
+                {"submitted": len(call.arguments["claims"]), "redraft": feedback is not None},
+            ),
         )
         return DraftResult(claims=tuple(claims), run=run)

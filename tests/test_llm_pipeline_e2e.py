@@ -164,22 +164,26 @@ def test_a_drafter_failure_refers_the_case_and_records_the_run():
     assert [r["kind"] for r in h.store.agent_runs(m, cid, 1)] == ["INVESTIGATE", "DRAFT"]
 
 
+SIGNED_BY = {
+    "source_record_id": "N1-carrier",
+    "source_field": "signed_by",
+    "establishes": "DELIVERY_SIGNATURE",
+    "extracted_value": "J. Smith",
+    "value_kind": "NAME",
+    "text": "J. Smith",
+}
+
+
 def test_a_fabricating_model_never_gets_a_write():
+    # It is told why its draft was blocked and drafts again (architecture 8.6); it fabricates
+    # again, so a person decides, seeing every draft.
     h, llm, m, cid = run(
         "N1",
         [
             reply(None, call("get_carrier_tracking", key="TRK-N1")),
             finish(),
-            submit(
-                {
-                    "source_record_id": "N1-carrier",
-                    "source_field": "signed_by",
-                    "establishes": "DELIVERY_SIGNATURE",
-                    "extracted_value": "J. Smith",
-                    "value_kind": "NAME",
-                    "text": "J. Smith",
-                }
-            ),
+            submit(SIGNED_BY),
+            submit(SIGNED_BY),
         ],
     )
     assert h.store.case(m, cid).state == CaseState.REFERRED
@@ -187,6 +191,7 @@ def test_a_fabricating_model_never_gets_a_write():
     # The referral itself shows the approver which claim failed and why (audit L4).
     detail = h.store.open_referral_for(m, cid).detail
     assert detail["outcome"] == "BLOCKED"
+    assert detail["earlier_drafts"][0]["blocked_claims"][0]["kind"] == "OVERREACH"
     (blocked,) = [c for c in detail["claims"] if c["status"] == "BLOCKED"]
     assert (blocked["source_record_id"], blocked["source_field"]) == ("N1-carrier", "signed_by")
     assert blocked["failures"] and all(f["check"] and f["detail"] for f in blocked["failures"])

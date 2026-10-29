@@ -29,7 +29,8 @@ FLOW: dict[CaseState, frozenset[CaseState]] = {
     S.INVESTIGATING: frozenset({S.INVESTIGATING, S.DECIDED}),
     S.DECIDED: frozenset({S.PRE_WRITE_CHECK, S.DRAFTING, S.REFERRED}),
     S.DRAFTING: frozenset({S.VERIFYING, S.REFERRED}),
-    S.VERIFYING: frozenset({S.RENDERING, S.REFERRED}),
+    # VERIFYING -> DRAFTING: a blocked draft goes back once with the findings (architecture 8.6).
+    S.VERIFYING: frozenset({S.RENDERING, S.REFERRED, S.DRAFTING}),
     S.RENDERING: frozenset({S.PRE_WRITE_CHECK, S.REFERRED}),
     S.PRE_WRITE_CHECK: frozenset({S.SUBMITTING, S.REFERRED}),
     S.SUBMITTING: frozenset({S.AWAITING_OUTCOME, S.REFERRED}),

@@ -64,7 +64,10 @@ class Investigator(Protocol):
 
 class Drafter(Protocol):
     def draft(self, dispute: Dispute, records: list[EvidenceRecord]) -> Any:
-        """Propose claims. Returns a DraftResult (nirnaya.agent.runs); never trusted."""
+        """Propose claims. Returns a DraftResult (nirnaya.agent.runs); never trusted.
+
+        A drafter with `revises = True` also accepts `feedback=` (the verifier's findings on
+        its blocked draft, orchestrator.redraft) and drafts again (architecture 8.6)."""
         ...
 
 

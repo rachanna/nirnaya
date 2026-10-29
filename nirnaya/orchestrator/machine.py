@@ -47,6 +47,7 @@ from nirnaya.orchestrator.ports import (
     Reader,
     StepObserver,
 )
+from nirnaya.orchestrator.redraft import redraft_plan
 from nirnaya.orchestrator.settings import Settings
 from nirnaya.orchestrator.states import DEFERRAL_CHECK, RUNNABLE, WATCHDOG_REFERS, CaseState
 from nirnaya.render.evidence_doc import RenderError, render_evidence
@@ -677,7 +678,11 @@ class Orchestrator:
             }
             return _Step(S.REFERRED, detail, referral=["COUNTEREVIDENCE_INCOMPLETE"], detail=detail)
         records = self.store.evidence(case.merchant_id, case.case_id)
-        result = self.drafter.draft(dispute, records)
+        feedback = self._redraft_feedback(case, dispute, records)
+        if feedback is None:
+            result = self.drafter.draft(dispute, records)
+        else:
+            result = self.drafter.draft(dispute, records, feedback=feedback)
         # Quotes a person confirmed become claims built by code (architecture 8.8).
         claims = list(result.claims) + [
             quote_claim(dispute, q, n) for n, q in enumerate(confirmed, start=1)
@@ -687,7 +692,11 @@ class Orchestrator:
             def record() -> None:
                 self._record_run(case, result.run, now)
 
-            return _Step(S.REFERRED, {"why": "no claims drafted"}, record, referral=["DRAFT_EMPTY"])
+            body: dict[str, Any] = {"why": "no claims drafted"}
+            if feedback is not None:  # a failed redraft: the approver still sees what failed
+                draft = self.store.latest_draft(case.merchant_id, case.case_id, case.cycle)
+                body["earlier_drafts"] = self._earlier_drafts(case, dispute, draft + 1, records)
+            return _Step(S.REFERRED, body, record, referral=["DRAFT_EMPTY"])
 
         def apply() -> None:
             self._record_run(case, result.run, now)
@@ -753,14 +762,121 @@ class Orchestrator:
             "blocked": {c.claim.id: [f.check for f in c.failures] for c in result.blocked},
             "notes": [n.model_dump(mode="json") for n in result.notes],
         }
+        records = self.store.evidence(m, cid)
+        earlier = self._earlier_drafts(case, dispute, draft, records)
+        if result.outcome is VerificationOutcome.BLOCKED and self._may_redraft(
+            case, dispute, draft, now
+        ):
+            plan = redraft_plan(dispute, result, records)
+            if plan.retry:
+
+                def redraft() -> None:
+                    apply()
+                    self.store.audit(
+                        m,
+                        cid,
+                        "REDRAFT_REQUESTED",
+                        {
+                            "cycle": case.cycle,
+                            "draft": draft,
+                            "kinds": sorted(plan.kinds),
+                            "checks": sorted(
+                                {
+                                    f["check"]
+                                    for c in plan.feedback["blocked_claims"]
+                                    for f in c["failures"]
+                                }
+                            ),  # fmt: skip
+                        },
+                        now,
+                    )
+
+                return _Step(S.DRAFTING, {**body, "redraft": sorted(plan.kinds)}, redraft)
         if result.outcome is VerificationOutcome.PASSED:
+            overreached = [d for d in earlier if any(c["kind"] == "OVERREACH"
+                                                     for c in d["blocked_claims"])]  # fmt: skip
+            if overreached and not self._overreach_approved(case):
+                detail = {
+                    "earlier_drafts": earlier,
+                    "redraft": {
+                        "draft": draft,
+                        "claims": [
+                            {
+                                "claim_id": c.claim.id,
+                                "text": c.claim.text,
+                                "source": f"{c.claim.source_record_id}.{c.claim.source_field}",
+                            }
+                            for c in result.claims
+                        ],
+                    },
+                    "note": "The agent's first draft claimed something its records do not "
+                    "support; its redraft passed verification. Approve the challenge only if "
+                    "the redraft is right.",
+                }
+                return _Step(
+                    S.REFERRED,
+                    {**body, "earlier_drafts": [d["draft"] for d in earlier]},
+                    apply,
+                    referral=["REDRAFT_AFTER_OVERREACH"],
+                    detail=detail,
+                )
             return _Step(S.RENDERING, body, apply)
+        detail = _verification_detail(draft, result)
+        if earlier:
+            detail["earlier_drafts"] = earlier
         return _Step(
             S.REFERRED,
             body,
             apply,
             referral=[f"VERIFICATION_{result.outcome}"],
-            detail=_verification_detail(draft, result),
+            detail=detail,
+        )
+
+    # --- self-correction (architecture 8.6) -------------------------------------------------
+
+    def _may_redraft(self, case: CaseRow, dispute: Dispute, draft: int, now: datetime) -> bool:
+        tokens = self.store.agent_tokens(case.merchant_id, case.case_id, case.cycle)
+        return (
+            bool(getattr(self.drafter, "revises", False))
+            and draft <= self.settings.max_redrafts
+            and tokens < self.settings.max_tokens_per_cycle
+            and now < dispute.due_at - self.settings.investigation_buffer[dispute.stage]
+        )
+
+    def _redraft_feedback(
+        self, case: CaseRow, dispute: Dispute, records: list[Any]
+    ) -> dict[str, Any] | None:
+        """The verifier's findings on this cycle's latest draft, if it was blocked and the
+        drafter revises; otherwise None (a first draft)."""
+        if not getattr(self.drafter, "revises", False):
+            return None
+        m, cid = case.merchant_id, case.case_id
+        draft = self.store.latest_draft(m, cid, case.cycle)
+        previous = self.store.verification(m, cid, case.cycle, draft) if draft else None
+        if previous is None or previous.outcome is not VerificationOutcome.BLOCKED:
+            return None
+        return redraft_plan(dispute, previous, records).feedback
+
+    def _earlier_drafts(
+        self, case: CaseRow, dispute: Dispute, draft: int, records: list[Any]
+    ) -> list[dict[str, Any]]:
+        """Each earlier blocked draft of this cycle, with its blocked claims and their kind."""
+        out = []
+        for n in range(1, draft):
+            v = self.store.verification(case.merchant_id, case.case_id, case.cycle, n)
+            if v is not None and v.outcome is VerificationOutcome.BLOCKED:
+                plan = redraft_plan(dispute, v, records)
+                out.append({"draft": n, **plan.feedback})
+        return out
+
+    def _overreach_approved(self, case: CaseRow) -> bool:
+        """A person approved a challenge after seeing the failed draft."""
+        approval = self.store.latest_approval(case.merchant_id, case.case_id, case.cycle)
+        if approval is None or approval.approval is None:
+            return False
+        seen = set(approval.approval.get("referral_reasons", []))
+        return approval.approval.get("action") == Action.CHALLENGE.value and bool(
+            seen & {"REDRAFT_AFTER_OVERREACH", "VERIFICATION_BLOCKED"}
         )
 
     def _rendering(self, case: CaseRow, now: datetime) -> _Step:

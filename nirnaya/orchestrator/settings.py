@@ -43,6 +43,8 @@ class Settings:
     max_tokens_per_cycle: int = 60_000
     max_calls_per_round: int = 3
     max_turns_per_round: int = 6
+    # A blocked draft goes back to a drafter that revises at most this many times per cycle.
+    max_redrafts: int = 1
     # A step that raises is audited and skipped so other cases keep moving; after this many
     # failures the case is referred (a write in flight is never interrupted).
     isolate_step_failures: bool = True
