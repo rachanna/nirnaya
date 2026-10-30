@@ -7,7 +7,7 @@ A run sheet for presenting Nirnaya live. Every number here comes from the repo; 
 - `uv run streamlit run app/streamlit_app.py` with the default `NIRNAYA_AGENT=scripted` (no network, no tokens; the note reading is a labelled replay of a real Claude run). Open http://localhost:8501 and press **Reset**.
 - A second terminal, scrolled clear, for `uv run python -m nirnaya.demo` (demo A).
 - Browser zoom about 90% so a whole kit card fits on screen.
-- A third terminal showing the saved output of the live sandbox run (29 October): K1 challenged twice, K2 accepted, K3 referred. The console itself runs on the offline fake.
+- A third terminal showing the saved output of the live sandbox run (30 October): K1 challenged twice, citing the signature, K2 accepted, K3 referred. The web demo's recorded tab replays the same run. The console itself runs on the offline fake.
 
 ## Run sheet
 
@@ -36,7 +36,7 @@ Demo B (an early pre-chargeback accept, promised in the idea entry) runs offline
 | "Close to a well-prompted model on decisions; better on guarantees" | "Nirnaya decides better than an LLM" (informed Claude: 39/42, slightly lower expected loss) |
 | "42/42 against our written expert policy: it shows the code follows its policy" | "42/42 accuracy" |
 | "Priors are fixed and shown as priors" | "Predicted win rate" |
-| "Run end to end on the Airwallex sandbox: real accept and challenges confirmed on 29 October" | "Live with merchants" or "in production" (sandbox only; the merchant systems are synthetic) |
+| "Run end to end on the Airwallex sandbox: real accept and challenges confirmed on 29 and 30 October" | "Live with merchants" or "in production" (sandbox only; the merchant systems are synthetic) |
 | "Unsafe outcomes zero by construction" | "The model never makes mistakes" |
 | "A small synthetic suite, labelled by us" | Any real-world accuracy claim |
 | K1's flip comes from code's intake lookup; N1 shows the agent's search | "The agent found K1's evidence" |
@@ -56,4 +56,4 @@ Demo B (an early pre-chargeback accept, promised in the idea entry) runs offline
 - **"Can a note inject instructions?"** It's shown to the model only as data. At most it becomes a proposed quote, which must be word for word in the note, confirmed by a person, and verified. Customer text is never shown to the model.
 - **"If the agent can fix its draft, why does a person still approve?"** A draft that claimed something its records don't support is a sign the model overreached; the fix passing the verifier proves the new words are supported, not that the model is now right about the case. Format slips (a true value in the wrong form) go out without a person.
 - **"What does a person do that code can't?"** Judge meaning. The verifier checks a quote's words, not what they mean, so confirmation is required, not optional.
-- **"Is this on the real Airwallex API?"** Yes, on the sandbox. On 29 October the kit ran end to end with real writes: K1 challenged at RFI with evidence uploaded, then again at chargeback after the simulated rejection; K2 accepted; K3 referred. The first attempt found a real bug: Airwallex's file host blocked our upload, and the engine failed safe by referring rather than challenging without evidence.
+- **"Is this on the real Airwallex API?"** Yes, on the sandbox. On 29 and 30 October the kit ran end to end with real writes: K1 challenged at RFI with evidence uploaded (on 30 October citing the signed delivery), then again at chargeback after the simulated rejection; K2 accepted; K3 referred. The first attempt found a real bug: Airwallex's file host blocked our upload, and the engine failed safe by referring rather than challenging without evidence.

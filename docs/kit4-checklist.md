@@ -8,7 +8,7 @@ How to check it yourself: `uv run pytest` (about 1,600 tests, no network); `uv r
 
 | Requirement | Status | Where |
 |---|---|---|
-| Case 1: a large fraud dispute, challenged on device and IP matching three earlier undisputed orders and a signed delivery | Met | `tests/test_kit4_scenarios.py` (`test_case1_after_search_challenges_with_a_verified_package`); the signature is fetched by code once the case is worth fighting (`tests/orchestrator/test_supporting.py`); sandbox run of 29 Oct |
+| Case 1: a large fraud dispute, challenged on device and IP matching three earlier undisputed orders and a signed delivery | Met | `tests/test_kit4_scenarios.py` (`test_case1_after_search_challenges_with_a_verified_package`); the signature is fetched by code once the case is worth fighting (`tests/orchestrator/test_supporting.py`); sandbox run of 30 Oct, which cites the signature |
 | Case 1b: the issuer rejects the evidence, and the agent handles the rejection | Met | `test_case1b_rejection_starts_a_chargeback_cycle_that_challenges_again`; sandbox run: challenged again at chargeback with the customer's device and IP |
 | Case 2: a small not-received dispute, accepted (no signature on the scan, the fee exceeds the amount) | Met | `test_case2_accepts_as_low_value`; sandbox run: `ACCEPTED` |
 | Case 3: credit not processed, escalated (the customer emailed support twice with no reply) | Met | `test_case3_unanswered_customer_contact_is_escalated`; sandbox run: referred to a person |
@@ -43,7 +43,7 @@ How to check it yourself: `uv run pytest` (about 1,600 tests, no network); `uv r
 | Demo C: a fabricated "signed for by J. Smith" is blocked | Met | `tests/verifier/test_demo_c.py`, `test_case2c_unguarded_signature_claim_is_blocked`; the Streamlit console |
 | A baseline comparison | Met | Web demo **Results** and Streamlit **Results**: fight everything, accept everything, LLM only (four prompt versions), on 42 synthetic cases, with five metrics reported separately |
 | Airwallex's AI Dispute Automation recommendation, shown as a comparison | Met, not yet observed live | `nirnaya/airwallex_ai.py`. Offline examples are labelled simulated, and the sandbox has not yet returned a recommendation |
-| Sandbox operations: payment intents, dispute simulation, disputes (list, retrieve, accept, challenge), payment attempts, file upload | Met | `nirnaya/integrations/airwallex/`, all used in the 29 Oct run |
+| Sandbox operations: payment intents, dispute simulation, disputes (list, retrieve, accept, challenge), payment attempts, file upload | Met | `nirnaya/integrations/airwallex/`, all used in the 29 and 30 Oct runs |
 | Blocking checks, including dates consistent across records | Met | `nirnaya/verifier/`, `tests/verifier/` |
 
 ## Submission
@@ -57,6 +57,5 @@ How to check it yourself: `uv run pytest` (about 1,600 tests, no network); `uv r
 ## Limits, stated plainly
 
 - Merchant records (orders, carrier, logins, support) are synthetic; only the Airwallex side is real, and only in the sandbox.
-- The recorded sandbox run of 29 Oct predates the supporting lookups. Case 1 there cites the earlier orders, not yet the signature; the live tab shows the current behaviour.
 - The evaluation's expert routes and the engine share an author, so 42/42 agreement measures self-consistency, not real-world accuracy. A well-prompted model gets close on expected loss. The difference is in guarantees: every claim is checked against its record, the rules are tested code, and the same input gives the same answer every run.
 - Fees and win probabilities are labelled demo assumptions in versioned config, not Airwallex figures.
