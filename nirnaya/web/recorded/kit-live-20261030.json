@@ -1,12 +1,12 @@
 {
- "recorded_on": "2026-10-29",
+ "recorded_on": "2026-10-30",
  "airwallex": "Airwallex sandbox (live API, hosted checkout)",
  "models": [
   "anthropic/claude-sonnet-5-5"
  ],
  "cases": [
   {
-   "case_id": "dst_sgpv8mrgwhno4n58w8s",
+   "case_id": "dst_sgpvfc6s8hnolbw45nv",
    "label": "K1",
    "headline": "A large fraud claim",
    "amount": "1500.00 USD",
@@ -18,7 +18,7 @@
      "who": "airwallex",
      "kind": "dispute",
      "title": "New dispute",
-     "text": "1500.00 USD, reason: fraud (the cardholder says they didn't make it) (Visa 10.4), at the information request stage. Reply due 13 Nov 2026.",
+     "text": "1500.00 USD, reason: fraud (the cardholder says they didn't make it) (Visa 10.4), at the information request stage. Reply due 14 Nov 2026.",
      "tone": "neutral",
      "cycle": 1
     },
@@ -48,9 +48,25 @@
     },
     {
      "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Delivery tracking TRK-K1: found.",
+     "tone": "neutral",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
+     "kind": "support",
+     "title": "Making the fight stronger",
+     "text": "It is worth fighting, so code looked up 1 more record(s) the response can cite. The odds of winning go from 60% to 75%.",
+     "tone": "good",
+     "cycle": 1
+    },
+    {
+     "who": "nirnaya",
      "kind": "decision",
      "title": "Decision: fight it",
-     "text": "Fighting is worth about 745.00 USD more than accepting, after fees and the risk of losing.",
+     "text": "Fighting is worth about 970.00 USD more than accepting, after fees and the risk of losing.",
      "tone": "info",
      "cycle": 1
     },
@@ -74,7 +90,7 @@
      "who": "ai",
      "kind": "draft",
      "title": "Response drafted",
-     "text": "Claude drafted 5 claims, each citing one field of one record.",
+     "text": "Claude drafted 8 claims, each citing one field of one record.",
      "tone": "neutral",
      "cycle": 1
     },
@@ -82,7 +98,7 @@
      "who": "check",
      "kind": "check",
      "title": "Every claim checked",
-     "text": "All 5 claims match the records they cite.",
+     "text": "All 8 claims match the records they cite.",
      "tone": "good",
      "cycle": 1
     },
@@ -154,9 +170,17 @@
      "who": "nirnaya",
      "kind": "decision",
      "title": "Decision: fight it",
-     "text": "Fighting is worth about 820.00 USD more than accepting, after fees and the risk of losing.",
+     "text": "Fighting is worth about 1045.00 USD more than accepting, after fees and the risk of losing.",
      "tone": "info",
      "cycle": 2
+    },
+    {
+     "who": "nirnaya",
+     "kind": "lookup",
+     "title": "Checking the merchant's records",
+     "text": "Delivery tracking TRK-K1: found.",
+     "tone": "neutral",
+     "cycle": 1
     },
     {
      "who": "nirnaya",
@@ -170,7 +194,7 @@
      "who": "nirnaya",
      "kind": "sweep",
      "title": "Looking for anything that points the other way",
-     "text": "Checked every record that could contradict the response (1 more looked up).",
+     "text": "Checked every record that could contradict the response (2 more looked up).",
      "tone": "neutral",
      "cycle": 2
     },
@@ -178,7 +202,7 @@
      "who": "ai",
      "kind": "draft",
      "title": "Response drafted",
-     "text": "Claude drafted 5 claims, each citing one field of one record.",
+     "text": "Claude drafted 8 claims, each citing one field of one record.",
      "tone": "neutral",
      "cycle": 2
     },
@@ -186,7 +210,7 @@
      "who": "check",
      "kind": "check",
      "title": "Every claim checked",
-     "text": "All 5 claims match the records they cite.",
+     "text": "All 8 claims match the records they cite.",
      "tone": "good",
      "cycle": 2
     },
@@ -237,7 +261,7 @@
    "calls": [
     {
      "n": 1,
-     "case_id": "dst_sgpv8mrgwhno4n58w8s",
+     "case_id": "dst_sgpvfc6s8hnolbw45nv",
      "cycle": 1,
      "step": "draft",
      "model": "anthropic/claude-sonnet-5-5",
@@ -250,13 +274,13 @@
      "stop": "TOOL_USE",
      "turns": 1,
      "tool_calls": [],
-     "summary": "Drafted 5 claims, each citing a record.",
-     "input_tokens": 2030,
-     "output_tokens": 480
+     "summary": "Drafted 8 claims, each citing a record.",
+     "input_tokens": 2323,
+     "output_tokens": 742
     },
     {
      "n": 2,
-     "case_id": "dst_sgpv8mrgwhno4n58w8s",
+     "case_id": "dst_sgpvfc6s8hnolbw45nv",
      "cycle": 2,
      "step": "draft",
      "model": "anthropic/claude-sonnet-5-5",
@@ -269,14 +293,14 @@
      "stop": "TOOL_USE",
      "turns": 1,
      "tool_calls": [],
-     "summary": "Drafted 5 claims, each citing a record.",
-     "input_tokens": 2035,
-     "output_tokens": 480
+     "summary": "Drafted 8 claims, each citing a record.",
+     "input_tokens": 2328,
+     "output_tokens": 742
     }
    ]
   },
   {
-   "case_id": "dst_sgpv8mrgwhno4n5pedq",
+   "case_id": "dst_sgpvfc6s8hnolbwpzxg",
    "label": "K2",
    "headline": "A small \"it never arrived\" claim",
    "amount": "15.00 USD",
@@ -288,7 +312,7 @@
      "who": "airwallex",
      "kind": "dispute",
      "title": "New dispute",
-     "text": "15.00 USD, reason: the item never arrived (Visa 13.1), at the chargeback stage. Reply due 13 Nov 2026.",
+     "text": "15.00 USD, reason: the item never arrived (Visa 13.1), at the chargeback stage. Reply due 14 Nov 2026.",
      "tone": "neutral",
      "cycle": 1
     },
@@ -347,7 +371,7 @@
    "calls": []
   },
   {
-   "case_id": "dst_sgpvfc6s8hno4n65o40",
+   "case_id": "dst_sgpv8mrgwhnolbx4rhi",
    "label": "K3",
    "headline": "\"My refund never came\"",
    "amount": "120.00 USD",
@@ -359,7 +383,7 @@
      "who": "airwallex",
      "kind": "dispute",
      "title": "New dispute",
-     "text": "120.00 USD, reason: a refund that was never processed (Visa 13.6), at the chargeback stage. Reply due 13 Nov 2026.",
+     "text": "120.00 USD, reason: a refund that was never processed (Visa 13.6), at the chargeback stage. Reply due 14 Nov 2026.",
      "tone": "neutral",
      "cycle": 1
     },

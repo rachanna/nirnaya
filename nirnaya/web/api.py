@@ -2,7 +2,7 @@
 
     uv run python -m nirnaya.web            # API + the built React app on http://localhost:8000
 
-Recorded: the live run of 29 Oct 2026 (Claude on the Airwallex sandbox), replayed from
+Recorded: the live run of 30 Oct 2026 (Claude on the Airwallex sandbox), replayed from
 nirnaya/web/recorded/. Live: the kit run now, with real model calls (NIRNAYA_AGENT=llm on the
 provider and model the environment names) against the in-memory fake Airwallex and SYNTHETIC
 merchant records. A live action runs in the background; the page polls the case and sees each

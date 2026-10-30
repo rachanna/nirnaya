@@ -37,9 +37,7 @@ function Recorded({ info }) {
     <>
       <p className="mode-note">
         A replay of the run on <strong>{info.recorded_on}</strong>: {data.models.join(", ")} as the
-        agent, against the <strong>{data.airwallex}</strong>. Every message below happened. It
-        predates the supporting lookups, so case 1 cites the prior orders and not yet the signed
-        delivery; the live tab shows the current behaviour.
+        agent, against the <strong>{data.airwallex}</strong>. Every message below happened.
       </p>
       <CaseTabs cases={data.cases} active={active} setActive={setActive} />
       <CasePanel key={`rec-${active}`} number={i + 1} story={data.cases[i]} recorded

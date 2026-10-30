@@ -180,10 +180,14 @@ def test_the_recorder_shows_only_the_new_turn_and_records_failures():
 
 def test_the_recorded_run_is_the_kit_and_takes_no_actions():
     rec = recorded.load()
-    assert rec is not None and rec["recorded_on"] == "2026-10-29"
+    assert rec is not None and rec["recorded_on"] == "2026-10-30"
     k1, k2, k3 = rec["cases"]
     assert (k1["verdict"], k2["verdict"], k3["verdict"]) == ("CHALLENGE", "ACCEPT", "REFER")
     assert any(m["kind"] == "rejected" for m in k1["messages"])
+    stronger = next(m for m in k1["messages"] if m["kind"] == "support")
+    assert "from 60% to 75%" in stronger["text"]
+    decision = next(m for m in k1["messages"] if m["kind"] == "decision")
+    assert "970.00 USD" in decision["text"]
     assert all(not c["can_reject"] and not c["needs_person"] for c in rec["cases"])
     assert [c["step"] for c in k1["calls"]] == ["draft", "draft"]
     assert all(c["model"] == "anthropic/claude-sonnet-5-5" for c in k1["calls"])

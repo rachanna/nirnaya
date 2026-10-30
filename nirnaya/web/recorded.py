@@ -1,12 +1,11 @@
-"""The recorded live run: kit 4 on the Airwallex sandbox with Claude, 29 Oct 2026, kept as a file.
+"""The recorded live run: kit 4 on the Airwallex sandbox with Claude, 30 Oct 2026, kept as a file.
 
     uv run python -m nirnaya.web.recorded      # rebuild the file from the run's stores in .nirnaya/
 
 The run's stores stay out of git (.nirnaya/), so the web demo replays this export instead: each
 case's story (nirnaya.console.story, the same narration as the live tab) and a summary of its
-model calls from the stored agent runs. Case 1's two rounds and case 3 come from the final store;
-case 2's accept was sent in the first submission of the same run, whose store was kept as
-sandbox-submit1-20261029.db (the final run only saw it already accepted).
+model calls from the stored agent runs. All three cases come from one run's store (sandbox.db).
+The earlier run of 29 Oct, before the supporting lookups, is kept in git history.
 """
 
 import json
@@ -18,8 +17,8 @@ from nirnaya.console.session import KIT, SANDBOX_DIR, DemoSession, M
 from nirnaya.console.story import case_story
 from nirnaya.store.repository import Store
 
-RECORDED = Path(__file__).with_name("recorded") / "kit-live-20261029.json"
-SOURCES = {"K1": "sandbox.db", "K2": "sandbox-submit1-20261029.db", "K3": "sandbox.db"}
+RECORDED = Path(__file__).with_name("recorded") / "kit-live-20261030.json"
+SOURCES = {"K1": "sandbox.db", "K2": "sandbox.db", "K3": "sandbox.db"}
 
 
 def _summary(run: dict[str, Any]) -> str:
@@ -74,7 +73,7 @@ def build(directory: Path = SANDBOX_DIR, sources: dict[str, str] = SOURCES) -> d
         models |= {f"{p}/{m}" for p, m in session.store.agent_models(M)}
         cases.append(story)
     return {
-        "recorded_on": "2026-10-29",
+        "recorded_on": "2026-10-30",
         "airwallex": "Airwallex sandbox (live API, hosted checkout)",
         "models": sorted(models),
         "cases": cases,
