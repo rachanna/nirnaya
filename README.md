@@ -22,7 +22,7 @@ A Python state machine (`nirnaya/orchestrator/`) runs each case. Every write to 
 
 Hard cases go to a person (review queue), with the reason and the evidence. **`DRY_RUN=true` is the default.**
 
-The full design is in [`docs/spec.md`](docs/spec.md) and [`docs/architecture.md`](docs/architecture.md).
+The full design is in [`docs/spec.md`](docs/spec.md) and [`docs/architecture.md`](docs/architecture.md). Each kit 4 requirement, and where it is met, is in [`docs/kit4-checklist.md`](docs/kit4-checklist.md).
 
 ## Setup
 
