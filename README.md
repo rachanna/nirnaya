@@ -31,7 +31,7 @@ Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 uv sync
 cp .env.example .env    # then fill in what you need (see below)
-uv run pytest           # about 1,470 offline tests; no network, no keys needed
+uv run pytest           # about 1,600 offline tests; no network, no keys needed
 ```
 
 `.env` keys. Everything is optional for the offline demo:
