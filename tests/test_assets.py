@@ -139,9 +139,14 @@ BEFORE_MOVE = {
 
 
 def test_moving_policy_and_fx_to_files_changed_no_value():
-    from nirnaya.config.demo import DEMO_FX, DEMO_POLICY
+    import tomllib
 
-    assert assets.digest(DEMO_POLICY.model_dump_json()) == BEFORE_MOVE["policy_json"]
+    from nirnaya.config.demo import DEMO_FX
+    from nirnaya.models import MerchantPolicy
+
+    moved = assets.load("policies/merchant-demo/demo-2026-10.toml")
+    policy = MerchantPolicy.model_validate(tomllib.loads(moved.text))
+    assert assets.digest(policy.model_dump_json()) == BEFORE_MOVE["policy_json"]
     assert assets.digest(DEMO_FX.model_dump_json()) == BEFORE_MOVE["fx_json"]
 
 

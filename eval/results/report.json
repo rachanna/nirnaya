@@ -49,15 +49,15 @@
   },
   "versions": {
     "git": {
-      "commit": "58cbf1ab5d7e8aaded82afda83b4c5451357cd76",
-      "dirty": false
+      "commit": "7252f2f1cfe3174d9ede3a57884ad3fefff3ee76",
+      "dirty": true
     },
     "case_set": {
       "version": "v2",
       "count": 42,
       "sha256": "a1e698b4a20c46c622b385fe0d947ed3f8178806be1566ab762a3af724bfe484"
     },
-    "policy": "merchant-demo@demo-2026-10#bd3f0c2ec782",
+    "policy": "merchant-demo@demo-2026-11#7a92c0622e68",
     "fx": "fx@demo-2026-10-01#a74fb42c5c16",
     "economics": "economics@v1#b0b04a506ede"
   },

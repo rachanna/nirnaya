@@ -18,6 +18,6 @@ reader_user = "v1"
 reader_tools = "v1"
 
 [config]
-policy = "policies/merchant-demo/demo-2026-10.toml"
+policy = "policies/merchant-demo/demo-2026-11.toml"
 fx = "fx/demo-2026-10-01.toml"
 economics = "evaluation/economics/v1.toml"

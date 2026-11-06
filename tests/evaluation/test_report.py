@@ -75,7 +75,7 @@ def test_the_report_states_the_versions_it_was_built_from(report):
     from nirnaya.evaluation import case_set
 
     assert v["case_set"] == case_set.check() and v["case_set"]["count"] == 42
-    assert v["policy"].startswith("merchant-demo@demo-2026-10#")
+    assert v["policy"].startswith("merchant-demo@demo-2026-11#")
     assert v["fx"].startswith("fx@") and v["economics"].startswith("economics@v1#")
     assert set(v["git"]) == {"commit", "dirty"}
     assert "## Versions" in as_markdown(report)

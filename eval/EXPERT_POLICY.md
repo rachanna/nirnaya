@@ -4,7 +4,7 @@ This is the written policy every expected result in `eval/cases/` is derived fro
 
 All cases are SYNTHETIC. All amounts are USD for the demo merchant `merchant-demo`.
 
-## 1. Economics (demo policy, labelled assumptions in `nirnaya/assets/policies/merchant-demo/demo-2026-10.toml`)
+## 1. Economics (demo policy, labelled assumptions in `nirnaya/assets/policies/merchant-demo/demo-2026-11.toml`)
 
 | Parameter | Value |
 |---|---|
@@ -15,7 +15,7 @@ All cases are SYNTHETIC. All amounts are USD for the demo merchant `merchant-dem
 | Minimum gain m | 10 |
 | Escalation-and-loss probability q | 0.10 |
 | Unknown-reason prior | 0.10 |
-| Referral threshold / marginal band | 2,000 / 5 |
+| Referral threshold / marginal band | 1,500 / 5 |
 
 With these values the stage rules reduce to:
 
@@ -53,7 +53,7 @@ Evidence counts only if a record **field** establishes it. A carrier record sayi
 1. The stage is pre-arbitration or arbitration.
 2. There is no FX rate.
 3. The status is not `REQUIRES_RESPONSE`.
-4. The amount is above 2,000.
+4. The amount is above 1,500.
 5. The margin is strictly inside ±5.
 6. Merchant or third-party records contradict each other.
 7. Payment ownership is unresolved.

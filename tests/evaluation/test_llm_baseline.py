@@ -137,7 +137,7 @@ def test_the_informed_system_prompt_states_the_policy_and_no_case_data():
     text = system_prompt(informed())
     for expected in (
         "merchant-demo",  # whose records may be cited
-        "above 2000 USD",  # referral threshold
+        "above 1500 USD",  # referral threshold
         "5 USD",  # marginal band
         "FRAUD with PRIOR_UNDISPUTED_ORDERS_MATCH: p = 0.60",  # a prior, shown as a prior
         "1 EUR = 1.10 USD",  # FX

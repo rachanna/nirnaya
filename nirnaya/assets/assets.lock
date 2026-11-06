@@ -6,6 +6,7 @@
 "evaluation/economics/v1.toml" = "b0b04a506edee092cfa7e115b3eef90428b6a9da40cd810f2881afa1abd579a2"
 "fx/demo-2026-10-01.toml" = "a74fb42c5c1696ef9dfc9b022a943e15072ddd780f7add763304910e555f34c0"
 "policies/merchant-demo/demo-2026-10.toml" = "bd3f0c2ec7820ab5c2bc9285ecbf072e22cf6b7d77a46ee843a55794a6732507"
+"policies/merchant-demo/demo-2026-11.toml" = "7a92c0622e68b32339e07bf924f0f1ee5bfe3546612e21efa8aacf88b514af10"
 "prompts/baseline_informed_system/v1.md" = "794edcb55f4612daa5663d2b7c9a2bfc7189c6dff0af0ce4172b4ad3804933b1"
 "prompts/baseline_informed_system/v2.md" = "76083047b918e5a6be6001c36b16e89726f7680ed3fa32964b1ca7672551ec0f"
 "prompts/baseline_informed_system/v3.md" = "99620d0fe147399d03eb8a4001ccf497d33fa74b06370369be3c3cfdf257c6a5"

@@ -1,0 +1,108 @@
+# Demo merchant policy and win priors.
+# ASSUMPTION: every number is a demo value chosen to make the demo scenarios legible.
+# None of it is real Airwallex pricing, network fee or win rate.
+# TODO(verify-airwallex-docs): replace the fees with current Airwallex pricing.
+# Numbers are strings so they load as exact decimals. Priors are p by (reason, evidence
+# present): fixed priors shown to the approver, never predictions. See CLAUDE.md.
+
+merchant_id = "merchant-demo"
+version = "demo-2026-11"
+currency = "USD"
+fee_pre_resolution = "15"
+fee_chargeback = "25"
+fee_pre_arbitration = "500"
+handling_cost = "20"
+handling_cost_pre = "0"
+handling_cost_rfi = "0"
+fee_rfi_accept = "0"
+counted_chargeback_cost = "50"
+min_gain = "10"
+escalation_probability = "0.10"
+unknown_reason_prior = "0.10"
+# A cap on the loss from one automated decision, not an economic optimum: a review's expected
+# value does not rise with the amount. 1500 is the lowest limit that adds no review on the case set.
+referral_amount_threshold = "1500"
+marginal_band = "5"
+accept_reason = "OTHERS"
+product_type = "PHYSICAL_GOODS"
+assumptions_note = "ASSUMPTION: demo values only; not Airwallex pricing or real win rates."
+
+[[priors]]
+reason = "NON_RECEIPT"
+evidence = []
+p = "0.10"
+
+[[priors]]
+reason = "NON_RECEIPT"
+evidence = ["DELIVERY_CONFIRMED"]
+p = "0.60"
+
+[[priors]]
+reason = "NON_RECEIPT"
+evidence = ["DELIVERY_CONFIRMED", "DELIVERY_SIGNATURE"]
+p = "0.80"
+
+[[priors]]
+reason = "FRAUD"
+evidence = []
+p = "0.10"
+
+[[priors]]
+reason = "FRAUD"
+evidence = ["THREE_DS_AUTHENTICATED"]
+p = "0.70"
+
+[[priors]]
+reason = "FRAUD"
+evidence = ["AVS_MATCH", "CVC_MATCH"]
+p = "0.30"
+
+[[priors]]
+reason = "FRAUD"
+evidence = ["ACCOUNT_LOGIN_MATCH"]
+p = "0.45"
+
+[[priors]]
+reason = "FRAUD"
+evidence = ["ACCOUNT_LOGIN_MATCH", "AVS_MATCH", "CVC_MATCH"]
+p = "0.55"
+
+[[priors]]
+reason = "FRAUD"
+evidence = ["PRIOR_UNDISPUTED_ORDERS_MATCH"]
+p = "0.60"
+
+[[priors]]
+reason = "FRAUD"
+evidence = ["DELIVERY_SIGNATURE", "PRIOR_UNDISPUTED_ORDERS_MATCH"]
+p = "0.75"
+
+[[priors]]
+reason = "DUPLICATE"
+evidence = []
+p = "0.10"
+
+[[priors]]
+reason = "DUPLICATE"
+evidence = ["DISTINCT_TRANSACTIONS"]
+p = "0.65"
+
+[[priors]]
+reason = "DUPLICATE"
+evidence = ["REFUND_ISSUED"]
+p = "0.85"
+
+[[priors]]
+reason = "SUBSCRIPTION"
+evidence = []
+p = "0.10"
+
+[[priors]]
+reason = "SUBSCRIPTION"
+evidence = ["CANCELLATION_TERMS_ACCEPTED"]
+p = "0.40"
+
+[[priors]]
+reason = "SUBSCRIPTION"
+evidence = ["CANCELLATION_TERMS_ACCEPTED", "USAGE_AFTER_RENEWAL"]
+p = "0.60"

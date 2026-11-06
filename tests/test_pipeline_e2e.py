@@ -148,7 +148,7 @@ def test_an_approved_challenge_is_still_blocked_by_the_verifier():
     h.store.register_merchant(
         m,
         airwallex_account_id="acct-demo",
-        policy=h.store.policy(m, "demo-2026-10"),
+        policy=h.store.policy(m, "demo-2026-11"),
         delegated_authority=False,
     )
     orch.run_until_idle(h.now(case))
