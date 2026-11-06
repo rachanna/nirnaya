@@ -11,6 +11,7 @@ from nirnaya.evidence.catalogue import (
     ContradictionRule,
     TemporalRule,
     contradiction_rules_matching,
+    decimal_amount,
     record_establishes,
 )
 from nirnaya.models.dispute import Dispute
@@ -27,6 +28,13 @@ def case_records(records: Iterable[EvidenceRecord], dispute: Dispute) -> list[Ev
     )
 
 
+def refund_covers(record: EvidenceRecord, dispute: Dispute) -> bool:
+    """The record's refund is at least the disputed amount, in the dispute's currency."""
+    refunded = decimal_amount(record.fields.get("refunded_amount"))
+    same_currency = record.fields.get("currency") == dispute.amount.currency
+    return refunded is not None and same_currency and refunded >= dispute.amount.amount
+
+
 def evidence_present(
     records: Iterable[EvidenceRecord], dispute: Dispute
 ) -> frozenset[EvidenceType]:
@@ -36,7 +44,10 @@ def evidence_present(
         if not record.hash_ok():
             continue
         for field in record.fields:
-            found |= record_establishes(record, field)
+            facts = record_establishes(record, field)
+            if EvidenceType.REFUND_ISSUED in facts and not refund_covers(record, dispute):
+                facts -= {EvidenceType.REFUND_ISSUED}
+            found |= facts
     return frozenset(found)
 
 
@@ -143,26 +154,33 @@ def unanswered_customer_contacts(
 ) -> tuple[str, ...]:
     """Customer helpdesk messages sent before the dispute that the merchant never answered.
 
-    A message is answered only by a merchant-authored helpdesk record on the same
-    `ticket_id` with a `replied_at`. Only which records exist is used, never what the customer
-    wrote. An undated message counts as sent before the dispute (fail-safe).
+    A message is answered only by an intact merchant-authored helpdesk record on the same
+    `ticket_id`, with a `replied_at` after the message and before the dispute opened. Only which
+    records exist is used, never what the customer wrote. An undated message counts as sent
+    before the dispute and cannot be shown to be answered (fail-safe).
     """
     in_case = [
         r for r in case_records(records, dispute) if r.source_system is SourceSystem.HELPDESK
     ]
-    answered = {
-        r.fields.get("ticket_id")
-        for r in in_case
-        if r.author is RecordAuthor.MERCHANT
-        and r.fields.get("ticket_id") not in (None, "")
-        and r.fields.get("replied_at") not in (None, "")
-    }
+    replies: dict[object, list[datetime]] = {}
+    for r in in_case:
+        at = _instant(r.fields.get("replied_at"))
+        ticket = r.fields.get("ticket_id")
+        trusted = r.author is RecordAuthor.MERCHANT and r.hash_ok()
+        if trusted and ticket and at is not None and at < dispute.opened_at:
+            replies.setdefault(ticket, []).append(at)
+
+    def answered(message: EvidenceRecord) -> bool:
+        sent = _instant(message.fields.get("sent_at"))
+        ticket_replies = replies.get(message.fields.get("ticket_id"), ())
+        return sent is not None and any(at >= sent for at in ticket_replies)
+
     return tuple(
         r.id
         for r in in_case
         if r.author is RecordAuthor.CUSTOMER
         and _before(r.fields.get("sent_at"), dispute.opened_at)
-        and r.fields.get("ticket_id") not in answered
+        and not answered(r)
     )
 
 

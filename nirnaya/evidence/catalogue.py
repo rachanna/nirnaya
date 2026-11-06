@@ -34,7 +34,11 @@ TRUSTED_AUTHORS = frozenset({RecordAuthor.MERCHANT, RecordAuthor.THIRD_PARTY})
 
 
 def has(name: str) -> Predicate:
-    return lambda f: f.get(name) not in (None, "")
+    def check(f: Fields) -> bool:
+        v = f.get(name)
+        return v is not None and (not isinstance(v, str) or bool(v.strip()))
+
+    return check
 
 
 def equals(name: str, value: FieldValue) -> Predicate:
@@ -61,15 +65,43 @@ def int_at_least(name: str, minimum: int) -> Predicate:
     return check
 
 
-def positive_amount(name: str) -> Predicate:
+def decimal_amount(value: FieldValue | None) -> Decimal | None:
+    """A field's amount, or None if it is not a finite number written as text."""
+    if not isinstance(value, str):
+        return None
+    try:
+        amount = Decimal(value)
+    except InvalidOperation:
+        return None
+    return amount if amount.is_finite() else None
+
+
+def full_refund(f: Fields) -> bool:
+    """The order was refunded in full and the refund went through: a partial, reversed or
+    pending refund does not settle what the customer is disputing."""
+    refunded = decimal_amount(f.get("refunded_amount"))
+    return (
+        f.get("refund_status") in (None, "REFUNDED")
+        and refunded is not None
+        and refunded > 0
+        and refunded == decimal_amount(f.get("total_amount"))
+    )
+
+
+# Carrier text that fills a signature field without being anyone's name.
+_NOT_A_SIGNER = frozenset({
+    "not signed", "unsigned", "no signature", "no signature required", "signature not required",
+    "not required", "n a", "na", "none", "nil", "null", "unknown", "left at door", "safe place",
+})  # fmt: skip
+
+
+def signer_named(name: str) -> Predicate:
     def check(f: Fields) -> bool:
         v = f.get(name)
-        if not isinstance(v, str):
+        if not isinstance(v, str) or not any(c.isalpha() for c in v):
             return False
-        try:
-            return Decimal(v) > 0
-        except InvalidOperation:
-            return False
+        words = "".join(c if c.isalnum() else " " for c in v.casefold()).split()
+        return " ".join(words) not in _NOT_A_SIGNER
 
     return check
 
@@ -97,7 +129,7 @@ FIELD_RULES: tuple[FieldRule, ...] = (
         S.CARRIER, "delivered_at", E.DELIVERY_CONFIRMED, _delivered, "delivery scan timestamp"
     ),
     FieldRule(
-        S.CARRIER, "signed_by", E.DELIVERY_SIGNATURE, both(_delivered, has("signed_by")),
+        S.CARRIER, "signed_by", E.DELIVERY_SIGNATURE, both(_delivered, signer_named("signed_by")),
         "name captured at signature",
     ),
     FieldRule(
@@ -128,8 +160,7 @@ FIELD_RULES: tuple[FieldRule, ...] = (
         "order is a separate purchase, not a duplicate",
     ),
     FieldRule(
-        S.ORDER, "refunded_amount", E.REFUND_ISSUED, positive_amount("refunded_amount"),
-        "refund issued on the order",
+        S.ORDER, "refunded_amount", E.REFUND_ISSUED, full_refund, "order refunded in full",
     ),
     FieldRule(
         S.POLICY, "cancellation_terms_accepted_at", E.CANCELLATION_TERMS_ACCEPTED,

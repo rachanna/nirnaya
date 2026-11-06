@@ -114,7 +114,8 @@ def test_bool_is_not_confused_with_int():
 
 @pytest.mark.parametrize(("amount", "expected"), [("5.00", True), ("0.00", False), ("x", False)])
 def test_refund_requires_a_positive_amount(amount, expected):
-    rec = make_record(SourceSystem.ORDER, {"refunded_amount": amount, "currency": "USD"})
+    fields = {"refunded_amount": amount, "total_amount": amount, "currency": "USD"}
+    rec = make_record(SourceSystem.ORDER, fields)
     assert (E.REFUND_ISSUED in record_establishes(rec, "refunded_amount")) is expected
 
 

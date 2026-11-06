@@ -19,6 +19,7 @@ from nirnaya.verifier.checks import (
     check_quote,
     check_reason_specific,
     check_record_scope,
+    check_refund_covers,
     check_required_evidence,
     check_text,
     check_value,
@@ -73,6 +74,7 @@ def _claim_failures(
     failures += field
     failures += check_value(claim, record, dispute, fx)
     failures += check_establishes(claim, record)
+    failures += check_refund_covers(claim, record, dispute)
     return failures
 
 

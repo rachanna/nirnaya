@@ -14,6 +14,7 @@ from nirnaya.evidence.catalogue import (
     render_claim_text,
     text_allows,
 )
+from nirnaya.evidence.derive import refund_covers
 from nirnaya.models.claim import Claim, DateTimeValue, DateValue, MoneyValue, TextValue
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import AmountBasis, EvidenceType, ReasonCategory, RecordAuthor
@@ -188,6 +189,15 @@ def check_establishes(claim: Claim, record: EvidenceRecord) -> list[Failure]:
             CheckName.EXCEEDS_RECORD,
             f"field {claim.source_field!r} of a {record.source_system} record does not "
             f"establish {claim.establishes}",
+        )
+    return []
+
+
+def check_refund_covers(claim: Claim, record: EvidenceRecord, dispute: Dispute) -> list[Failure]:
+    if claim.establishes is EvidenceType.REFUND_ISSUED and not refund_covers(record, dispute):
+        return _fail(
+            CheckName.EXCEEDS_RECORD,
+            f"the refund on {record.id} does not cover the disputed {dispute.amount}",
         )
     return []
 
