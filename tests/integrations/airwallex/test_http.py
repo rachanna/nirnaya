@@ -140,6 +140,65 @@ def test_upload_is_multipart_to_the_files_host():
     assert b"Content-Type: application/pdf" in call.body and b"%PDF-1.4" in call.body
 
 
+UPLOAD = f"{SANDBOX_FILES}/api/v1/files/upload"
+
+
+def upload(http: AirwallexHttp) -> dict:
+    return http.upload(UPLOAD, filename="evidence.pdf", content=b"%PDF-1.4", notes="case")
+
+
+def test_an_upload_retries_a_503_and_keeps_the_file_id_of_the_success():
+    http, transport, slept = session(
+        LOGIN, error(503, "service_unavailable"), ok({"file_id": "file_2"}, status=201)
+    )
+    assert upload(http)["file_id"] == "file_2"
+    assert slept == [0.5]
+    first, second = transport.sent[-2:]
+    assert first.body == second.body
+
+
+def test_an_upload_retries_a_timeout():
+    http, _, slept = session(
+        LOGIN, TransportTimeout("read timed out"), ok({"file_id": "file_2"}, status=201)
+    )
+    assert upload(http)["file_id"] == "file_2"
+    assert slept == [0.5]
+
+
+def test_429s_and_server_errors_share_one_cap_on_upload_retries():
+    http, transport, slept = session(
+        LOGIN, error(503, "a"), Response(429, b"{}"), TransportTimeout("t"), error(500, "gone")
+    )
+    with pytest.raises(AirwallexError, match="gone"):
+        upload(http)
+    assert slept == [0.5, 1.0, 2.0]
+    assert len(transport.sent) == 5  # the login and four attempts
+
+
+def test_an_upload_that_keeps_timing_out_is_an_error_not_an_unknown_write():
+    http, _, slept = session(LOGIN, *[TransportTimeout("t") for _ in range(4)])
+    with pytest.raises(AirwallexError, match="timeout"):
+        upload(http)
+    assert len(slept) == 3
+
+
+def test_an_upload_does_not_retry_a_rejected_file():
+    http, transport, slept = session(LOGIN, error(400, "invalid_argument"))
+    with pytest.raises(AirwallexError, match="invalid_argument"):
+        upload(http)
+    assert slept == [] and len(transport.sent) == 2
+
+
+def test_only_uploads_retry_server_errors_and_timeouts():
+    http, _, slept = session(LOGIN, error(503, "service_unavailable"))
+    with pytest.raises(AirwallexError, match="service_unavailable"):
+        http.get("/disputes")
+    http2, _, slept2 = session(LOGIN, TransportTimeout("t"))
+    with pytest.raises(AirwallexError, match="timeout"):
+        http2.post("/x", {}, write=False)
+    assert slept == [] and slept2 == []
+
+
 def test_credentials_come_from_env_and_never_print_the_key():
     creds = Credentials.from_env(
         {"AIRWALLEX_CLIENT_ID": "abcd1234", "AIRWALLEX_API_KEY": "secret", "AIRWALLEX_BASE_URL": ""}

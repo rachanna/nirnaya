@@ -192,7 +192,9 @@ class AirwallexHttp:
 
     def upload(self, url: str, *, filename: str, content: bytes, notes: str) -> dict[str, Any]:
         """Multipart upload (File Service). Uploading is idempotent enough to retry: an orphan
-        file is harmless, so a timeout here is an error, not an unknown write outcome."""
+        file is harmless, so a timeout here is an error, not an unknown write outcome. The docs
+        do not cover retries; 5xx, timeouts and 429 with a capped backoff is Airwallex support's
+        general suggestion (hackathon Slack, November 2026)."""
         boundary = uuid.uuid4().hex
         parts = [
             f'--{boundary}\r\nContent-Disposition: form-data; name="notes"\r\n\r\n{notes}\r\n',
@@ -202,7 +204,8 @@ class AirwallexHttp:
         payload = (
             parts[0].encode() + parts[1].encode() + content + f"\r\n--{boundary}--\r\n".encode()
         )
-        return self._call("POST", url, payload, f"multipart/form-data; boundary={boundary}")
+        content_type = f"multipart/form-data; boundary={boundary}"
+        return self._call("POST", url, payload, content_type, retry_transient=True)
 
     def _call(
         self,
@@ -212,7 +215,9 @@ class AirwallexHttp:
         content_type: str | None,
         *,
         write: bool = False,
+        retry_transient: bool = False,
     ) -> dict[str, Any]:
+        """`retry_transient` also retries 5xx and timeouts, for calls safe to send twice."""
         check_host(url)
         relogged = False
         attempt = 0
@@ -220,12 +225,20 @@ class AirwallexHttp:
             headers = {"Authorization": f"Bearer {self._bearer()}"}
             if content_type:
                 headers["Content-Type"] = content_type
-            response = self._send(method, url, headers, body, write=write)
+            try:
+                response = self._send(method, url, headers, body, write=write)
+            except AirwallexError as e:
+                if retry_transient and e.code == "timeout" and attempt < self._max_retries:
+                    attempt += 1
+                    self._sleep(self._backoff(attempt))
+                    continue
+                raise
             if response.status == 401 and not relogged:
                 self._token = None  # expired early or revoked: log in once more
                 relogged = True
                 continue
-            if response.status == 429 and attempt < self._max_retries:
+            transient = response.status == 429 or (retry_transient and response.status >= 500)
+            if transient and attempt < self._max_retries:
                 attempt += 1
                 self._sleep(self._retry_after(response, attempt))
                 continue
@@ -254,8 +267,12 @@ class AirwallexHttp:
             raise AirwallexError("unreachable", str(e)) from e
 
     @staticmethod
-    def _retry_after(response: Response, attempt: int) -> float:
+    def _backoff(attempt: int) -> float:
+        return 0.5 * 2 ** (attempt - 1)
+
+    @classmethod
+    def _retry_after(cls, response: Response, attempt: int) -> float:
         try:
             return max(0.0, float(response.headers.get("retry-after", "")))
         except ValueError:
-            return 0.5 * 2 ** (attempt - 1)
+            return cls._backoff(attempt)
