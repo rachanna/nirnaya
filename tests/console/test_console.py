@@ -17,6 +17,7 @@ from nirnaya.console.views import (
 )
 from nirnaya.models import Action
 from nirnaya.models.enums import DisputeStatus
+from nirnaya.store import Store, connect
 
 SCRIPTED = {"NIRNAYA_AGENT": "scripted"}
 
@@ -113,6 +114,17 @@ def test_a_sandbox_run_is_viewable_but_cannot_act(tmp_path):
     offline = DemoSession.offline(env=SCRIPTED)
     with pytest.raises(RuntimeError):
         DemoSession(offline.store, offline.cases, {}, offline.now).run_kit()
+
+
+def test_a_sandbox_run_opens_the_database_its_state_names(tmp_path):
+    """FC-27: a --fresh run's ledger is not sandbox.db."""
+    state = {"run": "r", "cases": {"K1": {"dispute": "D"}}, "db": "sandbox-r.db"}
+    (tmp_path / "sandbox_state.json").write_text(json.dumps(state), encoding="utf-8")
+    Store(connect(tmp_path / "sandbox-r.db")).conn.close()
+    session = DemoSession.from_sandbox_run(tmp_path)
+    assert session is not None
+    session.store.conn.close()
+    assert not (tmp_path / "sandbox.db").exists()
 
 
 def test_the_goal_states_the_question_not_an_expected_calculation(session):

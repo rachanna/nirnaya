@@ -4,9 +4,9 @@ An audit of commit `90b9a63`, made on 6 November 2026. Four reviews covered the 
 
 ## Status
 
-**Fixed, each with a regression test:** FC-01 to FC-10, FC-14 to FC-17, FC-20 and FC-21. The original reproductions were run again against the fixes, and the 42-case evaluation, the note suite and the self-correction suite did not change.
+**Fixed, each with a regression test:** FC-01 to FC-10, FC-14 to FC-17, FC-20, FC-21 and FC-27. The original reproductions were run again against the fixes, and the 42-case evaluation, the note suite and the self-correction suite did not change.
 
-**Open:** FC-11 to FC-13, FC-18, FC-19, FC-22 and FC-27 could be fixed next. FC-23 to FC-26, FC-28 and FC-29 are left as they are for now: they need real merchant data, are unlikely, or are cosmetic.
+**Open:** FC-11 to FC-13, FC-18, FC-19 and FC-22 could be fixed next. FC-23 to FC-26, FC-28 and FC-29 are left as they are for now: they need real merchant data, are unlikely, or are cosmetic.
 
 **Limits of the fixes:**
 
@@ -14,6 +14,9 @@ An audit of commit `90b9a63`, made on 6 November 2026. Four reviews covered the 
 - FC-04: placeholders are a list, so a carrier's own wording for "no signature" can still pass until it's added.
 - FC-07: a case held by a write in doubt stays with a person, who checks Airwallex. No command clears the doubt, so an approval is refused until the write shows as landed.
 - FC-09: a real run refuses disputes a dry run took through, so they need `--fresh`. Nothing re-opens them.
+- FC-27: `--fresh` still replaces `sandbox_state.json`, so the recording can only be rebuilt from `sandbox.db` if the 30 October state file is put back. The recording file itself doesn't change.
+
+**Found by the live run of 7 November 2026.** Airwallex returned HTTP 500 `internal_error` on K1's challenge, three times out of three, cause unknown. Nirnaya held the write as `UNKNOWN`, sent no duplicate and re-sent under the same `request_id`. The run exposed two gaps, both now fixed: the error and trace id were dropped, so the audit now keeps them for each attempt; and the runner exited 0 with a write in doubt, so it now exits 1.
 
 The tables below describe each case as it was found.
 

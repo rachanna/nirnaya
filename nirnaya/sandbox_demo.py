@@ -63,18 +63,31 @@ class RunState:
     run: str
     cases: dict[str, dict[str, str]] = field(default_factory=dict)
     rejected: bool = False
+    # The run's ledger. A --fresh run has its own, and every resume must open that same one.
+    db: str = "sandbox.db"
 
     @classmethod
     def load(cls, path: Path | None, fresh: bool, now: datetime) -> "RunState":
         if path is not None and path.is_file() and not fresh:
             data = json.loads(path.read_text(encoding="utf-8"))
-            return cls(data["run"], data.get("cases", {}), data.get("rejected", False))
-        return cls(run=now.strftime("%Y%m%dT%H%M%S"))
+            return cls(
+                data["run"],
+                data.get("cases", {}),
+                data.get("rejected", False),
+                data.get("db", "sandbox.db"),
+            )
+        run = now.strftime("%Y%m%dT%H%M%S")
+        return cls(run=run, db=f"sandbox-{run}.db") if fresh else cls(run=run)
 
     def save(self, path: Path | None) -> None:
         if path is not None:
             path.parent.mkdir(parents=True, exist_ok=True)
-            data = {"run": self.run, "cases": self.cases, "rejected": self.rejected}
+            data = {
+                "run": self.run,
+                "cases": self.cases,
+                "rejected": self.rejected,
+                "db": self.db,
+            }
             path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
@@ -220,6 +233,15 @@ def _rehearsed(store: Store, state: RunState) -> list[str]:
     ]
 
 
+def _in_doubt(store: Store, state: RunState) -> list[str]:
+    """Cases with a write that may or may not have landed."""
+    return [
+        label
+        for label, staged in sorted(state.cases.items())
+        if any(w.status in {"PENDING", "UNKNOWN"} for w in store.writes(M, staged["dispute"]))
+    ]
+
+
 def main(
     argv: list[str] | None = None,
     *,
@@ -267,18 +289,17 @@ def main(
         fake = FakeAirwallex()
         inner: Any = fake
         sim: SandboxSimulator = FakeSimulator(fake, now=lambda: now)
-        state_path, db = None, ":memory:"
+        state_path = None
     else:
         creds = Credentials.from_env(env)
         http = AirwallexHttp(creds)
         inner = AirwallexClient(http, merchant_id=M)
         sim = AirwallexSimulator(http, merchant_id=M, base_url=creds.base_url)
-        state_path, db = DATA_DIR / "sandbox_state.json", str(DATA_DIR / "sandbox.db")
+        state_path = DATA_DIR / "sandbox_state.json"
         DATA_DIR.mkdir(exist_ok=True)
 
     state = RunState.load(state_path, args.fresh, now)
-    if args.fresh and not args.offline:
-        db = str(DATA_DIR / f"sandbox-{state.run}.db")
+    db = ":memory:" if args.offline else str(DATA_DIR / state.db)
     mode = "offline fake" if args.offline else "Airwallex sandbox"
     out(f"Kit 4 on the {mode}. DRY_RUN={settings.dry_run}. Run {state.run}.")
     out("\n1. Stage the cases (create + pay, raise dispute)")
@@ -348,6 +369,9 @@ def main(
     if isinstance(inner, AirwallexClient) and inner.unmappable:
         out(f"\nUnmappable disputes (not processed): {inner.unmappable}")
     out(f"\nAudit chain intact: {verify_chain(store.conn) is None}")
+    if unresolved := _in_doubt(store, state):
+        out(f"\n{', '.join(unresolved)} may or may not have landed. Run this again to re-check.")
+        return 1
     return 0
 
 

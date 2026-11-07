@@ -151,3 +151,87 @@ def test_a_real_run_refuses_cases_a_dry_run_already_took_through(monkeypatch):
     assert sandbox_demo._rehearsed(store, state) == ["K2"]
     monkeypatch.setattr(store, "writes", lambda m, d: [])
     assert sandbox_demo._rehearsed(store, state) == []
+
+
+@pytest.mark.parametrize(
+    ("status", "in_doubt"),
+    [
+        ("UNKNOWN", True),
+        ("PENDING", True),
+        ("CONFIRMED", False),
+        ("DRY_RUN", False),
+        ("FAILED", False),
+    ],
+)
+def test_only_a_write_that_may_have_landed_is_in_doubt(monkeypatch, status, in_doubt):
+    from nirnaya import sandbox_demo
+    from nirnaya.store import Store, connect
+
+    store = Store(connect())
+    state = sandbox_demo.RunState(run="r", cases={"K1": {"dispute": "D"}})
+
+    class Row:
+        pass
+
+    Row.status = status
+    monkeypatch.setattr(store, "writes", lambda m, d: [Row()])
+    assert sandbox_demo._in_doubt(store, state) == (["K1"] if in_doubt else [])
+
+
+def test_a_write_in_doubt_fails_the_run(monkeypatch):
+    """The 7 Nov live run exited 0 with K1's challenge unresolved."""
+    from nirnaya import sandbox_demo
+
+    fake = FakeAirwallex()
+    fake.fail_next("challenge", "timeout_before_apply")
+    monkeypatch.setattr(sandbox_demo, "FakeAirwallex", lambda: fake)
+    code, text = run("--offline", "--submit", "--yes", dry_run="false")
+    assert code == 1
+    assert "write: CHALLENGE cycle 1 UNKNOWN" in text
+    assert "K1 may or may not have landed" in text
+
+
+def test_a_state_file_from_an_earlier_run_keeps_using_sandbox_db(tmp_path):
+    from nirnaya.sandbox_demo import RunState
+
+    path = tmp_path / "state.json"
+    path.write_text('{"run": "r", "cases": {}}', encoding="utf-8")
+    assert RunState.load(path, False, NOW).db == "sandbox.db"
+    assert RunState.load(tmp_path / "none.json", False, NOW).db == "sandbox.db"
+
+
+def test_a_fresh_run_and_its_resume_share_one_ledger(monkeypatch, tmp_path):
+    """FC-27: --fresh wrote to sandbox-<run>.db and the next run opened sandbox.db, so a dry run
+    was missed and the record of writes was split."""
+    from nirnaya import sandbox_demo
+    from nirnaya.integrations.mocks.simulator_fake import FakeSimulator
+
+    fake = FakeAirwallex()
+
+    class Client:
+        def __new__(cls, *_a, **_k):
+            return fake
+
+    monkeypatch.setattr(sandbox_demo, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(sandbox_demo, "AirwallexHttp", lambda _c: None)
+    monkeypatch.setattr(sandbox_demo, "AirwallexClient", Client)
+    monkeypatch.setattr(
+        sandbox_demo, "AirwallexSimulator", lambda *_a, **_k: FakeSimulator(fake, now=lambda: NOW)
+    )
+
+    def go(*argv, dry_run):
+        lines: list[str] = []
+        env = {
+            "DRY_RUN": dry_run,
+            "NIRNAYA_AGENT": "scripted",
+            "AIRWALLEX_CLIENT_ID": "c",
+            "AIRWALLEX_API_KEY": "k",
+        }
+        code = main(list(argv), env=env, out=lines.append, sleep=lambda _: None, now=NOW)
+        return code, "\n".join(lines)
+
+    assert go("--fresh", dry_run="true")[0] == 0
+    code, text = go("--submit", "--yes", dry_run="false")
+    assert code == 1 and "ran as a dry run" in text
+    run_id = NOW.strftime("%Y%m%dT%H%M%S")
+    assert [p.name for p in tmp_path.glob("*.db")] == [f"sandbox-{run_id}.db"]
