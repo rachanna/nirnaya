@@ -26,6 +26,7 @@ from nirnaya.evidence.derive import (
 from nirnaya.models.decision import Decision
 from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import Action, DisputeStatus, SourceSystem, Stage, ValidationStatus
+from nirnaya.orchestrator.referrals import needs_fresh_decision
 from nirnaya.store import Store
 from nirnaya.trace import case_trace, customer_info_text
 from nirnaya.verifier import verify
@@ -433,6 +434,7 @@ class QueueItem:
     proposed: tuple[ProposedQuote, ...] = ()
     if_confirmed: str | None = None
     redraft: RedraftView | None = None
+    must_retry: bool = False  # nothing to approve: no decision on the current facts
 
 
 def queue(session: DemoSession) -> list[QueueItem]:
@@ -453,6 +455,7 @@ def queue(session: DemoSession) -> list[QueueItem]:
                 proposed=proposed_quotes(session.store, case.case_id, case.cycle),
                 if_confirmed=_if_confirmed(detail),
                 redraft=_redraft(detail),
+                must_retry=needs_fresh_decision(session.store, M, case.case_id),
             )
         )
     return sorted(items, key=lambda i: (not i.urgent, i.due_at, i.case_id))

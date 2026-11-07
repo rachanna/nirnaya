@@ -68,3 +68,7 @@ def test_external_events_reach_new_cycle_close_and_watchdog():
 
 def test_waiting_states_are_not_runnable():
     assert RUNNABLE.isdisjoint({S.DEFERRED, S.AWAITING_OUTCOME, S.REFERRED, S.CLOSED})
+
+
+def test_a_person_can_send_a_referred_case_back_to_ingestion():
+    check(S.REFERRED, S.INGESTED)

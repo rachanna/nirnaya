@@ -21,6 +21,7 @@ from nirnaya.console.session import EARLY_CASE, KIT, NOTE_CASE, REDRAFT_CASE, De
 from nirnaya.console.views import KIT_GOALS, KIT_HEADLINES, kit_card, proposed_quotes
 from nirnaya.evaluation.self_correction import INJECTED_CLAIM
 from nirnaya.models.enums import Action, DisputeStatus, Stage
+from nirnaya.orchestrator.referrals import needs_fresh_decision
 
 # The two cases beyond the kit: what each shows, in the merchant's terms.
 EXTRA_HEADLINES = {
@@ -77,6 +78,7 @@ class Story:
     needs_person: bool
     proposed_quotes: tuple[str, ...] = ()  # quotes waiting for a person to confirm
     quote_notes: tuple[QuoteNote, ...] = ()  # each one in its whole note: read it in context
+    must_retry: bool = False  # nothing to approve: no decision on the current facts
 
 
 def _sentence(text: str) -> str:
@@ -225,6 +227,15 @@ def case_story(session: DemoSession, label: str) -> Story:
                     if b.get("confirmed_findings")
                     else ""
                 ),
+                "info",
+                cycle,
+            )
+        elif event == "SENT_BACK":
+            say(
+                "person",
+                "sent_back",
+                "A person sent it back",
+                f"The approver, {b.get('approver')}, asked Nirnaya to decide again",
                 "info",
                 cycle,
             )
@@ -423,6 +434,7 @@ def case_story(session: DemoSession, label: str) -> Story:
             and latest.status is DisputeStatus.CHALLENGED
         ),
         needs_person=case is not None and case.state == "REFERRED",
+        must_retry=needs_fresh_decision(store, M, case_id),
         proposed_quotes=tuple(f.quote for f in findings(case.cycle) if f.status == "PROPOSED")
         if case is not None and case.state == "REFERRED"
         else (),

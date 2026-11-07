@@ -28,7 +28,7 @@ from nirnaya.models.dispute import Dispute
 from nirnaya.models.enums import Action, Stage
 from nirnaya.models.evidence import EvidenceRecord
 from nirnaya.orchestrator.machine import Orchestrator
-from nirnaya.orchestrator.referrals import approve, close_manually, reject_findings
+from nirnaya.orchestrator.referrals import approve, close_manually, reject_findings, send_back
 from nirnaya.orchestrator.settings import Settings
 from nirnaya.runtime import build_orchestrator
 from nirnaya.store import Store, connect
@@ -177,7 +177,7 @@ class DemoSession:
 
     def decide(self, case_id: str, choice: str, approver: str) -> None:
         """A person's decision on a referred case: accept, fight, fight confirming the quotes
-        the reader proposed (word for word, as shown), or handle it outside."""
+        the reader proposed (word for word, as shown), handle it outside, or try again."""
         if choice == "confirm":
             case = self.store.case(M, case_id)
             if case is None:
@@ -196,6 +196,8 @@ class DemoSession:
             self.approve(case_id, Action.CHALLENGE, approver)
         elif choice == "manual":
             self.close(case_id, approver, "handled outside Nirnaya")
+        elif choice == "retry":
+            self.retry(case_id, approver)
         else:
             raise ValueError(f"unknown choice {choice!r}")
 
@@ -291,6 +293,13 @@ class DemoSession:
         orch.run_until_idle(self.now)
         quoted = f", confirming {len(confirm)} quote(s)" if confirm else ""
         self.log.append(f"{approver} approved {action} on {case_id}{quoted}.")
+
+    def retry(self, case_id: str, approver: str) -> None:
+        """Send back a case with no decision on the current facts, to be decided again."""
+        _, orch = self._require()
+        send_back(self.store, M, case_id, approver=approver, now=self.now)
+        orch.run_until_idle(self.now)
+        self.log.append(f"{approver} sent {case_id} back to be decided again.")
 
     def reject_quotes(self, case_id: str, finding_ids: tuple[str, ...], approver: str) -> None:
         self._require()

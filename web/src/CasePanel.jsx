@@ -38,8 +38,15 @@ export default function CasePanel({ number, eyebrow, story, recorded = false, mo
             )}
             {ready && story.needs_person && (
               <div className="decide">
-                <p className="hint">You decide:</p>
-                {story.proposed_quotes?.length > 0 && (
+                <p className="hint">
+                  {story.must_retry
+                    ? "Nirnaya has no decision on the current facts, so there is nothing to approve yet."
+                    : "You decide:"}
+                </p>
+                {story.must_retry && (
+                  <button className="primary" onClick={() => act("retry")}>Try again</button>
+                )}
+                {!story.must_retry && story.proposed_quotes?.length > 0 && (
                   <>
                     {story.quote_notes?.length > 0 ? (
                       story.quote_notes.map((n, i) => <QuoteInNote key={i} {...n} />)
@@ -53,8 +60,12 @@ export default function CasePanel({ number, eyebrow, story, recorded = false, mo
                     </button>
                   </>
                 )}
-                <button onClick={() => act("accept")}>Accept (refund the customer)</button>
-                <button onClick={() => act("fight")}>Fight it</button>
+                {!story.must_retry && (
+                  <>
+                    <button onClick={() => act("accept")}>Accept (refund the customer)</button>
+                    <button onClick={() => act("fight")}>Fight it</button>
+                  </>
+                )}
                 <button className="quiet" onClick={() => act("manual")}>
                   Handle it outside Nirnaya
                 </button>

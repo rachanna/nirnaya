@@ -5,6 +5,7 @@ import pytest
 
 from nirnaya.console.session import DemoSession
 from nirnaya.console.story import case_story
+from nirnaya.console.views import queue
 
 SCRIPTED = {"NIRNAYA_AGENT": "scripted"}
 
@@ -184,3 +185,33 @@ def test_a_prior_is_not_shown_as_a_prediction(session):
     texts = " ".join(m.text for m in case_story(session, "K1").messages)
     assert "odds of winning" not in texts
     assert "assumed win rate goes from 60% to 75%" in texts
+
+
+def test_a_case_with_no_decision_offers_a_retry_and_the_retry_works(monkeypatch):
+    """FC-11: Accept and Fight could never succeed here, so only Try again is offered."""
+    session = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
+
+    def down(*_a, **_k):
+        raise RuntimeError("source down")
+
+    with monkeypatch.context() as m:
+        m.setattr(session.aw, "payment_intent_owner", down)
+        session.run_case("K2")
+    story = case_story(session, "K2")
+    assert story.state == "REFERRED" and story.needs_person and story.must_retry
+    assert [i.must_retry for i in queue(session)] == [True]
+
+    session.decide(story.case_id, "retry", "ops@example.test")
+    story = case_story(session, "K2")
+    assert not story.must_retry and not story.needs_person
+    assert story.verdict == "ACCEPT"
+    sent = [m for m in story.messages if m.kind == "sent_back"]
+    assert len(sent) == 1 and sent[0].who == "person"
+    assert "ops@example.test" in sent[0].text
+
+
+def test_a_decision_that_stands_is_not_offered_a_retry():
+    session = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
+    session.run_case("K3")
+    assert not case_story(session, "K3").must_retry
+    assert [i.must_retry for i in queue(session)] == [False]

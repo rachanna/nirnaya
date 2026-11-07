@@ -411,13 +411,20 @@ with review:
                 for line in item.redraft.redraft:
                     st.success("Redraft, verified: " + md_escape(line))
             a, b, c = st.columns(3)
-            if a.button("Accept (refund the customer)", key=f"acc-{item.case_id}",
-                        disabled=not s.can_act):  # fmt: skip
-                s.approve(item.case_id, Action.ACCEPT, approver)
-                st.rerun()
-            if b.button("Fight it", key=f"chal-{item.case_id}", disabled=not s.can_act):
-                s.approve(item.case_id, Action.CHALLENGE, approver)
-                st.rerun()
+            if item.must_retry:
+                st.markdown("Nirnaya has no decision on the current facts, so nothing to approve.")
+                if a.button("Try again", key=f"retry-{item.case_id}", disabled=not s.can_act,
+                            type="primary"):  # fmt: skip
+                    s.retry(item.case_id, approver)
+                    st.rerun()
+            else:
+                if a.button("Accept (refund the customer)", key=f"acc-{item.case_id}",
+                            disabled=not s.can_act):  # fmt: skip
+                    s.approve(item.case_id, Action.ACCEPT, approver)
+                    st.rerun()
+                if b.button("Fight it", key=f"chal-{item.case_id}", disabled=not s.can_act):
+                    s.approve(item.case_id, Action.CHALLENGE, approver)
+                    st.rerun()
             if c.button("Handle it outside Nirnaya", key=f"man-{item.case_id}",
                         disabled=not s.can_act):  # fmt: skip
                 s.close(item.case_id, approver, "handled outside Nirnaya")

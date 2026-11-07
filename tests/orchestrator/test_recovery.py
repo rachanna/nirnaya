@@ -1,8 +1,12 @@
-"""FC-19 (docs/failure-cases.md): a case in trouble reaches a person, with its record intact.
+"""FC-19 and FC-11 (docs/failure-cases.md): a case in trouble reaches a person, with its record
+intact, and that person can always do something about it.
 
 A failing step used to stop `run_until_idle` after one attempt, so a case sat mid-flow with no
 error and no buttons, and a tool error in the model's loop lost the model calls already made.
+A referred case with no decision on the current facts failed every approval, for ever.
 """
+
+from decimal import Decimal as D
 
 import pytest
 
@@ -13,13 +17,17 @@ from nirnaya.config.demo import DEMO_POLICY
 from nirnaya.evaluation.cases import synthetic_world
 from nirnaya.llm.fake import reply
 from nirnaya.llm.types import ToolCall
+from nirnaya.models import Action, Money
 from nirnaya.orchestrator import machine
 from nirnaya.orchestrator.machine import Orchestrator
+from nirnaya.orchestrator.referrals import approve, needs_fresh_decision, send_back
 from nirnaya.orchestrator.states import CaseState
+from nirnaya.store.repository import StoreError
 from tests.harness import CASES, Harness
 from tests.notes import noted_case
 
 M = DEMO_POLICY.merchant_id
+AP = "ops@example.test"
 
 
 def orch(h, investigator=None, drafter=None, world=None, reader=None):
@@ -148,3 +156,106 @@ def test_a_healthy_case_never_records_a_failure(label):
     h, now = staged(label)
     orch(h).run_until_idle(now)
     assert failures(h, label) == []
+
+
+# --- FC-11: a referred case that needs a new decision can be sent back ---------------------------
+
+
+def referred_before_any_decision(monkeypatch, h, o, now):
+    """Three failures at ingestion, then the system recovers."""
+    with monkeypatch.context() as m:
+        m.setattr(h.aw, "payment_intent_owner", boom)
+        o.run_until_idle(now)
+    assert h.store.case(M, "N1").state == CaseState.REFERRED
+    assert h.store.latest_decision(M, "N1", 1) is None
+
+
+def amended_during_submission(h, o, now):
+    for _ in range(30):
+        case = h.store.case(M, "N1")
+        if case is not None and case.state == CaseState.SUBMITTING:
+            break
+        o.tick(now)
+    amount = CASES["N1"].dispute.amount.amount - D("1.00")
+    h.aw.set_amount("N1", Money(amount=amount, currency="USD"))
+    o.run_until_idle(now)
+    assert h.store.open_referral_for(M, "N1").reasons[0] == "GUARD_DISPUTE_CHANGED"
+    return amount
+
+
+def test_a_case_with_no_decision_cannot_be_approved_only_sent_back(monkeypatch):
+    h, now = staged(dry_run=False)
+    o = orch(h)
+    referred_before_any_decision(monkeypatch, h, o, now)
+    assert needs_fresh_decision(h.store, M, "N1")
+    for action in (Action.ACCEPT, Action.CHALLENGE):
+        with pytest.raises(StoreError, match="send it back"):
+            approve(h.store, M, "N1", action, approver=AP, now=now)
+
+    send_back(h.store, M, "N1", approver=AP, now=now)
+    o.run_until_idle(now)
+    assert not needs_fresh_decision(h.store, M, "N1")
+    assert [(w.action, w.status) for w in h.store.writes(M, "N1")] == [("CHALLENGE", "CONFIRMED")]
+    events = [e for e in h.store.audit_events(M, "N1") if e["event"] == "SENT_BACK"]
+    assert [e["body"]["approver"] for e in events] == [AP]
+
+
+def test_an_amendment_during_submission_is_decided_again_when_sent_back():
+    h, now = staged(dry_run=False)
+    o = orch(h)
+    amount = amended_during_submission(h, o, now)
+    assert needs_fresh_decision(h.store, M, "N1")
+    with pytest.raises(StoreError, match="send it back"):
+        approve(h.store, M, "N1", Action.CHALLENGE, approver=AP, now=now)
+
+    send_back(h.store, M, "N1", approver=AP, now=now)
+    o.run_until_idle(now)
+    assert h.store.latest_decision(M, "N1", 1)[1].inputs["amount"] == f"{amount} USD"
+    assert h.store.open_referral_for(M, "N1") is None
+    assert [(w.action, w.status) for w in h.store.writes(M, "N1")] == [("CHALLENGE", "CONFIRMED")]
+
+
+def test_a_write_in_doubt_is_never_sent_back():
+    """A new decision means a new request id, which Airwallex could not deduplicate (FC-07)."""
+    h, now = staged(dry_run=False)
+    o = orch(h)
+    h.aw.fail_next("challenge", "timeout_before_apply")
+    for _ in range(30):
+        if h.store.writes(M, "N1"):
+            break
+        o.tick(now)
+    assert h.store.writes(M, "N1")[0].status == "UNKNOWN"
+    amount = CASES["N1"].dispute.amount.amount - D("1.00")
+    h.aw.set_amount("N1", Money(amount=amount, currency="USD"))
+    o.run_until_idle(now)
+    assert h.store.case(M, "N1").state == CaseState.REFERRED
+    assert not needs_fresh_decision(h.store, M, "N1")
+    with pytest.raises(StoreError, match="cannot be sent back"):
+        send_back(h.store, M, "N1", approver=AP, now=now)
+    assert h.store.case(M, "N1").state == CaseState.REFERRED
+
+
+def test_a_decision_that_still_holds_is_not_sent_back():
+    h, now = staged("K3")
+    orch(h).run_until_idle(now)
+    assert h.store.case(M, "K3").state == CaseState.REFERRED
+    assert not needs_fresh_decision(h.store, M, "K3")
+    with pytest.raises(StoreError, match="cannot be sent back"):
+        send_back(h.store, M, "K3", approver=AP, now=now)
+
+
+def test_a_case_not_with_a_person_needs_nothing():
+    h, now = staged("K2")
+    assert not needs_fresh_decision(h.store, M, "K2")  # not ingested yet
+    orch(h).run_until_idle(now)
+    assert not needs_fresh_decision(h.store, M, "K2")
+
+
+def test_sending_back_voids_what_was_confirmed_on_the_old_facts(monkeypatch):
+    h, now = staged(dry_run=False)
+    o = orch(h)
+    amended_during_submission(h, o, now)
+    reopened = []
+    monkeypatch.setattr(h.store, "reopen_findings", lambda *a: reopened.append(a))
+    send_back(h.store, M, "N1", approver=AP, now=now)
+    assert reopened == [(M, "N1", 1)]

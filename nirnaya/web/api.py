@@ -62,7 +62,7 @@ def live_session(env: Mapping[str, str] = os.environ) -> Live:
 
 
 class Decision(BaseModel):
-    choice: Literal["accept", "fight", "confirm", "manual"]
+    choice: Literal["accept", "fight", "confirm", "manual", "retry"]
     approver: str = "ops@example.test"
 
 
@@ -204,6 +204,10 @@ def create_app(
                 if not s["needs_person"]
                 else "there is no proposed quote to confirm"
                 if decision.choice == "confirm" and not s["proposed_quotes"]
+                else "this case's decision still stands"
+                if decision.choice == "retry" and not s["must_retry"]
+                else "this case needs a new decision first"
+                if decision.choice in {"accept", "fight", "confirm"} and s["must_retry"]
                 else None
             ),
             lambda session: session.decide(

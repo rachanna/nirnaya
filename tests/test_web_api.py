@@ -198,3 +198,32 @@ def test_the_recorded_file_matches_the_run_stores():
     import json
 
     assert json.loads(json.dumps(recorded.build())) == recorded.load()
+
+
+def test_a_case_with_no_decision_can_only_be_retried():
+    """FC-11: the page offers Try again, and the API holds to the same rule."""
+    session = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
+    c = TestClient(create_app(lambda: Live(session, None)))
+    real = session.aw.payment_intent_owner
+
+    def down(*_a, **_k):
+        raise RuntimeError("source down")
+
+    session.aw.payment_intent_owner = down
+    c.post("/api/cases/K2/run")
+    story = settle(c, "K2")
+    session.aw.payment_intent_owner = real
+    assert story["must_retry"] and story["needs_person"]
+    assert c.post("/api/cases/K2/decide", json={"choice": "accept"}).status_code == 409
+    assert c.post("/api/cases/K2/decide", json={"choice": "fight"}).status_code == 409
+
+    assert c.post("/api/cases/K2/decide", json={"choice": "retry"}).status_code == 200
+    story = settle(c, "K2")
+    assert not story["must_retry"] and story["verdict"] == "ACCEPT" and story["error"] is None
+
+
+def test_a_decision_that_stands_cannot_be_retried():
+    c = client()
+    c.post("/api/cases/K3/run")
+    settle(c, "K3")
+    assert c.post("/api/cases/K3/decide", json={"choice": "retry"}).status_code == 409

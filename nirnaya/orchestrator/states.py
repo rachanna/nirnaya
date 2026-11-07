@@ -35,7 +35,8 @@ FLOW: dict[CaseState, frozenset[CaseState]] = {
     S.PRE_WRITE_CHECK: frozenset({S.SUBMITTING, S.REFERRED}),
     S.SUBMITTING: frozenset({S.AWAITING_OUTCOME, S.REFERRED}),
     S.AWAITING_OUTCOME: frozenset(),
-    S.REFERRED: frozenset({S.PRE_WRITE_CHECK, S.DRAFTING, S.CLOSED}),
+    # REFERRED -> INGESTED: a person sends back a case with no decision on the current facts.
+    S.REFERRED: frozenset({S.INGESTED, S.PRE_WRITE_CHECK, S.DRAFTING, S.CLOSED}),
     S.CLOSED: frozenset(),
 }
 

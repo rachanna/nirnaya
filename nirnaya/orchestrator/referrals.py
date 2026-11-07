@@ -6,6 +6,9 @@ the case back to drafting: a person can override the economics, never the verifi
 Quotes the reader proposed from notes (architecture 8.8) are confirmed with the approval of a
 challenge, or rejected. Approving resolves every proposed quote of the cycle: the ones named are
 CONFIRMED, the rest REJECTED, so none is left counting for nothing or waiting forever.
+
+A case with no decision on the current facts has nothing to approve: every approval would fail
+at the gateway. A person sends it back to be decided again instead.
 """
 
 from collections.abc import Iterable
@@ -40,6 +43,27 @@ def _proposed(
     return proposed, wanted
 
 
+def needs_fresh_decision(store: Store, merchant_id: str, case_id: str) -> bool:
+    """The case waits for a person but has no decision on the current facts: none was reached, or
+    the amount or refund changed since (the gateway's own comparison). Not while a write may
+    have landed: a new decision means a new request id, which Airwallex cannot deduplicate."""
+    case = store.case(merchant_id, case_id)
+    if case is None or case.state != CaseState.REFERRED:
+        return False
+    if any(
+        w.cycle == case.cycle and w.status in {"PENDING", "UNKNOWN"}
+        for w in store.writes(merchant_id, case_id)
+    ):
+        return False
+    latest = store.latest_decision(merchant_id, case_id, case.cycle)
+    if latest is None:
+        return True
+    dispute = store.latest_dispute(merchant_id, case_id)
+    refunded = str(dispute.refunded)
+    inputs = latest[1].inputs
+    return str(dispute.amount) != inputs["amount"] or refunded != inputs.get("refunded", refunded)
+
+
 def approve(
     store: Store,
     merchant_id: str,
@@ -53,6 +77,8 @@ def approve(
     if action not in {Action.ACCEPT, Action.CHALLENGE}:
         raise ValueError("a person approves ACCEPT or CHALLENGE")
     case, referral = _referred(store, merchant_id, case_id)
+    if needs_fresh_decision(store, merchant_id, case_id):
+        raise StoreError(f"case {case_id!r} has no decision on the current facts: send it back")
     proposed, confirmed = _proposed(store, merchant_id, case_id, case.cycle, confirm_findings)
     if confirmed and action is not Action.CHALLENGE:
         raise ValueError("quotes are confirmed only to support a challenge")
@@ -88,6 +114,37 @@ def approve(
                 "referral_id": referral.referral_id,
                 "confirmed_findings": confirmed,
                 "rejected_findings": [i for i in proposed if i not in confirmed],
+            },
+            now,
+        )
+
+
+def send_back(
+    store: Store, merchant_id: str, case_id: str, *, approver: str, now: datetime
+) -> None:
+    """A person asks for a new decision. As with an amendment, what stood on the old facts is
+    void, and the case goes through the normal flow again."""
+    case, referral = _referred(store, merchant_id, case_id)
+    if not needs_fresh_decision(store, merchant_id, case_id):
+        raise StoreError(
+            f"case {case_id!r} cannot be sent back: its decision stands, or a write may have landed"
+        )
+    states.check(CaseState.REFERRED, CaseState.INGESTED)
+    with store.transaction():
+        store.resolve_referral(
+            merchant_id, referral.referral_id, resolution="SENT_BACK", approval=None, at=now
+        )
+        store.supersede_referrals(merchant_id, case_id, case.cycle, now)
+        store.reopen_findings(merchant_id, case_id, case.cycle)
+        store.update_case(merchant_id, case_id, state=CaseState.INGESTED, urgent=False, at=now)
+        store.audit(
+            merchant_id,
+            case_id,
+            "SENT_BACK",
+            {
+                "approver": approver,
+                "referral_id": referral.referral_id,
+                "reasons": referral.reasons,
             },
             now,
         )
