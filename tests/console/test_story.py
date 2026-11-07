@@ -154,3 +154,33 @@ def test_every_message_is_plain_words_and_the_feed_is_deterministic(session):
     assert a == b
     for m in a.messages:
         assert m.title and m.text and "_" not in m.title
+
+
+def test_the_bank_rejecting_case_1_does_not_break_a_later_case(session):
+    """FC-16: the rejection moves the demo clock; a case staged later keeps its own deadline."""
+    fresh = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
+    fresh.run_case("F5")
+    session.run_case("K1")
+    session.reject_k1()
+    session.run_case("F5")
+    story = case_story(session, "F5")
+    assert story.state == "CLOSED" and story.verdict == "ACCEPT"
+    assert len(story.messages) == len(case_story(fresh, "F5").messages)
+
+
+def test_a_person_confirming_a_quote_sees_the_whole_note(session):
+    """FC-15: a fragment can say the opposite of its note."""
+    session.run_case("AG-F1")
+    story = case_story(session, "AG-F1")
+    (shown,) = story.quote_notes
+    assert shown.quote in shown.note
+    assert shown.note.startswith("Handed to the customer")
+    assert "driver_notes" in shown.source
+
+
+def test_a_prior_is_not_shown_as_a_prediction(session):
+    """FC-20: priors are displayed, never presented as predictions."""
+    session.run_case("K1")
+    texts = " ".join(m.text for m in case_story(session, "K1").messages)
+    assert "odds of winning" not in texts
+    assert "assumed win rate goes from 60% to 75%" in texts

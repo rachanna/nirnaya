@@ -2,7 +2,7 @@
 
 Nirnaya is the Airwallex Developer Lab's kit 4, the "Dispute Response Agent". This page maps each requirement to the code, test or run that meets it. The requirements come from three sources: the kit's brief and the builder guide's rules (https://airwallexdev.com/guide), and our own idea entry. Status is one of **Met**, **Met offline** (it cannot run in the sandbox, and the reason is given) or **Not built**.
 
-How to check it yourself: `uv run pytest` (about 1,600 tests, no network); `uv run python -m nirnaya.web` for the web demo; `uv run python -m nirnaya.evaluation.report` for the evaluation.
+How to check it yourself: `uv run pytest` (about 1,800 tests, no network); `uv run python -m nirnaya.web` for the web demo; `uv run python -m nirnaya.evaluation.report` for the evaluation.
 
 ## The kit's brief
 
@@ -15,7 +15,7 @@ How to check it yourself: `uv run pytest` (about 1,600 tests, no network); `uv r
 | Create and confirm payment intents with the test card, then stage disputes | Met | `nirnaya/sandbox_demo.py` (`--checkout`: the sandbox refuses server-side card confirmation for this account, so payments go through Airwallex's hosted checkout); `nirnaya/integrations/airwallex/simulation.py` |
 | Read amounts and reason codes | Met | `nirnaya/integrations/airwallex/mapping.py`, `tests/integrations/airwallex/test_mapping.py` |
 | Accept and challenge with typed reasons, evidence uploaded as JPG or PDF | Met | `nirnaya/guardrails/challenge_reason.py`; evidence rendered as PDF (`nirnaya/render/evidence_doc.py`), uploaded to the files host (`nirnaya/integrations/airwallex/client.py`) |
-| `GET /pa/refunds` | Met | Read for every dispute at ingestion (`client._refunds`), so refunds already issued are netted. After the accept, case 2 shows `CHARGEBACK / ACCEPTED` and no refund object (read 30 Oct): accepting at the chargeback stage creates none, so the demo shows no refund |
+| `GET /pa/refunds` | Met | Read for every dispute at ingestion (`client._refunds`), so a refund is seen when the case is decided and a change to it voids that decision. After the accept, case 2 shows `CHARGEBACK / ACCEPTED` and no refund object (read 30 Oct): accepting at the chargeback stage creates none, so the demo shows no refund |
 | Demo arc: the user's goal, the agent's first plan, new information, the revised decision, the resulting status; it ends in a financial action or a person | Met | Each case in the web demo and the Streamlit console (`nirnaya/console/story.py`, `nirnaya/console/views.py`) |
 
 ## The builder guide's rules

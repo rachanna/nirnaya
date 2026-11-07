@@ -10,6 +10,7 @@ from nirnaya.evidence.catalogue import (
     FIELD_RULES,
     REASON_SPECIFIC,
     REQUIRED_EVIDENCE,
+    quote_in_record,
     record_establishes,
     render_claim_text,
 )
@@ -200,3 +201,26 @@ def test_account_compromise_contradicts_prior_undisputed_orders():
 
     rec = make_record(SourceSystem.LOGIN, {"account_compromise_reported": True})
     assert contradiction_rules_for(rec, E.PRIOR_UNDISPUTED_ORDERS_MATCH)
+
+
+# --- FC-14: word for word means whole words -----------------------------------------------------
+
+
+def _note(text):
+    return make_record(SourceSystem.CARRIER, {"driver_notes": text})
+
+
+@pytest.mark.parametrize(
+    ("note", "quote", "expected"),
+    [
+        ("Parcel unsigned by recipient, returned to depot.", "signed by recipient", False),
+        ("Parcel signed by recipients of the next door.", "Parcel signed by recipient", False),
+        ("Parcel signed by recipient, left at door.", "signed by recipient", True),
+        ("Signed by recipient.", "Signed by recipient", True),
+        ("unsigned by recipient, then signed by recipient.", "signed by recipient", True),
+        ("Parcel  signed\nby recipient today.", "signed by recipient", True),
+        ("(signed by recipient)", "signed by recipient", True),
+    ],
+)
+def test_a_quote_must_be_whole_words(note, quote, expected):
+    assert quote_in_record(_note(note), "driver_notes", quote) is expected

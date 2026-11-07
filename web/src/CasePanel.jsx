@@ -41,9 +41,13 @@ export default function CasePanel({ number, eyebrow, story, recorded = false, mo
                 <p className="hint">You decide:</p>
                 {story.proposed_quotes?.length > 0 && (
                   <>
-                    <blockquote className="quote">
-                      {story.proposed_quotes.map((q, i) => <p key={i}>“{q}”</p>)}
-                    </blockquote>
+                    {story.quote_notes?.length > 0 ? (
+                      story.quote_notes.map((n, i) => <QuoteInNote key={i} {...n} />)
+                    ) : (
+                      <blockquote className="quote">
+                        {story.proposed_quotes.map((q, i) => <p key={i}>“{q}”</p>)}
+                      </blockquote>
+                    )}
                     <button className="primary" onClick={() => act("confirm")}>
                       Confirm the quote and fight it
                     </button>
@@ -72,5 +76,24 @@ export default function CasePanel({ number, eyebrow, story, recorded = false, mo
 
       <Calls calls={story.calls ?? []} recorded={recorded} model={model} />
     </section>
+  );
+}
+
+// A person confirms a quote in its whole note: a fragment can say the opposite of the note.
+function QuoteInNote({ quote, note, source }) {
+  const at = note.indexOf(quote);
+  return (
+    <blockquote className="quote">
+      <p className="hint">The whole note ({source}):</p>
+      {at < 0 ? (
+        <p>{note}</p>
+      ) : (
+        <p>
+          {note.slice(0, at)}
+          <mark>{quote}</mark>
+          {note.slice(at + quote.length)}
+        </p>
+      )}
+    </blockquote>
   );
 }

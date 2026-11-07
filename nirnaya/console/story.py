@@ -18,7 +18,7 @@ from nirnaya.console.plain import (
     write_sentence,
 )
 from nirnaya.console.session import EARLY_CASE, KIT, NOTE_CASE, REDRAFT_CASE, DemoSession, M
-from nirnaya.console.views import KIT_GOALS, KIT_HEADLINES, kit_card
+from nirnaya.console.views import KIT_GOALS, KIT_HEADLINES, kit_card, proposed_quotes
 from nirnaya.evaluation.self_correction import INJECTED_CLAIM
 from nirnaya.models.enums import Action, DisputeStatus, Stage
 
@@ -57,6 +57,13 @@ class Message:
 
 
 @dataclass(frozen=True)
+class QuoteNote:
+    quote: str
+    note: str
+    source: str
+
+
+@dataclass(frozen=True)
 class Story:
     case_id: str
     label: str
@@ -69,6 +76,7 @@ class Story:
     can_reject: bool
     needs_person: bool
     proposed_quotes: tuple[str, ...] = ()  # quotes waiting for a person to confirm
+    quote_notes: tuple[QuoteNote, ...] = ()  # each one in its whole note: read it in context
 
 
 def _sentence(text: str) -> str:
@@ -253,7 +261,7 @@ def case_story(session: DemoSession, label: str) -> Story:
                 if b.get("support"):
                     n = len(b["support"])
                     odds = (
-                        f". The odds of winning go from {_percent(b['p_before'])} to "
+                        f". The assumed win rate goes from {_percent(b['p_before'])} to "
                         f"{_percent(arc.revised.p)}"
                         if b.get("p_before") and arc.revised.p
                         else ""
@@ -416,6 +424,12 @@ def case_story(session: DemoSession, label: str) -> Story:
         ),
         needs_person=case is not None and case.state == "REFERRED",
         proposed_quotes=tuple(f.quote for f in findings(case.cycle) if f.status == "PROPOSED")
+        if case is not None and case.state == "REFERRED"
+        else (),
+        quote_notes=tuple(
+            QuoteNote(q.quote, q.note, q.source)
+            for q in proposed_quotes(session.store, case_id, case.cycle)
+        )
         if case is not None and case.state == "REFERRED"
         else (),
     )

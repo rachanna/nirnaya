@@ -137,7 +137,7 @@ claude-sonnet-5-5: prompts `drafter_system@v1#6c9a943c49ef`, `drafter_user@v1#56
 
 ## Versions
 
-- Code: git `dfa048d1c8a02f0798f68086cce9da09422558ac` (uncommitted changes)
+- Code: git `f80afc4913f3bc02e166e24787ec8d36964e01fb` (uncommitted changes)
 - Case set: v2 (42 cases, sha256 `a1e698b4a20c`)
 - Policy: `merchant-demo@demo-2026-11#7a92c0622e68`; FX: `fx@demo-2026-10-01#a74fb42c5c16`; economics: `economics@v1#b0b04a506ede`
 - LLM only (naive-v1): anthropic/claude-sonnet-5-5, 2026-10-28; `baseline_naive_system@v1#1e33f22c05c7`, `baseline_naive_user@v1#86578a4c5f93`, `tools@v1#ba84dfdfa56a`; answered on case set v1; current is v2

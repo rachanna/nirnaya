@@ -257,3 +257,13 @@ def test_a_non_json_error_body_is_kept_in_the_message():
         http.get("/api/v1/pa/payment_disputes/d")
     assert e.value.code == "http_403"
     assert "error code: 1010" in str(e.value) and "cloudflare" in str(e.value)
+
+
+@pytest.mark.parametrize("header", ["86400", "inf", "nan", "1e9"])
+def test_a_long_retry_after_is_capped(header):
+    """FC-21: one header must not stall the process for a day, or send a write much later."""
+    http, _, slept = session(
+        LOGIN, Response(429, b"{}", {"retry-after": header}), ok({"done": True})
+    )
+    http.get("/a")
+    assert 0 <= slept[0] <= 30

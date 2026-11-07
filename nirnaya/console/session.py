@@ -82,6 +82,8 @@ class DemoSession:
     note_source: str | None = None
     # How the self-correction case was redrafted: live, or a replayed cached answer (labelled).
     redraft_source: str | None = None
+    # How far the demo clock has moved. A dispute staged later keeps the time it had left.
+    clock_moved: timedelta = timedelta(0)
 
     @property
     def can_act(self) -> bool:
@@ -141,8 +143,9 @@ class DemoSession:
         case = self.cases[label]
         if self.store.case(M, label) is None:
             rec = simulated_ai(label, case.dispute.stage)
+            due_at = case.dispute.due_at + self.clock_moved
             aw.add_dispute(
-                case.dispute.model_copy(update={"ai_recommendation": rec}),
+                case.dispute.model_copy(update={"ai_recommendation": rec, "due_at": due_at}),
                 attempt=case.payment_attempt,
                 intent_owner="same" if case.ownership_resolved else None,
             )
@@ -200,6 +203,7 @@ class DemoSession:
         aw.simulate_escalate("K1", due_at=self.now + timedelta(days=20))
         aw.set_ai_recommendation("K1", simulated_ai("K1", Stage.CHARGEBACK))
         self.now = self.now + timedelta(days=5)
+        self.clock_moved += timedelta(days=5)
         orch.run_until_idle(self.now)
         self.rejected = True
         self.log.append("The issuer rejected K1's evidence; K1 escalated to chargeback.")

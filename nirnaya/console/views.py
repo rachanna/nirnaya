@@ -347,6 +347,8 @@ class ProposedQuote:
     quote: str
     # The whole note, markdown-escaped, with the quote in bold; a person reads it in context.
     note_markdown: str
+    # The whole note as plain text, for the web page, which marks the quote itself.
+    note: str
     # The quote is still word for word in the note as stored now.
     found: bool
 
@@ -374,6 +376,7 @@ def proposed_quotes(store: Store, case_id: str, cycle: int) -> tuple[ProposedQuo
                 source=f"{f.record_id}.{f.field} ({system})",
                 quote=f.quote,
                 note_markdown=shown,
+                note=note,
                 found=at >= 0,
             )
         )

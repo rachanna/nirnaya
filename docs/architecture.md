@@ -267,6 +267,7 @@ stateDiagram-v2
     REFERRED --> DRAFTING: approver approves CHALLENGE (may confirm proposed quotes)
     REFERRED --> CLOSED: approver handles outside Nirnaya
     note right of ASSESSED
+      Refund changed before any write: back to INGESTED, where a full refund defers.
       Amount changed within the stage before any write:
       ASSESSED to REFERRED all return to ASSESSED (DISPUTE_AMENDED)
     end note
@@ -310,7 +311,7 @@ stateDiagram-v2
 | Rule | Source | Handling |
 |---|---|---|
 | Full refund already posted: Airwallex auto-defends at every stage except arbitration | [Handle disputes using our APIs](https://www.airwallex.com/docs/payments/payment-operations/disputes/handle-disputes-using-our-apis) | `DEFERRED` when `refunded == amount` |
-| Partial refund: no automatic action | same | Normal path; the verifier nets refunds (`AmountBasis.NET_OF_REFUNDS`) |
+| Partial refund: no automatic action | same | Normal path. The decision uses the gross disputed amount, because an accept debits all of it; a claim may state an amount net of refunds (`AmountBasis.NET_OF_REFUNDS`). A partial refund is not `REFUND_ISSUED`: that fact needs the order refunded in full and the refund to cover the disputed amount |
 | Pre-chargeback auto-accepted below the account's threshold ("under 60 USD or equivalent" on one page; "thresholds configured for your account" on another) | same, and [How disputes work](https://www.airwallex.com/docs/payments/payment-operations/disputes/dispute-flow) | `DEFERRED` when below the threshold in merchant config. `TODO(verify-airwallex-docs)`: whether the threshold can be read through the API |
 | Pre-arbitration: Airwallex reviews it and accepts or responds for you; only AMEX shows "Requires response" | How disputes work | Non-AMEX: `DEFERRED`. AMEX with `REQUIRES_RESPONSE`: the engine refers (`STAGE_NOT_AUTOMATED`) |
 | Arbitration: no merchant action | How disputes work | `DEFERRED` |
@@ -578,7 +579,8 @@ Every tool schema excludes `merchant_id` and `case_id`; the gateway injects them
 | Model call timeout (SDK) | 60 s |
 | Agent deadline buffer (larger than the watchdog's) | pre-chargeback 18 h, chargeback 3 d |
 | Same tool failing twice | stop that target |
-| Model error or refusal | stop; decide on the evidence so far |
+| Model error or refusal | stop; code makes the lookups that could flip the decision, then decides |
+| Search still unfinished, or notes could not be read | an accept goes to a person (`INVESTIGATION_INCOMPLETE`) |
 
 An agent failure never produces a challenge on its own. The engine decides on whatever evidence was stored, and a CHALLENGE still needs a verified draft.
 

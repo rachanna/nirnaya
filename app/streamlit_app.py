@@ -34,6 +34,7 @@ from nirnaya.console.views import (
     stalled_writes,
     unreadable_disputes,
 )
+from nirnaya.llm.types import LLMConfigError
 from nirnaya.models import Action
 
 ACCENT, MUTED = "#2F6B55", "#B9B2A6"  # Nirnaya in the theme's green, the baselines in stone
@@ -44,7 +45,14 @@ st.set_page_config(page_title="Nirnaya", page_icon="⚖️", layout="wide")
 
 def session() -> DemoSession:
     if "session" not in st.session_state:
-        st.session_state.session = DemoSession.offline()
+        try:
+            st.session_state.session = DemoSession.offline()
+        except LLMConfigError as e:
+            st.session_state.no_model = str(e)
+            scripted = {**os.environ, "NIRNAYA_AGENT": "scripted"}
+            st.session_state.session = DemoSession.offline(env=scripted)
+    if why := st.session_state.get("no_model"):
+        st.warning(f"No model available ({why}), so this runs the scripted agent.")
     return st.session_state.session
 
 

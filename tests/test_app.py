@@ -80,3 +80,14 @@ def test_the_self_correction_beat_runs_and_is_approved_from_the_queue(app):
     app.button(key="chal-N1").click().run()
     assert not app.exception
     assert "**Result:** Challenge confirmed" in all_text(app)
+
+
+def test_the_console_still_runs_with_no_model_key(monkeypatch):
+    """FC-17: a missing key falls back to the scripted agent, with a warning, not a traceback."""
+    monkeypatch.setenv("NIRNAYA_AGENT", "llm")
+    monkeypatch.setenv("NIRNAYA_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+    at = AppTest.from_file(APP, default_timeout=120)
+    at.run()
+    assert not at.exception
+    assert any("scripted" in w.value for w in at.warning)

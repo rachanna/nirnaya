@@ -11,6 +11,7 @@ Only the sandbox hosts are accepted in this milestone.
 """
 
 import json
+import math
 import time
 import uuid
 from collections.abc import Callable, Mapping
@@ -36,6 +37,8 @@ _ALLOWED_HOSTS = frozenset({SANDBOX_API, SANDBOX_FILES})
 
 # Refresh the 30-minute token this long before it expires.
 TOKEN_MARGIN = timedelta(minutes=5)
+# The longest a Retry-After header may hold this process, which also runs the deadline watchdog.
+MAX_RETRY_WAIT = 30.0
 
 
 @dataclass(frozen=True)
@@ -273,6 +276,7 @@ class AirwallexHttp:
     @classmethod
     def _retry_after(cls, response: Response, attempt: int) -> float:
         try:
-            return max(0.0, float(response.headers.get("retry-after", "")))
+            wait = float(response.headers.get("retry-after", ""))
         except ValueError:
             return cls._backoff(attempt)
+        return min(max(0.0, wait), MAX_RETRY_WAIT) if math.isfinite(wait) else MAX_RETRY_WAIT

@@ -447,13 +447,28 @@ def text_allows(record: EvidenceRecord, field: str, fact: EvidenceType) -> bool:
     )
 
 
+def _whole_words(text: str, start: int, end: int) -> bool:
+    """text[start:end] neither starts nor ends in the middle of a word."""
+    cut_start = start > 0 and text[start].isalnum() and text[start - 1].isalnum()
+    cut_end = end < len(text) and text[end - 1].isalnum() and text[end].isalnum()
+    return not cut_start and not cut_end
+
+
 def quote_in_record(record: EvidenceRecord, field: str, quote: str) -> bool:
-    """The quote appears word for word in the field (whitespace-normalised, case-sensitive)."""
+    """The quote appears word for word in the field, as whole words: "signed by" is not in
+    "unsigned by" (whitespace-normalised, case-sensitive)."""
     value = record.fields.get(field)
     if not isinstance(value, str):
         return False
-    q = _squash(quote)
-    return len(q) >= MIN_QUOTE_LENGTH and q in _squash(value)
+    q, text = _squash(quote), _squash(value)
+    if len(q) < MIN_QUOTE_LENGTH:
+        return False
+    at = text.find(q)
+    while at >= 0:
+        if _whole_words(text, at, at + len(q)):
+            return True
+        at = text.find(q, at + 1)
+    return False
 
 
 def render_claim_text(fact: EvidenceType, value: NormalisedValue) -> str:
