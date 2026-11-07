@@ -87,7 +87,7 @@ def check_value(
         case DateTimeValue(at=at):
             try:
                 instant = parse_instant(value)
-            except ValueError as exc:
+            except (ValueError, OverflowError) as exc:
                 return _fail(CheckName.DATE_MISMATCH, str(exc))
             if instant != at:
                 return _fail(
@@ -96,12 +96,12 @@ def check_value(
                 )
             return []
         case DateValue(date=claimed, tz=tz):
-            record_date = parse_date_only(value)
-            if record_date is None:
-                try:
+            try:
+                record_date = parse_date_only(value)
+                if record_date is None:
                     record_date = parse_instant(value).astimezone(ZoneInfo(tz)).date()
-                except ValueError as exc:
-                    return _fail(CheckName.DATE_MISMATCH, str(exc))
+            except (ValueError, OverflowError) as exc:
+                return _fail(CheckName.DATE_MISMATCH, f"record date {value!r}: {exc}")
             if record_date != claimed:
                 return _fail(
                     CheckName.DATE_MISMATCH, f"record date in {tz} is {record_date}, not {claimed}"
@@ -145,11 +145,13 @@ def _check_money(
     try:
         recorded = parse_money(value, record.fields.get("currency"))
         normalised, _ = convert(recorded, target, fx)
-    except (ValueError, MissingFxRateError) as exc:
-        return _fail(CheckName.AMOUNT_MISMATCH, str(exc))
-    if mv.basis is AmountBasis.NET_OF_REFUNDS:
-        normalised = normalised - dispute.refunded
-    if normalised.amount != mv.money.amount:
+        if mv.basis is AmountBasis.NET_OF_REFUNDS:
+            normalised = normalised - dispute.refunded
+        matches = normalised.amount == mv.money.amount
+    except (ValueError, ArithmeticError, MissingFxRateError) as exc:
+        # ArithmeticError: a value Decimal can hold but not work with, such as 1E+6000.
+        return _fail(CheckName.AMOUNT_MISMATCH, f"record amount {value!r}: {exc!r}")
+    if not matches:
         return _fail(
             CheckName.AMOUNT_MISMATCH,
             f"record amount normalises to {normalised} ({mv.basis}), not {mv.money}",

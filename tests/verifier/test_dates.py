@@ -5,6 +5,8 @@ carrier-1 delivered_at = 2026-02-20T15:30:00-05:00 = 2026-02-20T20:30:00Z.
 
 from datetime import UTC, datetime, timedelta, timezone
 
+import pytest
+
 from nirnaya.verifier import CheckName
 from tests.factories import carrier_record, make_claim
 from tests.verifier.helpers import checks, run
@@ -90,3 +92,32 @@ def test_date_only_record_cannot_support_an_instant():
     rec = carrier_record(delivered_at="2026-02-20")
     claim = datetime_claim(datetime(2026, 2, 20, tzinfo=UTC), extracted_value="2026-02-20")
     assert checks(run([claim], [rec]), "claim-dt") == {CheckName.DATE_MISMATCH}
+
+
+BAD_DATES = [
+    "2026-02-30",
+    "2026-13-01",
+    "2026-00-10",
+    "0001-01-01T00:00:00+00:00",
+    "9999-12-31T23:59:59+00:00",
+    "2026-02-30T10:00:00+00:00",
+    "not a date",
+]
+
+
+@pytest.mark.parametrize("value", BAD_DATES)
+@pytest.mark.parametrize("tz", ["America/New_York", "Asia/Tokyo", "UTC"])
+def test_an_impossible_record_date_blocks_the_claim(value, tz):
+    """FC-22: these raised, so the step failed where one claim should have been blocked."""
+    record = carrier_record(delivered_at=value)
+    result = run([date_claim("2026-02-20", tz, extracted_value=value)], [record])
+    assert CheckName.DATE_MISMATCH in checks(result, "claim-d")
+
+
+@pytest.mark.parametrize("value", BAD_DATES)
+def test_an_impossible_record_instant_blocks_the_claim(value):
+    # An empty value is blocked earlier, as a missing field.
+    record = carrier_record(delivered_at=value)
+    at = datetime(2026, 2, 20, 20, 30, tzinfo=UTC)
+    result = run([datetime_claim(at, extracted_value=value)], [record])
+    assert CheckName.DATE_MISMATCH in checks(result, "claim-dt")

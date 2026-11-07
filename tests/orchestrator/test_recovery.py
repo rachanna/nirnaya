@@ -23,6 +23,7 @@ from nirnaya.orchestrator.machine import Orchestrator
 from nirnaya.orchestrator.referrals import approve, needs_fresh_decision, send_back
 from nirnaya.orchestrator.states import CaseState
 from nirnaya.store.repository import StoreError
+from tests.factories import make_claim
 from tests.harness import CASES, Harness
 from tests.notes import noted_case
 
@@ -259,3 +260,32 @@ def test_sending_back_voids_what_was_confirmed_on_the_old_facts(monkeypatch):
     monkeypatch.setattr(h.store, "reopen_findings", lambda *a: reopened.append(a))
     send_back(h.store, M, "N1", approver=AP, now=now)
     assert reopened == [(M, "N1", 1)]
+
+
+def test_a_bad_value_in_a_record_is_a_blocked_claim_not_a_failed_step():
+    """FC-22: the claim is blocked with its reason, and no step fails."""
+    case = noted_case(carrier={"delivered_at": "2026-02-30"})
+    cid = case.dispute.id
+    h = Harness()
+    h.stage(case)
+
+    class Drafter:
+        def draft(self, dispute, records, **_):
+            claim = make_claim(
+                case_id=cid,
+                merchant_id=M,
+                source_record_id=f"{cid}-carrier",
+                source_field="delivered_at",
+                establishes="DELIVERY_CONFIRMED",
+                extracted_value="2026-02-30",
+                normalised_value={"kind": "DATE", "date": "2026-02-20", "tz": "UTC"},
+            )
+            return DraftResult(claims=(claim,))
+
+    world = synthetic_world([case])
+    o = orch(h, drafter=Drafter(), world=world)
+    o.run_until_idle(h.now(case))
+    assert failures(h, cid) == []
+    assert h.store.writes(M, cid) == []
+    assert h.store.case(M, cid).state == CaseState.REFERRED
+    assert "STEP_FAILED" not in h.store.open_referral_for(M, cid).reasons

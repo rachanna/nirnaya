@@ -4,15 +4,16 @@ An audit of commit `90b9a63`, made on 6 November 2026. Four reviews covered the 
 
 ## Status
 
-**Fixed, each with a regression test:** FC-01 to FC-11, FC-14 to FC-21, FC-27 and FC-28. The original reproductions were run again against the fixes, and the 42-case evaluation, the note suite and the self-correction suite did not change.
+**Fixed, each with a regression test:** FC-01 to FC-11, FC-14 to FC-22, FC-27 and FC-28. The original reproductions were run again against the fixes, and the 42-case evaluation, the note suite and the self-correction suite did not change.
 
-**Open:** FC-12, FC-13 and FC-22 could be fixed next. FC-23 to FC-26 and FC-29 are left as they are for now: they need real merchant data, are unlikely, or only matter on an OpenAI key.
+**Open:** FC-12 and FC-13 could be fixed next. FC-23 to FC-26 and FC-29 are left as they are for now: they need real merchant data, are unlikely, or only matter on an OpenAI key.
 
 **Limits of the fixes:**
 
 - FC-04: placeholders are a list, so a carrier's own wording for "no signature" can still pass until it's added.
 - FC-07: a case held by a write in doubt stays with a person, who checks Airwallex. No command clears the doubt, so an approval is refused until the write shows as landed. It can't be sent back either (FC-11), because a new decision means a new `request_id`.
 - FC-11: a referral from `DEADLINE_NEAR` or `DEFERRAL_UNCONFIRMED` also has no decision, so it offers Try again, but the watchdog refers it straight back. Handling it outside Nirnaya is the real route. Failures aren't reset, so one more failure after a retry refers the case again at once.
+- FC-22: a record whose total and refund are both a huge value, such as `1E+6000`, still counts as a full refund in the evidence check. It is a finite number, so only a claim's value check blocks it.
 - FC-19: a reader's run is not kept if its step crashes. A stored `READ` run means the notes were read, so keeping it would let the retry skip them. The investigator's and drafter's runs are kept, which replaces the older rule that a run rolls back with its step; the step's own effects still roll back.
 - FC-09: a real run refuses disputes a dry run took through, so they need `--fresh`. Nothing re-opens them.
 - FC-27: `--fresh` still replaces `sandbox_state.json`, so the recording can only be rebuilt from `sandbox.db` if the 30 October state file is put back. The recording file itself doesn't change.

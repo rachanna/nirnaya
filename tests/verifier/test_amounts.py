@@ -1,5 +1,7 @@
 """Amounts match after currency normalisation and partial refunds."""
 
+import pytest
+
 from nirnaya.config.demo import DEMO_FX
 from nirnaya.models import AmountBasis, EvidenceType, Money
 from nirnaya.verifier import CheckName
@@ -107,3 +109,14 @@ def test_record_without_currency_is_blocked():
     order = order_record(currency=None)
     result = run([amount_claim(usd("200.00"))], [carrier_record(), order])
     assert checks(result, "claim-amt") == {CheckName.AMOUNT_MISMATCH}
+
+
+@pytest.mark.parametrize(
+    "value", ["1E+6000", "1E+999999", "-1E+6000", "1E-6000", "NaN", "sNaN", "Infinity", "-Infinity"]
+)
+@pytest.mark.parametrize("basis", list(AmountBasis))
+def test_an_impossible_record_amount_blocks_the_claim(value, basis):
+    """FC-22: a huge amount raised, so the step failed where one claim should have been blocked."""
+    record = order_record(total_amount=value)
+    result = run([amount_claim(usd("200.00"), basis, extracted_value=value)], [record])
+    assert CheckName.AMOUNT_MISMATCH in checks(result, "claim-amt")
