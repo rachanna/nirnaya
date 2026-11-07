@@ -357,6 +357,8 @@ with review:
             st.markdown(f"### {flag}{name}")
             due = f"{item.due_at:%d %b %Y %H:%M} UTC"
             st.caption(f"{item.case_id} · due {due} · {item.hours_left} h left")
+            if item.refunded:
+                st.markdown(f"Already refunded: **{item.refunded}**")
             st.markdown("**Why it's here:** " + " ".join(reason_sentences(item.reasons)))
             if item.proposed:
                 st.markdown(

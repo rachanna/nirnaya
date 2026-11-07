@@ -266,6 +266,7 @@ stateDiagram-v2
     REFERRED --> PRE_WRITE_CHECK: approver approves ACCEPT
     REFERRED --> DRAFTING: approver approves CHALLENGE (may confirm proposed quotes)
     REFERRED --> CLOSED: approver handles outside Nirnaya
+    REFERRED --> INGESTED: approver sends back a case with no decision on the current facts
     note right of ASSESSED
       Refund changed before any write: back to INGESTED, where a full refund defers.
       Amount changed within the stage before any write:

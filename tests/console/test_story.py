@@ -1,11 +1,14 @@
 """A case's run told as a feed of plain messages, in the order things happened, built from the
 audit log. Wording only: every fact comes from the store."""
 
+from decimal import Decimal
+
 import pytest
 
 from nirnaya.console.session import DemoSession
 from nirnaya.console.story import case_story
 from nirnaya.console.views import queue
+from nirnaya.models import Money
 
 SCRIPTED = {"NIRNAYA_AGENT": "scripted"}
 
@@ -215,3 +218,27 @@ def test_a_decision_that_stands_is_not_offered_a_retry():
     session.run_case("K3")
     assert not case_story(session, "K3").must_retry
     assert [i.must_retry for i in queue(session)] == [False]
+
+
+def test_the_approver_is_told_what_was_already_refunded():
+    """FC-02: a change to the refund voids the decision, but the figure was never shown."""
+    session = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
+    session.run_case("K3")
+    assert case_story(session, "K3").refunded is None
+    assert [i.refunded for i in queue(session)] == [None]
+
+    entry = session.aw._disputes["K3"]
+    part = Money(amount=Decimal("20.00"), currency="USD")
+    entry.dispute = entry.dispute.model_copy(update={"refunded_amount": part})
+    session.orch.run_until_idle(session.now)
+    assert case_story(session, "K3").refunded == "20.00 USD"
+    assert [i.refunded for i in queue(session)] == ["20.00 USD"]
+
+
+def test_the_verdict_says_a_person_handled_it_after_a_manual_close():
+    """FC-28: the badge kept the engine's verdict on a case closed outside Nirnaya."""
+    session = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
+    session.run_case("K3")
+    assert case_story(session, "K3").verdict == "REFER"
+    session.decide("K3", "manual", "ops@example.test")
+    assert case_story(session, "K3").verdict == "MANUAL"

@@ -260,6 +260,7 @@
    "proposed_quotes": [],
    "quote_notes": [],
    "must_retry": false,
+   "refunded": null,
    "calls": [
     {
      "n": 1,
@@ -372,6 +373,7 @@
    "proposed_quotes": [],
    "quote_notes": [],
    "must_retry": false,
+   "refunded": null,
    "calls": []
   },
   {
@@ -437,6 +439,7 @@
    "proposed_quotes": [],
    "quote_notes": [],
    "must_retry": false,
+   "refunded": null,
    "calls": []
   }
  ]

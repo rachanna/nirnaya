@@ -6,6 +6,7 @@ const VERDICT = {
   CHALLENGE: { label: "Fight it", tone: "good" },
   ACCEPT: { label: "Accept it", tone: "warn" },
   REFER: { label: "A person decides", tone: "info" },
+  MANUAL: { label: "Handled outside Nirnaya", tone: "info" },
 };
 
 // One case: what it is and its controls, the story as a playable feed, and Claude's calls.
@@ -23,6 +24,7 @@ export default function CasePanel({ number, eyebrow, story, recorded = false, mo
         <p className="eyebrow">{eyebrow ?? `Case ${number}`}</p>
         <h2>{story.headline}</h2>
         <p className="amount">{story.amount}</p>
+        {story.refunded && <p className="hint">Already refunded: {story.refunded}</p>}
         <p className="question">{story.question}</p>
         {verdict && <p className={`verdict tone-${verdict.tone}`}>{verdict.label}</p>}
 

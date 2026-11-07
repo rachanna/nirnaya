@@ -18,7 +18,13 @@ from nirnaya.console.plain import (
     write_sentence,
 )
 from nirnaya.console.session import EARLY_CASE, KIT, NOTE_CASE, REDRAFT_CASE, DemoSession, M
-from nirnaya.console.views import KIT_GOALS, KIT_HEADLINES, kit_card, proposed_quotes
+from nirnaya.console.views import (
+    KIT_GOALS,
+    KIT_HEADLINES,
+    kit_card,
+    proposed_quotes,
+    refunded_text,
+)
 from nirnaya.evaluation.self_correction import INJECTED_CLAIM
 from nirnaya.models.enums import Action, DisputeStatus, Stage
 from nirnaya.orchestrator.referrals import needs_fresh_decision
@@ -79,6 +85,7 @@ class Story:
     proposed_quotes: tuple[str, ...] = ()  # quotes waiting for a person to confirm
     quote_notes: tuple[QuoteNote, ...] = ()  # each one in its whole note: read it in context
     must_retry: bool = False  # nothing to approve: no decision on the current facts
+    refunded: str | None = None  # already refunded on this dispute, when anything was
 
 
 def _sentence(text: str) -> str:
@@ -240,6 +247,7 @@ def case_story(session: DemoSession, label: str) -> Story:
                 cycle,
             )
         elif event == "CLOSED_MANUALLY":
+            approved = "MANUAL"
             say(
                 "person",
                 "closed",
@@ -435,6 +443,7 @@ def case_story(session: DemoSession, label: str) -> Story:
         ),
         needs_person=case is not None and case.state == "REFERRED",
         must_retry=needs_fresh_decision(store, M, case_id),
+        refunded=refunded_text(latest),
         proposed_quotes=tuple(f.quote for f in findings(case.cycle) if f.status == "PROPOSED")
         if case is not None and case.state == "REFERRED"
         else (),

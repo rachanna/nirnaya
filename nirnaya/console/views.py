@@ -435,6 +435,12 @@ class QueueItem:
     if_confirmed: str | None = None
     redraft: RedraftView | None = None
     must_retry: bool = False  # nothing to approve: no decision on the current facts
+    refunded: str | None = None  # already refunded on this dispute, when anything was
+
+
+def refunded_text(dispute: Dispute | None) -> str | None:
+    """What was already refunded, for whoever decides. None when nothing was."""
+    return None if dispute is None or not dispute.refunded.amount else str(dispute.refunded)
 
 
 def queue(session: DemoSession) -> list[QueueItem]:
@@ -456,6 +462,7 @@ def queue(session: DemoSession) -> list[QueueItem]:
                 if_confirmed=_if_confirmed(detail),
                 redraft=_redraft(detail),
                 must_retry=needs_fresh_decision(session.store, M, case.case_id),
+                refunded=refunded_text(session.store.latest_dispute(M, case.case_id)),
             )
         )
     return sorted(items, key=lambda i: (not i.urgent, i.due_at, i.case_id))
