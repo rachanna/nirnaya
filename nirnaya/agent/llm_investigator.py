@@ -7,7 +7,7 @@ round: the engine then decides on what was found.
 
 import os
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Literal
 
 from nirnaya import assets
 from nirnaya.agent.context import facts_block, records_block
@@ -152,6 +152,9 @@ class LLMInvestigator:
             if finished:
                 stop = "FINISH"
                 break
+            if any(c.outcome == "FAILED" for c in calls):
+                stop = "LOOKUP_FAILED"
+                break
             if used >= self.max_calls:
                 stop = "ROUND_LIMIT"
                 break
@@ -187,6 +190,7 @@ class LLMInvestigator:
             )
         key = arguments.get("key")
         why = None
+        outcome: Literal["REFUSED", "FAILED"] = "REFUSED"
         if name not in offer:
             why = "this tool is not offered for this case right now"
         elif not isinstance(key, str) or key not in offer[name]:
@@ -198,6 +202,9 @@ class LLMInvestigator:
                 fetched = tools.fetch(Tool(name), key)
             except ToolRefused as e:
                 why = str(e)
+            except Exception as e:  # a merchant system failed: the model's run must survive it
+                why = f"the lookup failed ({type(e).__name__})"
+                outcome = "FAILED"
             else:
                 record = ToolCallRecord(
                     tool=name, key=key, outcome="FETCHED", records=tuple(r.id for r in fetched)
@@ -205,7 +212,7 @@ class LLMInvestigator:
                 return record, records_block(fetched, source=f"{name}:{key}"), 1
         tools.refuse(name, key, why)
         return (
-            ToolCallRecord(tool=name, key=str(key), outcome="REFUSED", detail=why),
+            ToolCallRecord(tool=name, key=str(key), outcome=outcome, detail=why),
             f"Refused: {why}.",
             0,
         )

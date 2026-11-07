@@ -10,7 +10,7 @@ from nirnaya.models.claim import Claim
 class ToolCallRecord(DomainModel):
     tool: str
     key: str | None = None
-    outcome: Literal["FETCHED", "REFUSED", "FINISH"]
+    outcome: Literal["FETCHED", "REFUSED", "FAILED", "FINISH"]
     detail: str = ""
     records: tuple[str, ...] = ()
 

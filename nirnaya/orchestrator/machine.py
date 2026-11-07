@@ -92,6 +92,9 @@ class Orchestrator:
         self.reader = reader  # None: notes are not read (the scripted default)
         self.observer = observer
         self._ingest_failing: set[str] = set()
+        # The model run of the step in progress, kept until the step commits. Not the reader's:
+        # a stored READ run means the notes were read, which a crash must not claim.
+        self._at_risk: AgentRun | None = None
         self.source = source
         self.systems = systems
         self.investigator = investigator
@@ -125,10 +128,11 @@ class Orchestrator:
                 if not self.settings.isolate_step_failures:
                     changed += int(self.step(case, now))
                     continue
+                self._at_risk = None
                 try:
                     changed += int(self.step(case, now))
                 except Exception as e:  # one case never stalls the others
-                    self._step_failed(case, now, e)
+                    changed += int(self._step_failed(case, now, e))
         return changed
 
     def _ingest(self, merchant_id: str, now: datetime) -> int:
@@ -157,9 +161,12 @@ class Orchestrator:
                 self.store.audit(merchant_id, None, "INGEST_RECOVERED", {}, now)
         return touched
 
-    def _step_failed(self, case: CaseRow, now: datetime, error: Exception) -> None:
-        """Audit a failed step; after repeated failures, a person takes over (fail closed)."""
+    def _step_failed(self, case: CaseRow, now: datetime, error: Exception) -> bool:
+        """Audit a failed step; after repeated failures, a person takes over (fail closed).
+        True while the case is heading for a person, so a run to idle carries on to the referral
+        and never leaves it mid-flow. A write in flight stays put: it never leaves this way."""
         with self.store.transaction():
+            self._record_run(case, self._at_risk, now)
             self.store.audit(
                 case.merchant_id,
                 case.case_id,
@@ -177,7 +184,9 @@ class Orchestrator:
             and failures >= self.settings.max_submitting_failures
         ):
             self._stalled(case, now, "STEP_FAILED", failures=failures, error=type(error).__name__)
-        if failures >= self.settings.max_step_failures and CaseState(case.state) in WATCHDOG_REFERS:
+        if CaseState(case.state) not in WATCHDOG_REFERS:
+            return False
+        if failures >= self.settings.max_step_failures:
             self._move(
                 case,
                 S.REFERRED,
@@ -188,6 +197,7 @@ class Orchestrator:
                 external=True,
                 urgent=True,
             )
+        return True
 
     def run_until_idle(self, now: datetime, max_ticks: int = 100) -> int:
         for n in range(1, max_ticks + 1):
@@ -619,6 +629,7 @@ class Orchestrator:
         targets = investigation_targets(before, dispute, evidence_present(records, dispute))
         result = self.investigator.investigate(dispute, targets, tools)
         used, run = result.calls, result.run
+        self._at_risk = run
         decision = self._decide(case, dispute)
         pending = self._pending_calls(decision, dispute, tools, case)
         tokens = run.tokens if run is not None else 0
@@ -802,6 +813,7 @@ class Orchestrator:
             result = self.drafter.draft(dispute, records)
         else:
             result = self.drafter.draft(dispute, records, feedback=feedback)
+        self._at_risk = result.run
         # Quotes a person confirmed become claims built by code (architecture 8.8).
         claims = list(result.claims) + [
             quote_claim(dispute, q, n) for n, q in enumerate(confirmed, start=1)

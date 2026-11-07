@@ -197,7 +197,9 @@ def test_a_fabricating_model_never_gets_a_write():
     assert blocked["failures"] and all(f["check"] and f["detail"] for f in blocked["failures"])
 
 
-def test_runs_roll_back_with_their_step():
+def test_a_failed_step_rolls_back_but_its_model_run_is_kept():
+    """FC-19: the model call happened, so the audit shows it and its tokens count. The step's
+    own effects still roll back: no decision, no move."""
     h = Harness()
     case = CASES["N1"]
     h.stage(case)
@@ -214,6 +216,8 @@ def test_runs_roll_back_with_their_step():
     h.store.update_case = crash
     orch.tick(now)  # INVESTIGATING step: the model runs, then the commit fails (and is isolated)
     h.store.update_case = original
-    assert h.store.agent_runs(case.dispute.merchant_id, "N1", 1) == []
-    events = [e["event"] for e in h.store.audit_events(case.dispute.merchant_id, "N1")]
+    merchant = case.dispute.merchant_id
+    assert [r["kind"] for r in h.store.agent_runs(merchant, "N1", 1)] == ["INVESTIGATE"]
+    assert h.store.case(merchant, "N1").state == "INVESTIGATING"
+    events = [e["event"] for e in h.store.audit_events(merchant, "N1")]
     assert "STEP_FAILED" in events
