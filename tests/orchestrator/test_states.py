@@ -72,3 +72,10 @@ def test_waiting_states_are_not_runnable():
 
 def test_a_person_can_send_a_referred_case_back_to_ingestion():
     check(S.REFERRED, S.INGESTED)
+
+
+@pytest.mark.parametrize("frm", [S.AWAITING_OUTCOME, S.CLOSED])
+def test_only_an_external_event_refers_a_waiting_or_closed_case(frm):
+    check(frm, S.REFERRED, external=True)
+    with pytest.raises(IllegalTransition):
+        check(frm, S.REFERRED)

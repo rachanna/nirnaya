@@ -55,7 +55,13 @@ from nirnaya.orchestrator.ports import (
 )
 from nirnaya.orchestrator.redraft import redraft_plan
 from nirnaya.orchestrator.settings import Settings
-from nirnaya.orchestrator.states import DEFERRAL_CHECK, RUNNABLE, WATCHDOG_REFERS, CaseState
+from nirnaya.orchestrator.states import (
+    DEFERRAL_CHECK,
+    OUTCOME_CHECK,
+    RUNNABLE,
+    WATCHDOG_REFERS,
+    CaseState,
+)
 from nirnaya.render.evidence_doc import RenderError, render_evidence
 from nirnaya.store.repository import CaseRow, Store
 from nirnaya.verifier import VerificationOutcome, VerificationResult, verify
@@ -227,6 +233,8 @@ class Orchestrator:
                     moved += 1
             for case in self.store.cases(merchant_id, {s.value for s in DEFERRAL_CHECK}):
                 moved += int(self._deferral_unconfirmed(case, now))
+            for case in self.store.cases(merchant_id, {s.value for s in OUTCOME_CHECK}):
+                moved += int(self._outcome_unconfirmed(case, now))
             for case in self.store.cases(merchant_id, {S.SUBMITTING.value}):
                 stage = Stage(self.store.cycle(merchant_id, case.case_id, case.cycle).stage)
                 if now >= case.due_at - self.settings.deadline_buffer[stage]:
@@ -306,6 +314,49 @@ class Orchestrator:
                 {"why": "deferral unconfirmed", "deferral": why},
                 audit,
                 referral=["DEFERRAL_UNCONFIRMED"],
+                detail=detail,
+            ),
+            external=True,
+            urgent=True,
+        )
+        return True
+
+    def _outcome_unconfirmed(self, case: CaseRow, now: datetime) -> bool:
+        """A case waiting after its write whose dispute is still open at the deadline buffer
+        goes to a person: the write didn't take effect, it was a dry run, or Airwallex reopened
+        the dispute. Without this the deadline would pass with no alert."""
+        stage = Stage(self.store.cycle(case.merchant_id, case.case_id, case.cycle).stage)
+        if now < case.due_at - self.settings.deadline_buffer[stage]:
+            return False
+        dispute = self.store.latest_dispute(case.merchant_id, case.case_id)
+        if dispute is None or dispute.status is not ACTIONABLE_STATUS:
+            return False
+        writes = [
+            w for w in self.store.writes(case.merchant_id, case.case_id) if w.cycle == case.cycle
+        ]
+        last = writes[-1] if writes else None
+        detail = {
+            "action": None if last is None else str(last.action),
+            "ledger": None if last is None else str(last.status),
+            "request_id": None if last is None else last.request_id,
+            "status": str(dispute.status),
+            "due_at": dispute.due_at.isoformat(),
+            "what_to_do": "The dispute still needs a response. Writes are closed inside the "
+            "deadline buffer: act directly in Airwallex.",
+        }
+
+        def audit() -> None:
+            self.store.audit(case.merchant_id, case.case_id, "OUTCOME_UNCONFIRMED", detail, now)
+
+        self._move(
+            case,
+            S.REFERRED,
+            now,
+            _Step(
+                S.REFERRED,
+                {"why": "outcome unconfirmed"},
+                audit,
+                referral=["OUTCOME_UNCONFIRMED"],
                 detail=detail,
             ),
             external=True,

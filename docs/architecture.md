@@ -267,6 +267,8 @@ stateDiagram-v2
     REFERRED --> DRAFTING: approver approves CHALLENGE (may confirm proposed quotes)
     REFERRED --> CLOSED: approver handles outside Nirnaya
     REFERRED --> INGESTED: approver sends back a case with no decision on the current facts
+    AWAITING_OUTCOME --> REFERRED: dispute still open at the deadline buffer (OUTCOME_UNCONFIRMED)
+    CLOSED --> REFERRED: dispute moved to a stage needing an answer (REOPENED_AFTER_CLOSE)
     note right of ASSESSED
       Refund changed before any write: back to INGESTED, where a full refund defers.
       Amount changed within the stage before any write:

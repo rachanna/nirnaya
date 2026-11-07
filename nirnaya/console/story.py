@@ -238,6 +238,17 @@ def case_story(session: DemoSession, label: str) -> Story:
                 "info",
                 cycle,
             )
+        elif event == "REOPENED":
+            approved = None
+            say(
+                "airwallex",
+                "reopened",
+                "The dispute came back",
+                f"It moved to the {stage_name(b.get('stage'))} stage and needs an answer, "
+                "so the closed case went back to a person",
+                "warn",
+                cycle,
+            )
         elif event == "SENT_BACK":
             say(
                 "person",

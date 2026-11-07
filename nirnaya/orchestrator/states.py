@@ -59,11 +59,17 @@ EXTERNAL_REASSESS = frozenset(
 # A deferral predicts that Airwallex will act. If it has not by the deadline buffer, the
 # watchdog refers the case (DEFERRAL_UNCONFIRMED) instead of letting the deadline pass silently.
 DEFERRAL_CHECK = frozenset({S.DEFERRED})
+# The same for a write: a dispute still open at the buffer goes to a person (OUTCOME_UNCONFIRMED).
+OUTCOME_CHECK = frozenset({S.AWAITING_OUTCOME})
+# A closed case whose dispute moved to a stage needing an answer (ingestion, REOPENED_AFTER_CLOSE).
+EXTERNAL_REOPEN = frozenset({S.CLOSED})
 WATCHDOG_REFERS = frozenset(
     s
     for s in CaseState
     if s not in {S.DEFERRED, S.AWAITING_OUTCOME, S.SUBMITTING, S.REFERRED, S.CLOSED}
 )
+
+EXTERNAL_REFERS = WATCHDOG_REFERS | DEFERRAL_CHECK | OUTCOME_CHECK | EXTERNAL_REOPEN
 
 # States the scheduler advances; the others wait for Airwallex or a person.
 RUNNABLE = frozenset(
@@ -92,7 +98,7 @@ def check(frm: CaseState, to: CaseState, *, external: bool = False) -> None:
         return
     if external and to is S.CLOSED and frm in EXTERNAL_CLOSE:
         return
-    if external and to is S.REFERRED and frm in WATCHDOG_REFERS | DEFERRAL_CHECK:
+    if external and to is S.REFERRED and frm in EXTERNAL_REFERS:
         return
     if external and to is S.ASSESSED and frm in EXTERNAL_REASSESS:
         return

@@ -4,8 +4,10 @@ The source is only read. Ingestion never decides and never writes to Airwallex.
 """
 
 from datetime import datetime
+from typing import Any
 
 from nirnaya.models.dispute import Dispute
+from nirnaya.models.enums import ACTIONABLE_STATUS
 from nirnaya.orchestrator import states
 from nirnaya.orchestrator.deferral import closed_reason
 from nirnaya.orchestrator.ports import DisputeSource
@@ -98,6 +100,41 @@ def _reject(store: Store, merchant_id: str, dispute: Dispute, why: str, now: dat
         )
 
 
+def _reopen(
+    store: Store,
+    merchant_id: str,
+    policy_version: str,
+    dispute: Dispute,
+    cycle: int,
+    snapshot: dict[str, Any],
+    now: datetime,
+) -> None:
+    """A closed case's dispute now needs an answer in a new stage. It goes to a person, not back
+    through the flow: whoever closed it may be handling it outside, and a write could collide."""
+    states.check(CaseState.CLOSED, CaseState.REFERRED, external=True)
+    store.start_cycle(
+        merchant_id, dispute.id, cycle, stage=dispute.stage, policy_version=policy_version, at=now
+    )
+    detail = {
+        "stage": str(dispute.stage),
+        "due_at": dispute.due_at.isoformat(),
+        "why": "the case was closed, and the dispute has since moved to a stage needing an answer",
+    }
+    store.open_referral(
+        merchant_id, dispute.id, cycle, ["REOPENED_AFTER_CLOSE"], True, now, detail=detail
+    )
+    store.update_case(
+        merchant_id,
+        dispute.id,
+        state=CaseState.REFERRED,
+        cycle=cycle,
+        due_at=dispute.due_at,
+        urgent=True,
+        at=now,
+    )
+    store.audit(merchant_id, dispute.id, "REOPENED", {**snapshot, "cycle": cycle}, now)
+
+
 def _record(
     store: Store, merchant_id: str, policy_version: str, dispute: Dispute, now: datetime
 ) -> None:
@@ -116,7 +153,11 @@ def _record(
 
     current = CaseState(case.state)
     if current is CaseState.CLOSED:
-        store.audit(merchant_id, dispute.id, "DISPUTE_UPDATED_AFTER_CLOSE", snapshot, now)
+        moved_on = previous is not None and previous.stage != dispute.stage
+        if moved_on and dispute.status is ACTIONABLE_STATUS:
+            _reopen(store, merchant_id, policy_version, dispute, case.cycle + 1, snapshot, now)
+        else:
+            store.audit(merchant_id, dispute.id, "DISPUTE_UPDATED_AFTER_CLOSE", snapshot, now)
         return
 
     if previous is not None and previous.stage != dispute.stage:

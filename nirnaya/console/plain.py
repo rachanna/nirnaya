@@ -49,6 +49,8 @@ REASON_TEXT = {
     "DEADLINE_NEAR": "The deadline is close, so a person takes over.",
     "STEP_FAILED": "A step kept failing, so a person takes over.",
     "DEFERRAL_UNCONFIRMED": "Airwallex was expected to act on its own and hasn't.",
+    "OUTCOME_UNCONFIRMED": "The dispute still needs a response, close to its deadline.",
+    "REOPENED_AFTER_CLOSE": "The case was closed, but the dispute now needs an answer.",
 }
 
 # Airwallex's dispute reason types, in words.
