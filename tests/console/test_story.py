@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from nirnaya.console.session import DemoSession
+from nirnaya.console.session import DemoSession, M
 from nirnaya.console.story import case_story
 from nirnaya.console.views import queue
 from nirnaya.models import Money
@@ -242,3 +242,19 @@ def test_the_verdict_says_a_person_handled_it_after_a_manual_close():
     assert case_story(session, "K3").verdict == "REFER"
     session.decide("K3", "manual", "ops@example.test")
     assert case_story(session, "K3").verdict == "MANUAL"
+
+
+def test_a_quote_that_conflicts_with_a_record_says_so(monkeypatch):
+    """FC-18: the web page showed the quote but not the record against it."""
+    session = DemoSession.offline(env={"NIRNAYA_AGENT": "scripted"})
+    session.run_case("K3")
+    assert case_story(session, "K3").quote_conflicts == ()
+
+    conflict = {"record_id": "K3-carrier", "description": "carrier reports it was not delivered"}
+    referral = session.store.open_referral_for(M, "K3").model_copy(
+        update={"detail": {"contradictions_if_confirmed": [conflict]}}
+    )
+    monkeypatch.setattr(session.store, "open_referral_for", lambda m, c: referral)
+    assert case_story(session, "K3").quote_conflicts == (
+        "K3-carrier: carrier reports it was not delivered",
+    )

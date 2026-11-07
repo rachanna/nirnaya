@@ -86,6 +86,7 @@ class Story:
     quote_notes: tuple[QuoteNote, ...] = ()  # each one in its whole note: read it in context
     must_retry: bool = False  # nothing to approve: no decision on the current facts
     refunded: str | None = None  # already refunded on this dispute, when anything was
+    quote_conflicts: tuple[str, ...] = ()  # records against the quotes a person is asked about
 
 
 def _sentence(text: str) -> str:
@@ -444,6 +445,7 @@ def case_story(session: DemoSession, label: str) -> Story:
         needs_person=case is not None and case.state == "REFERRED",
         must_retry=needs_fresh_decision(store, M, case_id),
         refunded=refunded_text(latest),
+        quote_conflicts=_quote_conflicts(session, case_id),
         proposed_quotes=tuple(f.quote for f in findings(case.cycle) if f.status == "PROPOSED")
         if case is not None and case.state == "REFERRED"
         else (),
@@ -458,6 +460,12 @@ def case_story(session: DemoSession, label: str) -> Story:
 
 def _percent(p: object) -> str:
     return f"{round(float(str(p)) * 100)}%"
+
+
+def _quote_conflicts(session: DemoSession, case_id: str) -> tuple[str, ...]:
+    referral = session.store.open_referral_for(M, case_id)
+    conflicts = (referral.detail or {}).get("contradictions_if_confirmed") if referral else None
+    return tuple(f"{c['record_id']}: {c['description']}" for c in conflicts or ())
 
 
 def _amount(session: DemoSession, label: str) -> str:

@@ -57,8 +57,13 @@ export default function CasePanel({ number, eyebrow, story, recorded = false, mo
                         {story.proposed_quotes.map((q, i) => <p key={i}>“{q}”</p>)}
                       </blockquote>
                     )}
+                    {story.quote_conflicts?.map((c, i) => (
+                      <p key={i} className="error">A record says otherwise. {c}</p>
+                    ))}
                     <button className="primary" onClick={() => act("confirm")}>
-                      Confirm the quote and fight it
+                      {story.quote_conflicts?.length > 0
+                        ? "Confirm the quote anyway (a person still decides)"
+                        : "Confirm the quote and fight it"}
                     </button>
                   </>
                 )}

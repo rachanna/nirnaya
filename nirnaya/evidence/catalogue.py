@@ -258,6 +258,11 @@ CONTRADICTION_RULES: tuple[ContradictionRule, ...] = (
         "carrier reports no signature was captured",
     ),
     ContradictionRule(
+        E.DELIVERY_SIGNATURE, S.CARRIER,
+        one_of("status", "RETURNED_TO_SENDER", "LOST", "DELIVERY_EXCEPTION"),
+        "carrier reports the parcel was not delivered",
+    ),
+    ContradictionRule(
         E.THREE_DS_AUTHENTICATED, S.PAYMENT_ATTEMPT, one_of("three_ds", "FAILED", "NOT_PERFORMED"),
         "a payment attempt shows 3DS failed or was not performed",
     ),

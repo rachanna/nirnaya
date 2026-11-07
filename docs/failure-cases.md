@@ -4,9 +4,9 @@ An audit of commit `90b9a63`, made on 6 November 2026. Four reviews covered the 
 
 ## Status
 
-**Fixed, each with a regression test:** FC-01 to FC-11, FC-14 to FC-17, FC-19 to FC-21, FC-27 and FC-28. The original reproductions were run again against the fixes, and the 42-case evaluation, the note suite and the self-correction suite did not change.
+**Fixed, each with a regression test:** FC-01 to FC-11, FC-14 to FC-21, FC-27 and FC-28. The original reproductions were run again against the fixes, and the 42-case evaluation, the note suite and the self-correction suite did not change.
 
-**Open:** FC-12, FC-13, FC-18 and FC-22 could be fixed next. FC-23 to FC-26 and FC-29 are left as they are for now: they need real merchant data, are unlikely, or only matter on an OpenAI key.
+**Open:** FC-12, FC-13 and FC-22 could be fixed next. FC-23 to FC-26 and FC-29 are left as they are for now: they need real merchant data, are unlikely, or only matter on an OpenAI key.
 
 **Limits of the fixes:**
 
@@ -54,7 +54,7 @@ The tables below describe each case as it was found.
 | FC-15 | **The web page hides the note behind a quote.** A person confirms a fragment without seeing the whole note. "No signature captured" can be shown as "signature captured". The Streamlit console shows the whole note. | The model trims a quote | Code | **Yes:** a judge may ask |
 | FC-16 | **"The bank rejects" moves the clock for every case.** After that step, Demo B shows "Deadline buffer reached" under the headline "Cheaper to settle early". | Walking the tabs in order | Re-run | **Yes:** the natural order |
 | FC-17 | **Streamlit shows a raw error with no model key.** With `NIRNAYA_AGENT=llm` and no key, nothing else on the page can be reached. | A missing or wrong `.env` | Code | Fresh machine |
-| FC-18 | **A quoted signature on a lost parcel isn't a conflict.** Contradiction rules guard "delivered" but not "signed", so a person isn't shown the conflict when confirming the quote. | A crafted or mistaken note | Review | No |
+| FC-18 | **A quoted signature on a lost parcel isn't a conflict.** Contradiction rules guard "delivered" but not "signed". On a fraud case, where a signature can flip the decision alone, a person was offered "fight" with no conflict shown, and confirming sent the challenge. A structured `signed_by` was already safe, as it needs a delivered status. | A crafted or mistaken note | Re-run | No |
 | FC-19 | **A model or data crash loses its audit.** A tool error or an unusual value (`1E+6000`) fails the whole step, with model calls made but not stored. On the web, the case then sits with no error and no buttons. | A merchant system error, or an unusual gateway | Review | Unlikely |
 
 ## Medium
