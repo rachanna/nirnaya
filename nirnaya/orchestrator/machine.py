@@ -650,6 +650,8 @@ class Orchestrator:
         read = self._read_notes(case, decision, now)
         if read is not None and read.if_confirmed is not None:
             return self._proposed_evidence(case, decision, read, now)
+        if (asked := self._quotes_still_open(case, decision)) is not None:
+            return asked
         step = self._search_unfinished(case, decision, read, now) or self._decided_step(decision)
         if read is not None:  # nothing that would change the decision: the reading is recorded
             assert step.apply is None
@@ -729,31 +731,44 @@ class Orchestrator:
                 if_confirmed = would
         return _Read(run=run, kept=kept, if_confirmed=if_confirmed)
 
+    def _quotes_still_open(self, case: CaseRow, decision: Decision) -> _Step | None:
+        """Notes are read once per cycle, so after an amendment the reader does not run again.
+        Its quotes still stand: a person sees them on the new facts, and nothing is decided
+        without them."""
+        quotes = [
+            f
+            for f in self.store.findings(case.merchant_id, case.case_id, case.cycle)
+            if f.status == "PROPOSED"
+        ]
+        if not quotes:
+            return None
+        dispute = self._dispute(case)
+        would = self._decide(case, dispute, also=frozenset(f.fact for f in quotes))
+        proposed = [
+            {
+                "record_id": f.record_id,
+                "field": f.field,
+                "fact": f.fact.value,
+                "quote": f.quote,
+                "finding_id": f.finding_id,
+            }
+            for f in quotes
+        ]
+        reasons, detail = _quote_referral(decision, would, proposed)
+        body = {"reasons": reasons, "proposed": len(proposed)}
+        return _Step(S.REFERRED, body, referral=reasons, detail=detail)
+
     def _proposed_evidence(
         self, case: CaseRow, decision: Decision, read: "_Read", now: datetime
     ) -> _Step:
         """Quotes that would change the decision go to a person. Nothing is decided on them."""
         would = read.if_confirmed
         assert would is not None
-        reasons = [r.value for r in decision.referral_reasons] + ["PROPOSED_EVIDENCE"]
         proposed = [
             {"record_id": q.record_id, "field": q.field, "fact": q.fact.value, "quote": q.quote}
             for q in read.kept
         ]
-        detail = _referral_detail(decision) | {
-            "reasons": reasons,
-            "proposed_evidence": proposed,
-            "action_now": decision.action.value,
-            "action_if_confirmed": would.action.value,
-            "p_now": None if decision.p is None else str(decision.p),
-            "p_if_confirmed": None if would.p is None else str(would.p),
-            "margin_now": None if decision.margin is None else str(decision.margin),
-            "margin_if_confirmed": None if would.margin is None else str(would.margin),
-            "referral_reasons_if_confirmed": [r.value for r in would.referral_reasons],
-            "contradictions_if_confirmed": list(would.inputs.get("contradictions", [])),
-            "note": "The agent read these words in a merchant or carrier note. Confirm a quote "
-            "only if it shows the fact; the verifier then checks it word for word.",
-        }
+        reasons, detail = _quote_referral(decision, would, proposed)
 
         def apply() -> None:
             self._record_run(case, read.run, now)
@@ -1111,6 +1126,27 @@ class _Read:
     @property
     def failed(self) -> bool:
         return self.run.stop.startswith(("LLM_ERROR", "NO_SUBMISSION"))
+
+
+def _quote_referral(
+    decision: Decision, would: Decision, proposed: list[dict[str, Any]]
+) -> tuple[list[str], dict[str, Any]]:
+    """The reasons and detail of a referral asking a person about proposed quotes."""
+    reasons = [r.value for r in decision.referral_reasons] + ["PROPOSED_EVIDENCE"]
+    return reasons, _referral_detail(decision) | {
+        "reasons": reasons,
+        "proposed_evidence": proposed,
+        "action_now": decision.action.value,
+        "action_if_confirmed": would.action.value,
+        "p_now": None if decision.p is None else str(decision.p),
+        "p_if_confirmed": None if would.p is None else str(would.p),
+        "margin_now": None if decision.margin is None else str(decision.margin),
+        "margin_if_confirmed": None if would.margin is None else str(would.margin),
+        "referral_reasons_if_confirmed": [r.value for r in would.referral_reasons],
+        "contradictions_if_confirmed": list(would.inputs.get("contradictions", [])),
+        "note": "The agent read these words in a merchant or carrier note. Confirm a quote "
+        "only if it shows the fact; the verifier then checks it word for word.",
+    }
 
 
 def _referral_detail(decision: Decision) -> dict[str, Any]:

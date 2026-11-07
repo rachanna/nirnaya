@@ -162,17 +162,16 @@ def _record(
         return
 
     amended = previous is not None and str(previous.amount) != str(dispute.amount)
-    if amended and current in states.EXTERNAL_REASSESS:
-        # Anything decided, approved or rendered on the old amount is void: decide again.
-        states.check(current, CaseState.ASSESSED, external=True)
+    refunded = previous is not None and str(previous.refunded) != str(dispute.refunded)
+    if (amended or refunded) and current in states.EXTERNAL_REASSESS:
+        # Anything decided, approved or rendered on the old facts is void: decide again. A refund
+        # goes back to ingestion, where a full one defers. Confirmed quotes are asked again.
+        to = CaseState.INGESTED if refunded else CaseState.ASSESSED
+        states.check(current, to, external=True)
         superseded = store.supersede_referrals(merchant_id, dispute.id, case.cycle, now)
+        store.reopen_findings(merchant_id, dispute.id, case.cycle)
         store.update_case(
-            merchant_id,
-            dispute.id,
-            state=CaseState.ASSESSED,
-            due_at=dispute.due_at,
-            urgent=False,
-            at=now,
+            merchant_id, dispute.id, state=to, due_at=dispute.due_at, urgent=False, at=now
         )
         store.audit(
             merchant_id,
@@ -182,6 +181,7 @@ def _record(
                 **snapshot,
                 "amount": str(dispute.amount),
                 "was": str(previous.amount),
+                "refunded": str(dispute.refunded),
                 "from_state": current,
                 "referrals_superseded": superseded,
             },

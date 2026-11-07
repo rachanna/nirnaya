@@ -198,9 +198,17 @@ class WriteGateway:
         # 2. Status.
         if fresh.status is not ACTIONABLE_STATUS:
             raise _Refused(GuardFailure.STATUS_CHANGED, f"status is {fresh.status}")
-        # 3. Stage and amount are those the decision was made on (not merely the last snapshot).
-        if fresh.stage is not decision.stage or str(fresh.amount) != decision.inputs["amount"]:
-            raise _Refused(GuardFailure.DISPUTE_CHANGED, "stage or amount changed since decision")
+        # 3. Stage, amount and refund are those the decision was made on (not merely the last
+        # snapshot). Decisions stored before the refund was recorded have nothing to compare.
+        refunded = decision.inputs.get("refunded", str(fresh.refunded))
+        if (
+            fresh.stage is not decision.stage
+            or str(fresh.amount) != decision.inputs["amount"]
+            or str(fresh.refunded) != refunded
+        ):
+            raise _Refused(
+                GuardFailure.DISPUTE_CHANGED, "stage, amount or refund changed since decision"
+            )
         # 4. Deadline buffer.
         buffer = self._settings.deadline_buffer[fresh.stage]
         if now >= fresh.due_at - buffer:

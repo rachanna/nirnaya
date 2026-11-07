@@ -713,6 +713,14 @@ class Store:
         if cur.rowcount != 1:
             raise StoreError(f"no proposed finding {finding_id!r} for case {case_id!r}")
 
+    def reopen_findings(self, merchant_id: str, case_id: str, cycle: int) -> int:
+        """The dispute changed, so a confirmation of it no longer stands: ask again."""
+        return self.conn.execute(
+            "UPDATE findings SET status = 'PROPOSED', resolved_by = NULL, resolved_at = NULL"
+            " WHERE merchant_id = ? AND case_id = ? AND cycle = ? AND status = 'CONFIRMED'",
+            (merchant_id, case_id, cycle),
+        ).rowcount
+
     def confirmed_quotes(self, merchant_id: str, case_id: str, cycle: int) -> frozenset[Quote]:
         return frozenset(
             f.as_quote()

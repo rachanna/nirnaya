@@ -238,6 +238,7 @@ def evaluate(
         "reason_original_code": dispute.reason.original_code,
         "card_brand": None if dispute.card_brand is None else str(dispute.card_brand),
         "amount": str(dispute.amount),
+        "refunded": str(dispute.refunded),
         "amount_in_policy_currency": _s(amount_pc),
         "fx_rate": _s(rate),
         "fx_label": fx.label if fx is not None and rate not in (None, Decimal(1)) else None,
