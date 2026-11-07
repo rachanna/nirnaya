@@ -134,3 +134,20 @@ def test_a_stale_unpaid_intent_is_replaced_with_a_new_request_id():
     second = state.cases["K1"]["intent"]
     assert second != first  # a new intent: the fake, like Airwallex, keys on request_id
     assert state.cases["K1"]["attempt"] == "2"
+
+
+def test_a_real_run_refuses_cases_a_dry_run_already_took_through(monkeypatch):
+    """FC-09: rehearsing on staged disputes then running --submit used to send nothing."""
+    from nirnaya import sandbox_demo
+    from nirnaya.store import Store, connect
+
+    store = Store(connect())
+    state = sandbox_demo.RunState(run="r", cases={"K2": {"dispute": "D"}})
+
+    class Row:
+        status = "DRY_RUN"
+
+    monkeypatch.setattr(store, "writes", lambda m, d: [Row()])
+    assert sandbox_demo._rehearsed(store, state) == ["K2"]
+    monkeypatch.setattr(store, "writes", lambda m, d: [])
+    assert sandbox_demo._rehearsed(store, state) == []

@@ -58,7 +58,11 @@ def approve(
         raise ValueError("quotes are confirmed only to support a challenge")
     dispute = store.latest_dispute(merchant_id, case_id)
     quotes = [proposed[i].as_quote() for i in confirmed]
-    approval = binding(store, dispute, action, referral.reasons, approver, quotes)
+    # A referral from a guard names the guard, not the reasons a person already accepted.
+    earlier = store.latest_approval(merchant_id, case_id, case.cycle)
+    accepted = (earlier.approval or {}).get("referral_reasons", []) if earlier else []
+    reasons = sorted({*referral.reasons, *accepted})
+    approval = binding(store, dispute, action, reasons, approver, quotes)
     to = CaseState.PRE_WRITE_CHECK if action is Action.ACCEPT else CaseState.DRAFTING
     states.check(CaseState.REFERRED, to)
     with store.transaction():

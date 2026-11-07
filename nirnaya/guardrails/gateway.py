@@ -8,6 +8,7 @@ blind resend.
 """
 
 import json
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -57,6 +58,8 @@ class GuardFailure(StrEnum):
     COUNTEREVIDENCE_INCOMPLETE = "COUNTEREVIDENCE_INCOMPLETE"
     # A write already exists under this request_id with a different payload (architecture 7.3).
     REQUEST_CONFLICT = "REQUEST_CONFLICT"
+    # Another write of this cycle may have landed: nothing goes out on top of it.
+    WRITE_UNRESOLVED = "WRITE_UNRESOLVED"
 
 
 class Ledger(StrEnum):
@@ -78,13 +81,27 @@ class WriteResult(DomainModel):
     failure: GuardFailure | None = None
     detail: str = ""
     dry_run: bool = False
+    # The engine's referral reasons behind a refusal, so the person who decides next sees them.
+    referral_reasons: tuple[str, ...] = ()
 
 
 class _Refused(Exception):
-    def __init__(self, failure: GuardFailure, detail: str) -> None:
+    def __init__(
+        self, failure: GuardFailure, detail: str, referral_reasons: Iterable[str] = ()
+    ) -> None:
         super().__init__(detail)
         self.failure = failure
         self.detail = detail
+        self.referral_reasons = tuple(referral_reasons)
+
+    def result(self, action: Action) -> WriteResult:
+        return WriteResult(
+            ok=False,
+            action=action,
+            failure=self.failure,
+            detail=self.detail,
+            referral_reasons=self.referral_reasons,
+        )
 
 
 class WriteGateway:
@@ -105,7 +122,7 @@ class WriteGateway:
         try:
             self._check(merchant_id, case_id, cycle, action, now)
         except _Refused as r:
-            return WriteResult(ok=False, action=action, failure=r.failure, detail=r.detail)
+            return r.result(action)
         return WriteResult(ok=True, action=action, dry_run=self._settings.dry_run)
 
     def submit(
@@ -115,7 +132,7 @@ class WriteGateway:
         try:
             ctx = self._check(merchant_id, case_id, cycle, action, now, reconcile=True)
         except _Refused as r:
-            return WriteResult(ok=False, action=action, failure=r.failure, detail=r.detail)
+            return r.result(action)
         if isinstance(ctx, WriteResult):
             return ctx  # already done earlier: idempotent
         return self._write(merchant_id, case_id, cycle, action, ctx, now)
@@ -195,6 +212,10 @@ class WriteGateway:
                 detail="landed before the timeout",
             )
 
+        # 1b. A write under another id that may have landed. A new decision gives a new id, which
+        # Airwallex cannot deduplicate, so nothing goes out until it is known what landed.
+        self._no_write_in_doubt(merchant_id, case_id, cycle, rid, fresh, now, reconcile=reconcile)
+
         # 2. Status.
         if fresh.status is not ACTIONABLE_STATUS:
             raise _Refused(GuardFailure.STATUS_CHANGED, f"status is {fresh.status}")
@@ -247,11 +268,19 @@ class WriteGateway:
         rerun = self._decide(fresh, policy, records, ownership)
         if approval is None:
             if rerun.action is not action:
-                raise _Refused(GuardFailure.DECISION_CHANGED, f"decision is now {rerun.action}")
+                raise _Refused(
+                    GuardFailure.DECISION_CHANGED,
+                    f"decision is now {rerun.action}",
+                    [r.value for r in rerun.referral_reasons],
+                )
         else:
             new = set(rerun.referral_reasons) - set(approval.get("referral_reasons", []))
             if new:
-                raise _Refused(GuardFailure.APPROVAL_VOID, f"new referral reasons {sorted(new)}")
+                raise _Refused(
+                    GuardFailure.APPROVAL_VOID,
+                    f"new referral reasons {sorted(new)}",
+                    sorted(r.value for r in rerun.referral_reasons),
+                )
         ctx["accept_reason"] = rerun.accept_reason or decision.accept_reason
 
         if action is Action.CHALLENGE:
@@ -281,6 +310,41 @@ class WriteGateway:
                 cited={c.claim.source_record_id for c in ctx["verification"].claims},
             )
         return ctx
+
+    def _no_write_in_doubt(
+        self,
+        merchant_id: str,
+        case_id: str,
+        cycle: int,
+        rid: str,
+        fresh: Dispute,
+        now: datetime,
+        *,
+        reconcile: bool,
+    ) -> None:
+        store = self._store
+        for w in store.writes(merchant_id, case_id):
+            if w.cycle != cycle or w.request_id == rid:
+                continue
+            if w.status not in {Ledger.UNKNOWN, Ledger.PENDING}:
+                continue
+            if reconcile and fresh.status is LANDED[Action(w.action)]:
+                with store.transaction():
+                    store.update_write(
+                        merchant_id,
+                        w.request_id,
+                        status=Ledger.CONFIRMED,
+                        response={"reconciled": True, "status": fresh.status},
+                        at=now,
+                    )
+                    store.audit(
+                        merchant_id, case_id, "WRITE_RECONCILED", {"request_id": w.request_id}, now
+                    )
+                continue
+            raise _Refused(
+                GuardFailure.WRITE_UNRESOLVED,
+                f"{w.action} {w.request_id} may have landed: check Airwallex before acting",
+            )
 
     def _decide(self, dispute: Dispute, policy: Any, records: Any, ownership: bool) -> Decision:
         return decide(
@@ -335,6 +399,17 @@ class WriteGateway:
             info = ctx["customer_info"]
             request["customer_info"] = None if info is None else info.model_dump(mode="json")
         earlier = store.write(merchant_id, rid)
+        in_doubt = earlier is not None and earlier.status in {Ledger.UNKNOWN, Ledger.PENDING}
+        if dry and in_doubt and not earlier.dry_run:
+            # A dry run must not record over a real write that may have landed.
+            return WriteResult(
+                ok=False,
+                action=action,
+                request_id=rid,
+                ledger=Ledger(earlier.status),
+                failure=GuardFailure.OUTCOME_UNKNOWN,
+                detail="a real write may have landed: a dry run leaves it as it is",
+            )
         if earlier is not None and earlier.request != json.loads(json.dumps(request, default=str)):
             # Retrying the same operation reuses its id; a different payload under that id
             # (e.g. a re-draft while the first write's outcome is unknown) is never sent.
@@ -399,22 +474,24 @@ class WriteGateway:
                 detail=str(e),
             )
         except (AirwallexError, StoreError) as e:
+            # A failed resend says nothing about the first send, which may still have landed.
+            status = Ledger.UNKNOWN if in_doubt else Ledger.FAILED
             with store.transaction():
                 store.update_write(
-                    merchant_id, rid, status=Ledger.FAILED, response={"error": str(e)}, at=now
+                    merchant_id, rid, status=status, response={"error": str(e)}, at=now
                 )
                 store.audit(
                     merchant_id,
                     case_id,
                     "WRITE_REJECTED",
-                    {"request_id": rid, "error": str(e)},
+                    {"request_id": rid, "error": str(e), "ledger": status},
                     now,
                 )
             return WriteResult(
                 ok=False,
                 action=action,
                 request_id=rid,
-                ledger=Ledger.FAILED,
+                ledger=status,
                 failure=GuardFailure.WRITE_REJECTED,
                 detail=str(e),
             )

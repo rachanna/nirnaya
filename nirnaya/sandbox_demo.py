@@ -211,6 +211,15 @@ def wait_until_readable(
                 sleep(1.0)
 
 
+def _rehearsed(store: Store, state: RunState) -> list[str]:
+    """Cases a dry run already took through: they wait for an outcome, so a real run skips them."""
+    return [
+        label
+        for label, staged in sorted(state.cases.items())
+        if any(w.status == "DRY_RUN" for w in store.writes(M, staged["dispute"]))
+    ]
+
+
 def main(
     argv: list[str] | None = None,
     *,
@@ -292,6 +301,12 @@ def main(
     orch = build_orchestrator(
         store, scoped, scoped, synthetic_world(list(cases.values())), settings, env=env
     )
+    if not settings.dry_run and (rehearsed := _rehearsed(store, state)):
+        out(
+            f"\n{', '.join(rehearsed)} ran as a dry run on this database, so nothing would be sent."
+        )
+        out("Stage new disputes with --fresh to make real writes.")
+        return 1
     out("\n2. Decide and act")
     orch.run_until_idle(now)
 

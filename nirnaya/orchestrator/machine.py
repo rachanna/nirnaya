@@ -1056,7 +1056,7 @@ class Orchestrator:
             return _Step(
                 S.REFERRED,
                 {"failure": check.failure, "detail": check.detail},
-                referral=[f"GUARD_{check.failure}"],
+                referral=[f"GUARD_{check.failure}", *check.referral_reasons],
             )
         return _Step(S.SUBMITTING, {"action": action})
 
@@ -1111,7 +1111,9 @@ class Orchestrator:
                 "ledger": in_flight[-1].status,
                 "note": "a write may have landed: check Airwallex before acting",
             }
-        return _Step(S.REFERRED, body, referral=[f"GUARD_{result.failure}"])
+        return _Step(
+            S.REFERRED, body, referral=[f"GUARD_{result.failure}", *result.referral_reasons]
+        )
 
 
 @dataclass
