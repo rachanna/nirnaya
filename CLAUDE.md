@@ -56,6 +56,7 @@ nirnaya/
   airwallex_ai.py # Airwallex AI recommendation vs Nirnaya's decision, in words
   runtime.py     # wiring: agent choice, orchestrator, tracing observer
   demo.py, sandbox_demo.py, trace.py  # offline demo, kit 4 sandbox runner, case trace
+  preflight.py   # read-only checks to run before presenting
 eval/            # cases/*.json (42 SYNTHETIC cases), case_set.toml, EXPERT_POLICY.md, agentic/ (10 note cases), results/
 app/             # Streamlit console
 web/             # React web demo (Vite); API in nirnaya/web/

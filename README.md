@@ -51,6 +51,7 @@ uv run pytest           # about 1,800 offline tests; no network, no keys needed
 | **Web demo** (kit 4 as playable message feeds: the recorded live run of 30 Oct; a live tab showing each Claude call as it happens, with an early pre-chargeback accept and two cases beyond the kit; and the baseline comparison) | once: `cd web && npm install && npm run build`; then `uv run python -m nirnaya.web` and open http://localhost:8000 (the live tab needs the model key in `.env`) |
 | **Demo console** (kit 4 cases, review queue, evaluation) | `uv run streamlit run app/streamlit_app.py`, then open http://localhost:8501 |
 | Kit 4 in the terminal (offline) | `uv run python -m nirnaya.demo` |
+| Check everything before presenting | `uv run python -m nirnaya.preflight` (`--live` adds one tiny model call; never calls Airwallex) |
 | **Evaluation report** (Nirnaya against three baselines) | `uv run python -m nirnaya.evaluation.report` |
 | LLM-only baseline (opt-in, about 40 model calls, cached) | `NIRNAYA_LIVE_LLM=1 uv run python -m nirnaya.evaluation.llm_baseline` |
 | Agentic suite: reading notes (offline; cached model runs) | `uv run python -m nirnaya.evaluation.agentic` (live: `NIRNAYA_LIVE_LLM=1 ... --live`, 10 model calls) |
