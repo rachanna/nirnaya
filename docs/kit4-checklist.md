@@ -2,7 +2,7 @@
 
 Nirnaya is the Airwallex Developer Lab's kit 4, the "Dispute Response Agent". This page maps each requirement to the code, test or run that meets it. The requirements come from three sources: the kit's brief and the builder guide's rules (https://airwallexdev.com/guide), and our own idea entry. Status is one of **Met**, **Met offline** (it cannot run in the sandbox, and the reason is given) or **Not built**.
 
-How to check it yourself: `uv run pytest` (about 1,800 tests, no network); `uv run python -m nirnaya.web` for the web demo; `uv run python -m nirnaya.evaluation.report` for the evaluation.
+How to check it yourself: `uv run pytest` (about 1,900 tests, no network); `uv run python -m nirnaya.web` for the web demo; `uv run python -m nirnaya.evaluation.report` for the evaluation.
 
 ## The kit's brief
 
