@@ -14,6 +14,7 @@ from nirnaya.models.enums import DisputeStatus, Stage
 from nirnaya.orchestrator.machine import Orchestrator
 from nirnaya.orchestrator.referrals import close_manually, needs_fresh_decision, send_back
 from nirnaya.orchestrator.states import CaseState
+from nirnaya.trace import case_trace
 from tests.harness import CASES, Harness
 
 M = DEMO_POLICY.merchant_id
@@ -62,6 +63,7 @@ def test_an_escalation_after_a_hand_close_goes_to_a_person():
     assert referral.reasons == ["REOPENED_AFTER_CLOSE"] and referral.urgent
     assert referral.detail["stage"] == "CHARGEBACK"
     assert "REOPENED" in events(h, "K1")
+    assert any("reopened" in line for line in case_trace(h.store, M, "K1"))
     assert h.store.writes(M, "K1") == []
 
 

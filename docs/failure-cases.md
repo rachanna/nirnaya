@@ -21,6 +21,8 @@ An audit of commit `90b9a63`, made on 6 November 2026. Four reviews covered the 
 
 **Found by the live run of 7 November 2026.** Airwallex returned HTTP 500 `internal_error` on K1's challenge, three times out of three, cause unknown. Nirnaya held the write as `UNKNOWN`, sent no duplicate and re-sent under the same `request_id`. The run exposed two gaps, both now fixed: the error and trace id were dropped, so the audit now keeps them for each attempt; and the runner exited 0 with a write in doubt, so it now exits 1.
 
+**Checked on the live sandbox, 7 November 2026.** FC-12: a real RFI dispute, closed by hand and then escalated by Airwallex, reopened as an urgent referral in a new cycle. FC-13: a real dispute still open after a dry run was referred when the clock was set an hour before its deadline. The kit ran again with K2 accepted and K3 referred; K1's challenge still gets the 500.
+
 The tables below describe each case as it was found.
 
 **How to read this page**
