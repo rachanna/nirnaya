@@ -478,6 +478,23 @@ class Orchestrator:
             body["p_before"] = str(decision.p)
         return after, body
 
+    def _finished(
+        self, case: CaseRow, dispute: Dispute, decision: Decision, tools: ToolGateway
+    ) -> tuple[Decision, dict[str, Any]]:
+        """Code makes the lookups that could flip the decision, whatever the agent did: it may
+        have failed, stopped early or run out of time. These are reads, so the time buffer that
+        limits the agent does not apply. What does not fit the tool budget stays pending."""
+        fetched: list[str] = []
+        while pending := self._pending_calls(decision, dispute, tools, case):
+            if tools.calls_used + len(pending) > self.settings.max_tool_calls:
+                break
+            for lookup in pending:
+                name, _, key = lookup.partition(":")
+                tools.fetch(Tool(name), key)
+                fetched.append(lookup)
+            decision = self._decide(case, dispute)
+        return decision, {"finished": fetched} if fetched else {}
+
     def _pending_calls(
         self, decision: Decision, dispute: Dispute, tools: ToolGateway, case: CaseRow
     ) -> list[str]:
@@ -590,8 +607,9 @@ class Orchestrator:
             return self._decision_step(
                 case, dispute, decision, S.INVESTIGATING, now, pending=pending
             )
+        decision, finished = self._finished(case, dispute, decision, tools)
         decision, support = self._supported(case, dispute, decision, tools, now)
-        return self._decision_step(case, dispute, decision, S.DECIDED, now, **support)
+        return self._decision_step(case, dispute, decision, S.DECIDED, now, **finished, **support)
 
     def _investigating(self, case: CaseRow, now: datetime) -> _Step:
         dispute = self._dispute(case)
@@ -619,9 +637,10 @@ class Orchestrator:
                 tool_calls=used,
                 pending=pending,
             )
+        decision, finished = self._finished(case, dispute, decision, tools)
         decision, support = self._supported(case, dispute, decision, tools, now)
         return self._decision_step(
-            case, dispute, decision, S.DECIDED, now, run=run, tool_calls=used, **support
+            case, dispute, decision, S.DECIDED, now, run=run, tool_calls=used, **finished, **support
         )
 
     def _decided(self, case: CaseRow, now: datetime) -> _Step:
@@ -631,12 +650,34 @@ class Orchestrator:
         read = self._read_notes(case, decision, now)
         if read is not None and read.if_confirmed is not None:
             return self._proposed_evidence(case, decision, read, now)
-        step = self._decided_step(decision)
+        step = self._search_unfinished(case, decision, read, now) or self._decided_step(decision)
         if read is not None:  # nothing that would change the decision: the reading is recorded
             assert step.apply is None
             run = read.run
             step.apply = lambda: self._record_run(case, run, now)
         return step
+
+    def _search_unfinished(
+        self, case: CaseRow, decision: Decision, read: "_Read | None", now: datetime
+    ) -> _Step | None:
+        """An accept gives the money up, so it may not rest on a search that never finished:
+        lookups that could still flip it, or notes the reader failed to read. A person decides.
+        Whether the agent stopped, failed or ran out of budget makes no difference: its failure
+        must not authorise a refund."""
+        if decision.action is not Action.ACCEPT:
+            return None
+        dispute = self._dispute(case)
+        tools = self._tools(case, dispute, now)
+        missing = self._pending_calls(decision, dispute, tools, case)
+        notes_unread = read is not None and read.failed
+        if not missing and not notes_unread:
+            return None
+        detail = {
+            "unfetched": missing,
+            "notes_unread": notes_unread,
+            "why": "the search for evidence that could change the decision did not finish",
+        }
+        return _Step(S.REFERRED, detail, referral=["INVESTIGATION_INCOMPLETE"], detail=detail)
 
     @staticmethod
     def _decided_step(decision: Decision) -> _Step:
@@ -1066,6 +1107,10 @@ class _Read:
     run: AgentRun
     kept: list[Quote]
     if_confirmed: Decision | None
+
+    @property
+    def failed(self) -> bool:
+        return self.run.stop.startswith(("LLM_ERROR", "NO_SUBMISSION"))
 
 
 def _referral_detail(decision: Decision) -> dict[str, Any]:

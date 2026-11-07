@@ -45,6 +45,7 @@ REASON_TEXT = {
     "VERIFICATION_REFER": "The records behind the response disagree with each other.",
     "DRAFT_EMPTY": "No claim could be drafted from the records.",
     "COUNTEREVIDENCE_INCOMPLETE": "Not every record that could contradict it was checked.",
+    "INVESTIGATION_INCOMPLETE": "The search for evidence that could change this did not finish.",
     "DEADLINE_NEAR": "The deadline is close, so a person takes over.",
     "STEP_FAILED": "A step kept failing, so a person takes over.",
     "DEFERRAL_UNCONFIRMED": "Airwallex was expected to act on its own and hasn't.",

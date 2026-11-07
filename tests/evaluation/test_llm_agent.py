@@ -30,8 +30,7 @@ def test_a_case_run_records_route_claims_tools_and_tokens():
     # Code's own intake lookups (order, helpdesk) plus the agent's carrier lookup that flips N1.
     assert scripted["lookups"] == 3
     quiet = run_case(CASES["N1"], llm=Quiet())
-    assert quiet["tokens"] > 0 and quiet["lookups"] == 2  # never looked further: no scan
-    assert quiet["action"] != "CHALLENGE"
+    assert quiet["tokens"] > 0 and quiet["lookups"] == 3  # code finished the search (FC-01)
 
 
 def test_compare_lists_every_difference():

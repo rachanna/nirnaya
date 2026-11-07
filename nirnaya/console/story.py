@@ -241,6 +241,15 @@ def case_story(session: DemoSession, label: str) -> Story:
                     cycle=cycle,
                 )
             elif to == "DECIDED" and arc is not None and arc.revised is not None:
+                if b.get("finished"):
+                    say(
+                        "nirnaya",
+                        "search",
+                        "Finishing the search",
+                        f"The agent stopped early, so code made {len(b['finished'])} more "
+                        "lookup(s) before deciding",
+                        cycle=cycle,
+                    )
                 if b.get("support"):
                     n = len(b["support"])
                     odds = (

@@ -91,9 +91,10 @@ def test_an_empty_answer_leaves_the_decision_alone():
     assert writes == [("ACCEPT", "DRY_RUN")]
 
 
-def test_a_model_failure_leaves_the_decision_alone():
+def test_a_model_failure_sends_the_accept_to_a_person():
     h, writes = run(ScriptedLLM([]))  # raises LLMError
-    assert writes == [("ACCEPT", "DRY_RUN")]
+    assert writes == []  # the failed reading must not authorise an accept (FC-01)
+    assert h.store.open_referral_for(M, CID).reasons == ["INVESTIGATION_INCOMPLETE"]
     (read,) = [r for r in h.store.agent_runs(M, CID, 1) if r["kind"] == "READ"]
     assert read["stop"].startswith("LLM_ERROR")
 
