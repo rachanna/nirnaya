@@ -107,6 +107,38 @@ def test_a_server_error_on_a_write_is_an_unknown_outcome():
         http.post("/challenge", {}, write=True)
 
 
+def test_a_server_error_on_a_write_keeps_what_airwallex_said():
+    """The 7 Nov live run: the reason and the trace id support needs were both dropped."""
+    body = b'{"code": "internal_error", "message": "Try again later."}'
+    http, _, _ = session(LOGIN, Response(500, body, {"x-b3-traceid": "t-9"}))
+    with pytest.raises(WriteOutcomeUnknown) as e:
+        http.post("/challenge", {}, write=True)
+    assert str(e.value) == (
+        "POST /challenge: HTTP 500 internal_error: Try again later. (trace_id t-9)"
+    )
+
+
+def test_a_server_error_that_is_not_json_is_still_an_unknown_outcome():
+    http, _, _ = session(LOGIN, Response(502, b"<html>Bad gateway</html>"))
+    with pytest.raises(WriteOutcomeUnknown, match="HTTP 502 http_502: <html>Bad gateway"):
+        http.post("/challenge", {}, write=True)
+
+
+def test_a_rejection_keeps_the_trace_id_from_the_header():
+    body = b'{"code": "validation_error", "message": "Bad"}'
+    http, _, _ = session(LOGIN, Response(400, body, {"x-b3-traceid": "t-9"}))
+    with pytest.raises(AirwallexError, match="trace_id t-9"):
+        http.get("/a")
+
+
+def test_a_trace_id_in_the_body_is_the_one_kept():
+    body = b'{"code": "validation_error", "trace_id": "from-body"}'
+    http, _, _ = session(LOGIN, Response(400, body, {"x-b3-traceid": "from-header"}))
+    with pytest.raises(AirwallexError) as e:
+        http.get("/a")
+    assert "from-body" in str(e.value) and "from-header" not in str(e.value)
+
+
 def test_an_unreachable_host_is_an_error_even_for_a_write():
     # The connection failed before sending, so nothing can have been applied.
     http, _, _ = session(LOGIN, TransportUnreachable("dns failure"))

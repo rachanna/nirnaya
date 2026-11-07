@@ -19,6 +19,7 @@ from nirnaya.orchestrator.ports import AirwallexError
 from nirnaya.orchestrator.referrals import approve
 from nirnaya.orchestrator.settings import Settings
 from nirnaya.orchestrator.states import CaseState
+from nirnaya.trace import case_trace
 from tests.harness import CASES, Harness
 
 M = DEMO_POLICY.merchant_id
@@ -143,6 +144,21 @@ def test_a_failed_resend_does_not_erase_the_doubt():
     assert referral is not None
     events = h.store.audit_events(M, "N1")
     assert any(e["body"].get("in_flight") for e in events)
+
+
+def test_the_audit_and_the_trace_keep_why_each_attempt_is_in_doubt():
+    """The 7 Nov live run: the audit held only the request id, three times over."""
+    _, h, o, now = staged("N1")
+    h.aw.fail_next("challenge", "timeout_before_apply")
+    until_unknown(o, h, "N1", now)
+    h.aw.fail_next("challenge", "timeout_before_apply")
+    o.tick(now)
+    rows = [
+        e["body"] for e in h.store.audit_events(M, "N1") if e["event"] == "WRITE_OUTCOME_UNKNOWN"
+    ]
+    assert len(rows) == 2
+    assert all("timed out" in row["detail"] for row in rows)
+    assert sum("timed out" in line for line in case_trace(h.store, M, "N1")) == 2
 
 
 def test_a_first_attempt_that_is_rejected_is_still_a_rejection():

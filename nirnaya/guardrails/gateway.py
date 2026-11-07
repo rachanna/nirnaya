@@ -464,7 +464,13 @@ class WriteGateway:
         except WriteOutcomeUnknown as e:
             with store.transaction():
                 store.update_write(merchant_id, rid, status=Ledger.UNKNOWN, response=None, at=now)
-                store.audit(merchant_id, case_id, "WRITE_OUTCOME_UNKNOWN", {"request_id": rid}, now)
+                store.audit(
+                    merchant_id,
+                    case_id,
+                    "WRITE_OUTCOME_UNKNOWN",
+                    {"request_id": rid, "detail": str(e)},
+                    now,
+                )
             return WriteResult(
                 ok=False,
                 action=action,

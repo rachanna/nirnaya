@@ -117,8 +117,9 @@ def _error(response: Response) -> AirwallexError:
         text = response.body[:200].decode("utf-8", "replace").strip()
         server = response.headers.get("server")
         message = f"{text} (server {server})" if server else text
-    # Airwallex support looks requests up by trace_id, so keep it with the error.
-    if trace := body.get("trace_id"):
+    # Airwallex support looks requests up by trace_id, so keep it with the error. A 500 on the
+    # sandbox carried it only in this header (seen 7 November 2026).
+    if trace := body.get("trace_id") or response.headers.get("x-b3-traceid"):
         message = f"{message} (trace_id {trace})".strip()
     return AirwallexError(code, message)
 
@@ -249,7 +250,9 @@ class AirwallexHttp:
                 return parse_json(response.body)
             if write and response.status >= 500:
                 # A server error on a write may still have been applied: reconcile, never resend.
-                raise WriteOutcomeUnknown(f"{method} {urlsplit(url).path}: HTTP {response.status}")
+                raise WriteOutcomeUnknown(
+                    f"{method} {urlsplit(url).path}: HTTP {response.status} {_error(response)}"
+                )
             raise _error(response)
 
     def _send(
