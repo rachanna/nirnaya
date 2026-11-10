@@ -11,7 +11,7 @@ There is no video: this is for the live presentation. The run sheet uses the Str
 - A second terminal, scrolled clear, for `uv run python -m nirnaya.demo` (demo A).
 - Browser zoom about 90% so a whole kit card fits on screen.
 - `uv run python -m nirnaya.web`, open http://localhost:8000 and leave it on **Recorded live run**: the real sandbox run of 30 October, with K1 challenged twice, citing the signature, K2 accepted, K3 referred. It plays from a local file, so it needs no network. The console itself runs on the offline fake.
-- **Don't run K1 on the live sandbox.** Since 7 November the sandbox answers every challenge that has a file with HTTP 500, which is reported to Airwallex. Accepts and referrals still work there. The web page's live tab is not affected, because Airwallex is simulated on that tab.
+- **The live sandbox works again.** From 7 to 10 November it answered every challenge that had a file with HTTP 500. On 10 November challenges were confirmed again and the whole kit ran end to end. Still show the recorded tab rather than a live run: it needs no network, and a live run takes test payments first.
 
 ## Run sheet
 
@@ -45,8 +45,8 @@ Demo B (an early pre-chargeback accept, promised in the idea entry) runs offline
 | "A small synthetic suite, labelled by us" | Any real-world accuracy claim |
 | K1's flip comes from code's intake lookup; N1 shows the agent's search | "The agent found K1's evidence" |
 | "With first drafts broken on purpose, it repaired 15 of 15" | "The model fixes its own mistakes" (the breakage was code's, and the findings name the field) |
-| "Every claim is checked" | A number of claims (the model drafted 8 for K1 on 30 October and 9 in the 7 November rehearsal; the decision and the 970 don't change) |
-| "Challenges were confirmed on 29 and 30 October; the sandbox has returned a 500 on them since 7 November" | "It works live right now" for a challenge, or that the 500's cause is known (only Airwallex can say) |
+| "Every claim is checked" | A number of claims (the model drafted 8 for K1 on 30 October and on 10 November, and 9 in the 7 November rehearsal; the decision and the 970 don't change) |
+| "Challenges were confirmed on 29 and 30 October and 10 November; in between, the sandbox returned a 500 for three days, and Nirnaya recovered without a duplicate" | That the 500's cause is known (only Airwallex can say) |
 
 ## If something breaks
 
@@ -59,11 +59,11 @@ Demo B (an early pre-chargeback accept, promised in the idea entry) runs offline
 
 ## Likely questions
 
-- **"What happens when Airwallex itself fails?"** It did, on 7 November: challenges started returning HTTP 500. Nirnaya treated each one as "may have landed", sent no duplicate, made no accept, re-checked the dispute and re-sent under the same `request_id`, kept Airwallex's trace id in the audit, and the runner exited with a failure. Direct tests on throwaway disputes found nothing in our request, file or stage that explains it, and it's reported to Airwallex.
+- **"What happens when Airwallex itself fails?"** It did, on 7 November: challenges started returning HTTP 500. Nirnaya treated each one as "may have landed", sent no duplicate, made no accept, re-checked the dispute and re-sent under the same `request_id`, kept Airwallex's trace id in the audit, and the runner exited with a failure. Direct tests on throwaway disputes found nothing in our request, file or stage that explains it, and it was reported to Airwallex. When the sandbox recovered on 10 November, the three held challenges were re-sent under their original `request_id` and all three were confirmed, with no duplicate.
 - **"Why do the reply dates say March 2026?"** The merchant records and test cases are synthetic, with fixed dates, so every run gives the same answer.
 - **"What if the fees or priors are wrong?"** They are merchant configuration, labelled assumptions. The report re-runs every decision with one assumption changed: q from 0.10 to 0.25 flips 14 of 40. A merchant sets them; `docs/calibration.md` describes learning priors from outcomes.
 - **"Why not just let the LLM decide?"** It nearly can on these cases. But one rule it wasn't told (a subscription needs a second piece of evidence) was silently not applied; in Nirnaya that rule is code and tested. And its results vary by run; ours don't.
 - **"Can a note inject instructions?"** It's shown to the model only as data. At most it becomes a proposed quote, which must be word for word in the note, confirmed by a person, and verified. Customer text is never shown to the model.
 - **"If the agent can fix its draft, why does a person still approve?"** A draft that claimed something its records don't support is a sign the model overreached; the fix passing the verifier proves the new words are supported, not that the model is now right about the case. Format slips (a true value in the wrong form) go out without a person.
 - **"What does a person do that code can't?"** Judge meaning. The verifier checks a quote's words, not what they mean, so confirmation is required, not optional.
-- **"Is this on the real Airwallex API?"** Yes, on the sandbox. On 29 and 30 October the kit ran end to end with real writes: K1 challenged at RFI with evidence uploaded (on 30 October citing the signed delivery), then again at chargeback after the simulated rejection; K2 accepted; K3 referred. The first attempt found a real bug: Airwallex's file host blocked our upload, and the engine failed safe by referring rather than challenging without evidence. A run on 7 November confirmed the accept and the referral again; its challenges hit the 500 above.
+- **"Is this on the real Airwallex API?"** Yes, on the sandbox. On 29 and 30 October the kit ran end to end with real writes: K1 challenged at RFI with evidence uploaded (on 30 October citing the signed delivery), then again at chargeback after the simulated rejection; K2 accepted; K3 referred. The first attempt found a real bug: Airwallex's file host blocked our upload, and the engine failed safe by referring rather than challenging without evidence. A run on 7 November confirmed the accept and the referral again; its challenges hit the 500 above. On 10 November the whole kit ran again, end to end, with both of K1's challenges confirmed.

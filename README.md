@@ -69,13 +69,15 @@ uv run pytest           # about 1,900 offline tests; no network, no keys needed
 | **2-C. A fabricated signature** | An unguarded draft says "signed for by J. Smith". The carrier record has no signature, so the verifier blocks it and says why. |
 | **3. Credit not processed** (120 USD, chargeback, Visa 13.6) | The customer emailed support twice with no reply. The maths would accept, but a person decides. |
 
-**Live on the Airwallex sandbox (29 and 30 October 2026).** The whole kit ran against real sandbox disputes with real writes (`python -m nirnaya.sandbox_demo --checkout --submit`, LLM agent on `claude-sonnet-5-5`). Test-card payments were made on Airwallex's hosted checkout, and Visa disputes 10.4, 13.1 and 13.6 were raised on them. The 30 October run, after the supporting lookups, is the one the web demo replays:
+**Live on the Airwallex sandbox (29 and 30 October, and 10 November 2026).** The whole kit ran against real sandbox disputes with real writes (`python -m nirnaya.sandbox_demo --checkout --submit`, LLM agent on `claude-sonnet-5-5`). Test-card payments were made on Airwallex's hosted checkout, and Visa disputes 10.4, 13.1 and 13.6 were raised on them. The 30 October run, after the supporting lookups, is the one the web demo replays:
 - **K1:** decided to fight at 970 USD after code looked up the signed delivery; challenged at RFI with the evidence PDF uploaded, citing the earlier orders and the signature (8 claims, all checked); the rejection escalated it to chargeback; challenged again with the customer's device and IP. Both challenges were confirmed. Airwallex then moved it to pre-arbitration, pending its decision, where Nirnaya defers by design.
 - **K2:** accepted. Read back afterwards: the dispute is `CHARGEBACK` / `ACCEPTED`, and `GET /pa/refunds` lists no refund on the payment (none on K1 or K3 either). Accepting at the chargeback stage created no separate refund object.
 - **K3:** referred to a person.
 - Airwallex sent no AI recommendation on any of the disputes. Audit chain intact.
 
 The 29 October run was the same, except that it predates the supporting lookups, so K1 cited the earlier orders but not the signature.
+
+On 10 November the kit ran again on the current code, with the same result: K1 was challenged at RFI and again at chargeback, both confirmed, then deferred at pre-arbitration; K2 was accepted; K3 was referred. Between 7 and 10 November the sandbox returned HTTP 500 on every challenge with a file. Nirnaya held each of those challenges as a write in doubt and sent no duplicate. When the sandbox recovered, it re-sent all three under their original `request_id`, and all three were confirmed (`docs/failure-cases.md`).
 
 The first submit attempt found one integration bug: Cloudflare in front of Airwallex's file host blocked the upload (HTTP 403, "error code: 1010") because no User-Agent was sent. Nirnaya failed safe by referring K1 instead of challenging without evidence. Fixed in `nirnaya/integrations/airwallex/http.py`.
 
