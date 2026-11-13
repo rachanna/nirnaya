@@ -2,7 +2,7 @@
 
 A run sheet for presenting Nirnaya live. Every number here comes from the repo; the claims are the ones the evidence supports (see "Say / don't say").
 
-There is no video: this is for the live presentation. The run sheet uses the Streamlit console, which needs no network or model key. The web page's recorded tab is the proof from the real sandbox.
+This is for a live presentation. The submission also needs a video under five minutes; its script is `docs/video-script.md`. The run sheet uses the Streamlit console, which needs no network or model key. The web page's recorded tab is the proof from the real sandbox.
 
 ## Before you start
 
