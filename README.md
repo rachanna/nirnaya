@@ -4,6 +4,8 @@
 
 Built for the Airwallex Developer Lab hackathon, starter kit 4: Dispute Response Agent.
 
+**Video walkthrough (under 5 minutes):** https://youtu.be/jdw4ACHd784
+
 <p align="center"><img src="docs/diagrams/nirnaya-how-it-works.png" width="520" alt="How Nirnaya handles a card dispute: the rules decide whether it is worth fighting, the AI investigates and builds the case, and the rules check every claim against its records before anything goes out; big, close, conflicting or unproven cases go to a person."></p>
 
 ## How it works
