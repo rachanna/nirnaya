@@ -7,6 +7,8 @@ Built for the Airwallex Developer Lab hackathon, starter kit 4: Dispute Response
 **Try it in a minute** (no keys, no network; needs Python 3.11+ and [uv](https://docs.astral.sh/uv/)):
 
 ```bash
+git clone https://github.com/rachanna/nirnaya.git
+cd nirnaya
 uv sync
 uv run python -m nirnaya.demo              # kit 4 in the terminal
 uv run streamlit run app/streamlit_app.py  # the demo console, http://localhost:8501
