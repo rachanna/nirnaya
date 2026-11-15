@@ -4,6 +4,14 @@
 
 Built for the Airwallex Developer Lab hackathon, starter kit 4: Dispute Response Agent.
 
+**Try it in a minute** (no keys, no network; needs Python 3.11+ and [uv](https://docs.astral.sh/uv/)):
+
+```bash
+uv sync
+uv run python -m nirnaya.demo              # kit 4 in the terminal
+uv run streamlit run app/streamlit_app.py  # the demo console, http://localhost:8501
+```
+
 ## How it works
 
 Authority is split three ways, so the model never decides anything on its own:
@@ -26,7 +34,7 @@ The full design is in [`docs/spec.md`](docs/spec.md) and [`docs/architecture.md`
 
 ## Setup
 
-Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+Requirements: Python 3.11+ and [uv](https://docs.astral.sh/uv/); Node.js 18+ only for building the web demo.
 
 ```bash
 uv sync
@@ -87,14 +95,14 @@ At the chargeback stage Nirnaya also sends Airwallex the customer's device ID an
 
 ## Airwallex AI beside Nirnaya
 
-Airwallex's AI Dispute Automation can recommend Challenge or Accept for a dispute at the chargeback stage. Nirnaya reads that recommendation and shows it next to its own decision, with its reasons when they differ, for example: *"Airwallex AI recommends Challenge; Nirnaya decides REFER to a person (UNANSWERED_CUSTOMER_CONTACT)."* It is a comparison, never an input: the engine does not read it. Offline, the kit cases carry clearly labelled **simulated** recommendations to show the display; on the live sandbox Nirnaya reads the real one if Airwallex sends it (not yet observed: sandbox card payments are failing).
+Airwallex's AI Dispute Automation can recommend Challenge or Accept for a dispute at the chargeback stage. Nirnaya reads that recommendation and shows it next to its own decision, with its reasons when they differ, for example: *"Airwallex AI recommends Challenge; Nirnaya decides REFER to a person (UNANSWERED_CUSTOMER_CONTACT)."* It is a comparison, never an input: the engine does not read it. Offline, the kit cases carry clearly labelled **simulated** recommendations to show the display; on the live sandbox Nirnaya reads the real one if Airwallex sends it (not observed on any sandbox dispute so far).
 
 ## Evaluation (42 synthetic cases)
 
 | | Nirnaya | Fight everything | Accept everything | Claude only: naive | Claude only: informed v2 | Claude only: informed v3 |
 |---|---|---|---|---|---|---|
 | Expected net loss (USD) | 11,417.40 | 11,800.60 | 17,652.00 | 11,495.60 | 11,342.40 | 11,342.40 |
-| Agrees with the expert decision | **42/42** | 18/42 | 14/42 | 28/42 | 39/42 | 39/42 |
+| Agrees with the written expert policy | **42/42** | 18/42 | 14/42 | 28/42 | 39/42 | 39/42 |
 | Claims a record does not support | **0** | 6 | 0 | 5 | 0 | 0 |
 | True facts written in the wrong form (fail exact-value checks) | **0** | 0 | 0 | 13 | 4 | 0 |
 | Merchant-policy violations | **0** | 13 | 11 | 8 | 1 | 1 |

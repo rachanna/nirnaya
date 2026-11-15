@@ -25,7 +25,7 @@ Record each beat as its own clip and stitch them (Clipchamp comes with Windows 1
 
 ### 3. Real run on the Airwallex sandbox: case 1 (0:55, 55 s)
 **Show:** web demo, **Recorded live run**, case 1. Scroll with the narration.
-**Say:** "This is a real run on the Airwallex sandbox: real test payments, real disputes, real API calls, replayed from its recording. Case 1 is a 1,500 dollar fraud dispute. With only Airwallex's data, accepting looks right. Nirnaya checks the merchant's records and finds three earlier orders from the same device, so fighting pays. Then it fetches the signed delivery to make the case stronger: about 970 dollars better than accepting. Airwallex confirms the challenge. The bank rejects it, the dispute escalates, and Nirnaya decides again and challenges again, with the device and IP attached. Confirmed again."
+**Say:** "This is a real run on the Airwallex sandbox: real test payments, real disputes, real API calls, replayed from its recording. Case 1 is a 1,500 dollar fraud dispute. With only Airwallex's data, there's no case worth fighting. Nirnaya checks the merchant's records and finds three earlier orders from the same device, so fighting pays. Then it fetches the signed delivery to make the case stronger: about 970 dollars better than accepting. Airwallex confirms the challenge. The bank rejects it, the dispute escalates, and Nirnaya decides again and challenges again, with the device and IP attached. Confirmed again."
 
 ### 4. Cases 2 and 3 (1:50, 20 s)
 **Show:** the recorded tab, cases 2 and 3.
