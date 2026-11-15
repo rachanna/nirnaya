@@ -52,7 +52,7 @@ How to check it yourself: `uv run pytest` (about 1,900 tests, no network); `uv r
 |---|---|
 | Working demo | Met: the web demo and Streamlit console. A finalist presents live, so no hosting is needed |
 | Repository with setup instructions | Met: `README.md` |
-| Video walkthrough under 5 minutes | To do. Script: `docs/demo-script.md` |
+| Video walkthrough under 5 minutes | To do. |
 
 ## Limits, stated plainly
 
