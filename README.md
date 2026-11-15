@@ -14,6 +14,8 @@ uv run streamlit run app/streamlit_app.py  # the demo console, http://localhost:
 
 ## How it works
 
+<p align="center"><img src="docs/diagrams/nirnaya-how-it-works.png" width="520" alt="How Nirnaya handles a card dispute: the rules decide whether it is worth fighting, the AI investigates and builds the case, and the rules check every claim against its records before anything goes out; big, close, conflicting or unproven cases go to a person."></p>
+
 Authority is split three ways, so the model never decides anything on its own:
 
 | Part | Role | Code |
