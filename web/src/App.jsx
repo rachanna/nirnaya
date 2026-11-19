@@ -127,7 +127,7 @@ export default function App() {
     <div className="page">
       <header className="top">
         <div>
-          <h1>Nirnaya</h1>
+          <h1>Nirnaya <span className="meaning">(Sanskrit for "decision")</span></h1>
           <p className="tag">Card disputes, decided on evidence and money.</p>
         </div>
         {mode === "live" && info?.live.available && (

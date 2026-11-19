@@ -48,6 +48,7 @@ button.quiet { background: transparent; color: var(--muted); }
 /* Header */
 .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .top h1 { margin: 0; font-size: 28px; letter-spacing: -0.01em; }
+.top h1 .meaning { font-size: 18px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
 .tag { margin: 2px 0 0; color: var(--muted); }
 .top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pill {
